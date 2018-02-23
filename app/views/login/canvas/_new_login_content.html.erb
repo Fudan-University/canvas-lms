@@ -111,9 +111,11 @@
           <%= help_link %>
           <%= render :partial => 'shared/footer_links' %>
         </div>
+        <% if Setting.get("show_instructure", "true") == "true" %>
         <a href="http://www.instructure.com" class="ic-Login-footer__logo-link">
           <%= render "login/canvas/instructure_logo.svg" %>
         </a>
+        <% end %>
     </footer>
     </div> <!-- end ic-Login__content -->
   </div>
