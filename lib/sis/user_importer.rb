@@ -19,9 +19,9 @@
 module SIS
   class UserImporter < BaseImporter
 
-    def process(updates_every, messages)
+    def process(messages)
       start = Time.now
-      importer = Work.new(@batch, @root_account, @logger, updates_every, messages)
+      importer = Work.new(@batch, @root_account, @logger, messages)
       User.skip_updating_account_associations do
         User.process_as_sis(@sis_options) do
           Pseudonym.process_as_sis(@sis_options) do
@@ -47,11 +47,10 @@ module SIS
           :pseudos_to_set_sis_batch_ids, :users_to_add_account_associations,
           :users_to_update_account_associations
 
-      def initialize(batch, root_account, logger, updates_every, messages)
+      def initialize(batch, root_account, logger, messages)
         @batch = batch
         @root_account = root_account
         @logger = logger
-        @updates_every = updates_every
         @batched_users = []
         @messages = messages
         @success_count = 0
@@ -70,9 +69,10 @@ module SIS
         raise ImportError, "No user_id given for a user" if user.user_id.blank?
         raise ImportError, "No login_id given for user #{user.user_id}" if user.login_id.blank?
         raise ImportError, "Improper status for user #{user.user_id}" unless user.status =~ /\A(active|deleted)/i
+        return if @batch.skip_deletes? && user.status =~ /deleted/i
 
         @batched_users << user
-        process_batch if @batched_users.size >= @updates_every
+        process_batch if @batched_users.size >= Setting.get("sis_user_batch_size", "100").to_i
       end
 
       def any_left_to_process?
@@ -126,14 +126,16 @@ module SIS
             status_is_active = !(user_row.status =~ /\Adeleted/i)
             if pseudo
               if pseudo.sis_user_id && pseudo.sis_user_id != user_row.user_id
-                @messages << I18n.t("An existing Canvas user with the SIS ID %{user_id} has already claimed %{other_user_id}'s user_id requested login information, skipping", user_id: pseudo.sis_user_id, other_user_id: user_row.user_id)
+                message = I18n.t("An existing Canvas user with the SIS ID %{user_id} has already claimed %{other_user_id}'s user_id requested login information, skipping", user_id: pseudo.sis_user_id, other_user_id: user_row.user_id)
+                @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
                 next
               end
               if pseudo_by_login && (pseudo != pseudo_by_login && status_is_active ||
-                !ActiveRecord::Base.connection.select_value("SELECT 1 FROM #{Pseudonym.quoted_table_name} WHERE #{Pseudonym.to_lower_column(Pseudonym.connection.quote(pseudo.unique_id))}=#{Pseudonym.to_lower_column(Pseudonym.connection.quote(user_row.login_id))} LIMIT 1"))
+                !Pseudonym.where("LOWER(?)=LOWER(?)", pseudo.unique_id, user_row.login_id).exists?)
                 id_message = pseudo_by_login.sis_user_id ? 'SIS ID' : 'Canvas ID'
                 user_id = pseudo_by_login.sis_user_id || pseudo_by_login.user_id
-                @messages << I18n.t("An existing Canvas user with the %{user_id} has already claimed %{other_user_id}'s user_id requested login information, skipping", user_id: "#{id_message} #{user_id.to_s}", other_user_id: user_row.user_id)
+                message = I18n.t("An existing Canvas user with the %{user_id} has already claimed %{other_user_id}'s user_id requested login information, skipping", user_id: "#{id_message} #{user_id.to_s}", other_user_id: user_row.user_id)
+                @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
                 next
               end
 
@@ -164,7 +166,8 @@ module SIS
 
             if !status_is_active && !user.new_record?
               if user.id == @batch&.user_id
-                @messages << "Can't remove yourself user_id '#{user_row.user_id}'"
+                message = "Can't remove yourself user_id '#{user_row.user_id}'"
+                @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
                 next
               end
 
@@ -186,7 +189,8 @@ module SIS
                 end
               end
               unless (pseudo.authentication_provider = @authentication_providers[user_row.authentication_provider_id])
-                @messages << "unrecognized authentication provider #{user_row.authentication_provider_id} for #{user_row.user_id}, skipping"
+                message = "unrecognized authentication provider #{user_row.authentication_provider_id} for #{user_row.user_id}, skipping"
+                @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
                 next
               end
             else
@@ -198,7 +202,9 @@ module SIS
             if pseudo_by_integration && status_is_active && pseudo_by_integration != pseudo
               id_message = pseudo_by_integration.sis_user_id ? 'SIS ID' : 'Canvas ID'
               user_id = pseudo_by_integration.sis_user_id || pseudo_by_integration.user_id
-              @messages << I18n.t("An existing Canvas user with the %{user_id} has already claimed %{other_user_id}'s requested integration_id, skipping", user_id: "#{id_message} #{user_id.to_s}", other_user_id: user_row.user_id)
+              message = I18n.t("An existing Canvas user with the %{user_id} has already claimed %{other_user_id}'s requested integration_id, skipping", user_id: "#{id_message} #{user_id.to_s}", other_user_id: user_row.user_id)
+              @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
+              next
             end
             pseudo.integration_id = user_row.integration_id if user_row.integration_id.present?
             pseudo.account = @root_account
@@ -229,8 +235,8 @@ module SIS
                 if user.changed?
                   user_touched = true
                   if !user.save && user.errors.size > 0
-                    add_user_warning(user.errors.first.join(" "), user_row.user_id, user_row.login_id)
-                    raise ImportError, user.errors.first.join(" ")
+                    message = generate_user_warning(user.errors.first.join(" "), user_row.user_id, user_row.login_id)
+                    raise ImportError, message
                   end
                 elsif @batch
                   @users_to_set_sis_batch_ids << user.id
@@ -239,13 +245,20 @@ module SIS
                 if pseudo.changed?
                   pseudo.sis_batch_id = @batch.id if @batch
                   if !pseudo.save_without_broadcasting && pseudo.errors.size > 0
-                    add_user_warning(pseudo.errors.first.join(" "), user_row.user_id, user_row.login_id)
-                    raise ImportError, pseudo.errors.first.join(" ")
+                    message = generate_user_warning(pseudo.errors.first.join(" "), user_row.user_id, user_row.login_id)
+                    raise ImportError, message
                   end
                 end
               end
+            rescue ImportError
+              @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
+              next
             rescue => e
-              Canvas::Errors.capture_exception(:sis_import, e)
+              # something broke
+              error = Canvas::Errors.capture_exception(:sis_import, e)
+              er = error[:error_report]
+              message = generate_user_warning("Something broke with this user. Contact Support with ErrorReport id: #{er}", user_row.user_id, user_row.login_id)
+              @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, backtrace: e.backtrace, row_info: user_row)
               next
             end
 
@@ -281,6 +294,7 @@ module SIS
               cc.user_id = user.id
               cc.pseudonym_id = pseudo.id
               cc.path = user_row.email
+              cc.bounce_count = 0 if cc.path_changed?
               cc.workflow_state = status_is_active ? 'active' : 'retired'
               newly_active = cc.path_changed? || (cc.active? && cc.workflow_state_changed?)
               if cc.changed?
@@ -316,7 +330,9 @@ module SIS
                 end
               end
             elsif user_row.email.present? && EmailAddressValidator.valid?(user_row.email) == false
-              @messages << "The email address associated with user '#{user_row.user_id}' is invalid (email: '#{user_row.email}')"
+              message = "The email address associated with user '#{user_row.user_id}' is invalid (email: '#{user_row.email}')"
+              @messages << SisBatch.build_error(user_row.csv, message, sis_batch: @batch, row: user_row.lineno, row_info: user_row)
+              next
             end
 
             if pseudo.changed?
@@ -365,13 +381,13 @@ module SIS
 
       private
 
-      def add_user_warning(message, user_id, login_id)
+      def generate_user_warning(message, user_id, login_id)
         user_message = generate_readable_error_message(
           message: message,
           user_id: user_id,
           login_id: login_id
         )
-        @messages << user_message
+        user_message
       end
 
       ERRORS_TO_REASONS = {

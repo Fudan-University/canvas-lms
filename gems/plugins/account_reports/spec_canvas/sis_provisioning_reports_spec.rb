@@ -935,6 +935,17 @@ describe "Default Account Reports" do
                                         @enrollment6.id.to_s]]
       end
 
+      it 'should handle cross listed enrollments' do
+        sub = @account.sub_accounts.create!
+        course = sub.courses.create!(name: 'the course', sis_source_id: 'sis1')
+        @section1.crosslist_to_course(course)
+        parsed = read_report("provisioning_csv", {params: {'enrollments' => true}, account: sub, order: 0})
+        expect(parsed).to eq [[course.id.to_s, "sis1", @user4.id.to_s, "user_sis_id_04",
+                               "teacher", teacher_role.id.to_s, @enrollment9.course_section_id.to_s,
+                               "english_section_1", "active", nil, nil, "true", 'TeacherEnrollment',
+                               'false', @enrollment9.id.to_s]]
+      end
+
       describe "sharding" do
         specs_require_sharding
 
@@ -1103,6 +1114,22 @@ describe "Default Account Reports" do
                                        [@group_category4.id.to_s, nil, @course3.id.to_s, "Course", "Test Group Category Course", nil, nil, nil, nil, 'active'],
                                        [@student_category.id.to_s, nil, @course1.id.to_s, "Course", "Student Groups", "student_organized", nil, nil, nil, 'active']]
       end
+
+      it "should include account_id column even if there isn't one for any rows" do
+        process_csv_data_cleanly(
+          "course_id,short_name,long_name,status",
+          "C1,COUR,SIS Import Course,active"
+        )
+        process_csv_data_cleanly(
+          "group_category_id,course_id,category_name,status",
+          "GC1,C1,Some Group Category,active"
+        )
+        parameters = {}
+        parameters['group_categories'] = true
+        parsed = read_report("sis_export_csv", {params: parameters, header: true, order: 0})
+        expect(parsed).to match_array [['group_category_id', 'account_id', 'course_id', 'category_name', 'status'],
+                                       ['GC1', nil, 'C1', 'Some Group Category', 'active']]
+      end
     end
 
     describe "Group Memberships" do
@@ -1241,10 +1268,10 @@ describe "Default Account Reports" do
       before(:once) do
         create_an_account
         create_some_users_with_pseudonyms
-        @uo1 = UserObserver.create_or_restore(observee: @user1, observer: @user2)
-        uo2 = UserObserver.create_or_restore(observee: @user3, observer: @user4)
-        UserObserver.create_or_restore(observee: @user6, observer: @user7)
-        UserObserver.where(id: [@uo1.id, uo2.id]).update_all(sis_batch_id: @sis.id)
+        @uo1 = UserObservationLink.create_or_restore(student: @user1, observer: @user2, root_account: @account)
+        uo2 = UserObservationLink.create_or_restore(student: @user3, observer: @user4, root_account: @account)
+        UserObservationLink.create_or_restore(student: @user6, observer: @user7, root_account: @account)
+        UserObservationLink.where(id: [@uo1.id, uo2.id]).update_all(sis_batch_id: @sis.id)
       end
 
       it 'should run user_observer provisioning report' do

@@ -74,6 +74,29 @@ describe "calendar2" do
         expect(CalendarEvent.last.location_address).to eq location_address
       end
 
+      it 'should cosistently format date <input> value to what datepicker would set it as, even in langs that have funky formatting' do
+        skip('USE_OPTIMIZED_JS=true') unless ENV['USE_OPTIMIZED_JS']
+        skip('RAILS_LOAD_ALL_LOCALES=true') unless ENV['RAILS_LOAD_ALL_LOCALES']
+        @user.locale = 'fr'
+        @user.save!
+
+        get "/calendar2#view_name=month&view_start=2018-02-01"
+        f('.fc-day[data-date="2018-03-02"]').click
+
+        # verify it shows up right from the start
+        expect(f('.ui-dialog #calendar_event_date').attribute(:value)).to eq('02/03/2018')
+        expect(fj('.date_field_container:has(#calendar_event_date) .datetime_suggest').text).to eq 'ven. 2 Mar 2018'
+
+        # verify it shows up right when set from the datepicker
+        f('#calendar_event_date + .ui-datepicker-trigger').click
+        fj('.ui-datepicker-current-day a:contains(2)').click()
+        expect(f('.ui-dialog #calendar_event_date').attribute(:value)).to eq('ven 2 Mars 2018')
+        expect(fj('.date_field_container:has(#calendar_event_date) .datetime_suggest').text).to eq 'ven. 2 Mar 2018'
+
+        f('#edit_calendar_event_form button[type="submit"]').click
+        expect(CalendarEvent.last.start_at).to eq Time.utc(2018, 3, 2)
+      end
+
       it "should go to calendar event modal when a syllabus link is clicked", priority: "1", test_id: 186581 do
         event_title = "Test Event"
         make_event(title: event_title, context: @course)
@@ -206,7 +229,8 @@ describe "calendar2" do
 
     context "student to-do event" do
       before :once do
-        @student_to_do = @student1.planner_notes.create!(todo_date: Time.zone.now, title: "Student to do")
+        @todo_date = Time.zone.now
+        @student_to_do = @student1.planner_notes.create!(todo_date: @todo_date, title: "Student to do")
       end
 
       it "shows student to-do events in the calendar", priority: "1", test_id: 3357313 do
@@ -219,14 +243,15 @@ describe "calendar2" do
         f('.fc-content .fc-title').click
         event_content = fj('.event-details-content:visible')
         expect(event_content.find_element(:css, '.event-details-timestring').text).
-          to eq format_date_for_view(Time.zone.now, :short)
+          to eq format_time_for_view(@todo_date, :short)
         expect(event_content).to contain_link('Student 1')
       end
     end
 
     context "course to-do event" do
       before :once do
-        @course_to_do = @student1.planner_notes.create!(todo_date: Time.zone.now, title: "Course to do",
+        @todo_date = Time.zone.now
+        @course_to_do = @student1.planner_notes.create!(todo_date: @todo_date, title: "Course to do",
                                                         course_id: @course.id)
       end
 
@@ -240,14 +265,15 @@ describe "calendar2" do
         f('.fc-content .fc-title').click
         event_content = fj('.event-details-content:visible')
         expect(event_content.find_element(:css, '.event-details-timestring').text).
-          to eq format_date_for_view(Time.zone.now, :short)
+          to eq format_time_for_view(@todo_date, :short)
         expect(event_content).to contain_link('Course 1')
       end
     end
 
     context "edit to-do event" do
       before :once do
-        @to_do = @student1.planner_notes.create!(todo_date: Time.zone.now, title: "A new to do")
+        @todo_date = Time.zone.now
+        @to_do = @student1.planner_notes.create!(todo_date: @todo_date, title: "A new to do")
       end
 
       it "respects the calendars checkboxes" do
@@ -290,21 +316,21 @@ describe "calendar2" do
         f('.fc-content .fc-title').click
         f('.edit_event_link').click
         replace_content(f('input[name=title]'), 'new to-do edited')
-        date = format_date_for_view(Time.zone.now, :short).split(" ")
-        day = if date[1] == '15'
-                date[0] + ' 20'
-              else
-                date[0] + ' 15'
-              end
-        replace_content(f('input[name=date]'), day)
+        datetime = @todo_date
+        datetime = if datetime.to_date().mday() == '15'
+                      datetime.change({day: 20})
+                   else
+                      datetime.change({day: 15})
+                   end
+        replace_content(f('input[name=date]'), format_date_for_view(datetime, :short))
         f('.validated-form-view').submit
         refresh_page
         f('.fc-content .fc-title').click
         event_content = fj('.event-details-content:visible')
         expect(event_content.find_element(:css, '.event-details-timestring').text).
-          to eq format_date_for_view(day)
+          to eq format_time_for_view(datetime, :short)
         @to_do.reload
-        expect(format_date_for_view(@to_do.todo_date, :short)).to eq(day)
+        expect(format_time_for_view(@to_do.todo_date, :short)).to eq(format_time_for_view(datetime, :short))
       end
     end
   end

@@ -25,7 +25,7 @@ module PlannerPageObject
   end
 
   def select_list_view
-    fxpath("//span[text()[contains(.,'List View')]]").click
+    fxpath("//span[contains(text(),'List View')]").click
   end
 
   def select_dashboard_view
@@ -48,7 +48,7 @@ module PlannerPageObject
 
   # Pass what type of object it is. Ensure object's name starts with a capital letter
   def validate_object_displayed(object_type)
-    expect(fxpath("//*[@class='PlannerApp']//span[contains(text(),'Unnamed Course #{object_type}')]")).to be_displayed
+    expect(fxpath("//*[contains(@class, 'PlannerApp')]//span[contains(text(),'Unnamed Course #{object_type}')]")).to be_displayed
   end
 
   def validate_no_due_dates_assigned
@@ -65,15 +65,15 @@ module PlannerPageObject
   end
 
   def expand_completed_item
-    fxpath('//*[@class="PlannerApp"]//*[contains(text(),"Show 1 completed item")]').click
+    fxpath('//*[contains(@class, "PlannerApp")]//*[contains(text(),"Show 1 completed item")]').click
   end
 
   def validate_pill(pill_type)
-    expect(fxpath("//*[@class='PlannerApp']//*[contains(text(),'#{pill_type}')]")).to be_displayed
+    expect(fxpath("//*[contains(@class, 'PlannerApp')]//*[contains(text(),'#{pill_type}')]")).to be_displayed
   end
 
   def go_to_list_view
-    @student1.preferences[:dashboard_view] = "planner"
+    @student1.dashboard_view = "planner"
     @student1.save!
     get '/'
     wait_for_planner_load
@@ -93,11 +93,11 @@ module PlannerPageObject
     @modal = todo_sidebar_modal(@student_to_do.title)
   end
 
-  def graded_discussion_in_the_past
+  def graded_discussion_in_the_past(due = Time.zone.now - 2.days, title = 'Graded discussion')
     assignment = @course.assignments.create!(name: 'assignment 1',
-                                              due_at: Time.zone.now - 2.days)
+                                              due_at: due)
     discussion = @course.discussion_topics.create!(user: @teacher,
-                                                    title: 'Graded discussion',
+                                                    title: title,
                                                     message: 'Discussion topic message',
                                                     assignment: assignment)
     discussion.discussion_entries.create!(user: @teacher,
@@ -143,12 +143,18 @@ module PlannerPageObject
     f('.ic-dashboard-app')
   end
 
+  def time_input
+    modal = todo_sidebar_modal
+    ff('input', modal)[2]
+  end
+
   def todo_save_button
     fj("button:contains('Save')")
   end
 
   def todo_details
-    f('textarea')
+    modal = todo_sidebar_modal
+    f('textarea', modal)
   end
 
   def todo_sidebar_modal(title = nil)
@@ -161,11 +167,22 @@ module PlannerPageObject
 
   def wait_for_spinner
     fj("title:contains('Loading')", f('.PlannerApp')) # the loading spinner appears
-    expect(f('.PlannerApp')).not_to contain_css('title') # and disappears
+    expect(f('.PlannerApp')).not_to contain_jqcss("title:contains('Loading')")
   end
 
   def items_displayed
     ff('li', f('.PlannerApp'))
+  end
+
+  def first_item_on_page
+    items_displayed[0]
+  end
+
+  def new_activities_in_the_past
+    old = graded_discussion_in_the_past
+    older = graded_discussion_in_the_past(Time.zone.now-4.days, 'older')
+    oldest = graded_discussion_in_the_past(Time.zone.now-6.days, 'oldest')
+    [old, older, oldest]
   end
 
   def todo_info_holder

@@ -16,18 +16,22 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import I18n from 'i18n!unread_badge'
 import React from 'react'
+import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent'
 import { string, number, oneOfType, node } from 'prop-types'
-import Tooltip from 'instructure-ui/lib/components/Tooltip'
+import Tooltip from '@instructure/ui-core/lib/components/Tooltip'
 
 export default function UnreadBadge ({ unreadCount, totalCount, unreadLabel, totalLabel }) {
   return (
     <span className="ic-unread-badge">
       <Tooltip tip={unreadLabel} variant="inverse">
-        <span className="ic-unread-badge__count ic-unread-badge__unread-count">{unreadCount}</span>
+        <ScreenReaderContent>{I18n.t('%{unreadCount} unread replies', {unreadCount})}</ScreenReaderContent>
+        <span aria-hidden="true" className="ic-unread-badge__count ic-unread-badge__unread-count">{unreadCount}</span>
       </Tooltip>
       <Tooltip tip={totalLabel} variant="inverse">
-        <span className="ic-unread-badge__count ic-unread-badge__total-count">{totalCount}</span>
+        <ScreenReaderContent>{I18n.t('%{totalCount} total replies', {totalCount})}</ScreenReaderContent>
+        <span aria-hidden="true" className="ic-unread-badge__count ic-unread-badge__total-count">{totalCount}</span>
       </Tooltip>
     </span>
   )

@@ -17,10 +17,11 @@
 #
 
 require_relative '../spec_helper'
-require_relative '../sharding_spec_helper'
 require_relative '../lib/validates_as_url'
 
 describe Submission do
+  subject(:submission) { Submission.new }
+
   before(:once) do
     course_with_teacher(active_all: true)
     course_with_student(active_all: true, course: @course)
@@ -42,6 +43,114 @@ describe Submission do
   it { is_expected.to validate_numericality_of(:points_deducted).is_greater_than_or_equal_to(0).allow_nil }
   it { is_expected.to validate_numericality_of(:seconds_late_override).is_greater_than_or_equal_to(0).allow_nil }
   it { is_expected.to validate_inclusion_of(:late_policy_status).in_array(["none", "missing", "late"]).allow_nil }
+
+  describe '#anonymous_id' do
+    subject { submission.anonymous_id }
+
+    let(:student) { @student }
+    let(:assignment) { @assignment }
+
+    it { is_expected.to be_blank }
+
+    it 'sets an anoymous_id on validation' do
+      submission.validate
+      expect(submission.anonymous_id).to be_present
+    end
+
+    it 'does not change if already persisted' do
+      submission = assignment.submissions.find_by!(user: student)
+      expect { submission.save! }.not_to change { submission.anonymous_id }
+    end
+  end
+
+  describe '.generate_unique_anonymous_id' do
+    let(:assignment) { @assignment }
+    let(:short_id) { 'aB123' }
+
+    context 'given no existing_anonymous_ids' do
+      subject(:generate_unique_anonymous_id) do
+        -> { Submission.generate_unique_anonymous_id(assignment: assignment) }
+      end
+
+      it 'creates an anonymous_id' do
+        allow(Submission).to receive(:generate_short_id).and_return(short_id)
+        expect(generate_unique_anonymous_id.call).to eql short_id
+      end
+
+      it 'fetches existing_anonymous_ids' do
+        expect(Submission).to receive(:anonymous_ids_for).with(assignment).and_call_original
+        generate_unique_anonymous_id.call
+      end
+
+      it 'creates a unique anonymous_id when collisions happen' do
+        first_student = @student
+        second_student = student_in_course(course: @course, active_all: true).user
+        first_submission = submission_model(assignment: assignment, user: first_student)
+        second_submission = submission_model(assignment: assignment, user: second_student)
+        Submission.update_all(anonymous_id: nil)
+
+        first_anonymous_id = short_id
+        colliding_anonymous_id = first_anonymous_id
+        unused_anonymous_id = 'eeeee'
+
+        allow(Submission).to receive(:generate_short_id).exactly(3).times.and_return(
+          first_anonymous_id, colliding_anonymous_id, unused_anonymous_id
+        )
+
+        anonymous_ids = [first_submission, second_submission].map do |submission|
+          submission.update!(anonymous_id: generate_unique_anonymous_id.call)
+          submission.anonymous_id
+        end
+
+        expect(anonymous_ids).to contain_exactly(first_anonymous_id, unused_anonymous_id)
+      end
+    end
+
+    context 'given a list of existing_anonymous_ids' do
+      subject do
+        Submission.generate_unique_anonymous_id(
+          assignment: assignment,
+          existing_anonymous_ids: existing_anonymous_ids_fake
+        )
+      end
+
+      let(:existing_anonymous_ids_fake) { double('Array') }
+
+      before do
+        student_in_course(course: @course, active_all: true)
+      end
+
+      it 'queries the passed in existing_anonymous_ids' do
+        allow(Submission).to receive(:generate_short_id).and_return(short_id)
+        expect(existing_anonymous_ids_fake).to receive(:include?).with(short_id).and_return(false)
+        is_expected.to eql short_id
+      end
+    end
+  end
+
+  describe '.generate_short_id' do
+    it 'generates a short id' do
+      expect(SecureRandom).to receive(:base58).with(5)
+      Submission.generate_short_id
+    end
+  end
+
+  describe '.anonymous_ids_for' do
+    subject { Submission.anonymous_ids_for(@first_assignment) }
+
+    before do
+      student_with_anonymous_ids = @student
+      student_without_anonymous_ids = student_in_course(course: @course, active_all: true).user
+      @first_assignment = @course.assignments.create!
+      @course.assignments.create! # second_assignment
+      @first_assignment_submission = @first_assignment.submissions.find_by!(user: student_with_anonymous_ids)
+      Submission.where(user: student_without_anonymous_ids).update_all(anonymous_id: nil)
+    end
+
+    it 'only contains submissions with anonymous_ids' do
+      is_expected.to contain_exactly(@first_assignment_submission.anonymous_id)
+    end
+  end
 
   describe "with grading periods" do
     let(:in_closed_grading_period) { 9.days.ago }
@@ -777,6 +886,14 @@ describe Submission do
       end
     end
 
+    it "sets the workflow state to 'graded' when submission is missing" do
+      Timecop.freeze(1.day.from_now(@date)) do
+        submission.score = nil
+        submission.apply_late_policy(@late_policy, @assignment)
+        expect(submission.workflow_state).to eq "graded"
+      end
+    end
+
     it "does not change the score of a missing submission if it already has one" do
       Timecop.freeze(1.day.from_now(@date)) do
         @assignment.grade_student(@student, grade: 1000, grader: @teacher)
@@ -907,6 +1024,64 @@ describe Submission do
 
       it "applies missing policy if submission is manually marked missing" do
         Timecop.freeze(1.day.from_now(@date)) do
+          submission.score = nil
+          submission.late_policy_status = 'missing'
+          submission.apply_late_policy(@late_policy, @assignment)
+          expect(submission.score).to eq 200
+        end
+      end
+    end
+
+    context 'when submitting to an LTI assignment' do
+      before(:once) do
+        @date = Time.zone.local(2017, 1, 15, 12)
+        @assignment.update!(due_at: @date - 3.hours, points_possible: 1_000, submission_types: 'external_tool')
+        @late_policy = late_policy_factory(course: @course, deduct: 10.0, every: :hour, missing: 80.0)
+      end
+
+      it "deducts a percentage per interval late if submitted late" do
+        Timecop.freeze(@date) do
+          @assignment.submit_homework(@student, body: "a body")
+          @assignment.grade_student(@student, grade: 700, grader: @teacher)
+          expect(submission.points_deducted).to eq 300
+        end
+      end
+
+      it "applies the deduction to the awarded score if submitted late" do
+        Timecop.freeze(@date) do
+          @assignment.submit_homework(@student, body: "a body")
+          @assignment.grade_student(@student, grade: 700, grader: @teacher)
+          expect(submission.score).to eq 400
+        end
+      end
+
+      it "does not grade missing submissions" do
+        Timecop.freeze(@date) do
+          submission.apply_late_policy
+          expect(submission.score).to be_nil
+        end
+      end
+
+      it "deducts a percentage per interval late if the submission is manually marked late" do
+        @assignment.submit_homework(@student, body: "a body")
+        submission.late_policy_status = 'late'
+        submission.seconds_late_override = 4.hours
+        submission.score = 700
+        submission.apply_late_policy(@late_policy, @assignment)
+        expect(submission.points_deducted).to eq 400
+      end
+
+      it "applies the deduction to the awarded score if the submission is manually marked late" do
+        @assignment.submit_homework(@student, body: "a body")
+        submission.late_policy_status = 'late'
+        submission.seconds_late_override = 4.hours
+        submission.score = 700
+        submission.apply_late_policy(@late_policy, @assignment)
+        expect(submission.score).to eq 300
+      end
+
+      it "applies the missing policy if the submission is manually marked missing" do
+        Timecop.freeze(@date + 1.day) do
           submission.score = nil
           submission.late_policy_status = 'missing'
           submission.apply_late_policy(@late_policy, @assignment)
@@ -2653,6 +2828,24 @@ describe Submission do
     end
   end
 
+  describe 'scope: anonymized' do
+    subject(:submissions) { assignment.all_submissions.anonymized }
+
+    let(:assignment) { @course.assignments.create! }
+    let(:first_student) { @student }
+    let(:second_student) { student_in_course(course: @course, active_all: true).user }
+    let(:submission_with_anonymous_id) { submission_model(assignment: assignment, user: first_student) }
+    let(:submission_without_anonymous_id) do
+      submission_model(assignment: assignment, user: second_student).tap do |submission|
+        submission.update_attribute(:anonymous_id, nil)
+      end
+    end
+
+    it 'only contains submissions that have anonymous_ids' do
+      is_expected.to contain_exactly(submission_with_anonymous_id)
+    end
+  end
+
   describe "scope: missing" do
     before :once do
       @now = Time.zone.now
@@ -3379,22 +3572,6 @@ describe Submission do
     end
   end
 
-  describe "cross-shard attachments" do
-    specs_require_sharding
-    it "should work" do
-      @shard1.activate do
-        @student = user_factory(active_user: true)
-        @attachment = Attachment.create! uploaded_data: StringIO.new('blah'), context: @student, filename: 'blah.txt'
-      end
-      course_factory(active_all: true)
-      @course.enroll_user(@student, "StudentEnrollment").accept!
-      @assignment = @course.assignments.create!
-
-      sub = @assignment.submit_homework(@user, attachments: [@attachment])
-      expect(sub.attachments).to eq [@attachment]
-    end
-  end
-
   describe '.process_bulk_update' do
     before(:once) do
       course_with_teacher active_all: true
@@ -3700,6 +3877,12 @@ describe Submission do
 
       expect(comment).not_to be_draft
     end
+
+    it 'creates a comment without an author when skip_author option is true' do
+      comment = @submission.add_comment(comment: '42', skip_author: true)
+
+      expect(comment.author).to be_nil
+    end
   end
 
   describe "#last_teacher_comment" do
@@ -3872,6 +4055,7 @@ describe Submission do
     end
 
     context "sharding" do
+      require_relative '../sharding_spec_helper'
       specs_require_sharding
 
       it "serializes relative to current scope's shard" do
@@ -3879,12 +4063,25 @@ describe Submission do
           expect(Submission.shard(Shard.default).needs_grading.count).to eq(1)
         end
       end
+
+      it "works with cross shard attachments" do
+        @shard1.activate do
+          @student = user_factory(active_user: true)
+          @attachment = Attachment.create! uploaded_data: StringIO.new('blah'), context: @student, filename: 'blah.txt'
+        end
+        course_factory(active_all: true)
+        @course.enroll_user(@student, "StudentEnrollment").accept!
+        @assignment = @course.assignments.create!
+
+        sub = @assignment.submit_homework(@user, attachments: [@attachment])
+        expect(sub.attachments).to eq [@attachment]
+      end
     end
   end
 
   describe "#needs_grading?" do
     before :once do
-      @submission = @assignment.submit_homework(@student, submission_type: 'online_text_entry', body: 'asdf')
+      @submission = @assignment.submit_homework(@student, submission_type: 'online_text_entry', body: 'a body')
     end
 
     it "returns true for submission that has not been graded" do
@@ -4312,6 +4509,16 @@ describe Submission do
     end
   end
 
+  describe "scope: for_assignment" do
+    it "includes all submissions for a given assignment" do
+      first_assignment = @assignment
+      @course.assignments.create!
+
+      submissions = Submission.for_assignment(@assignment)
+      expect(submissions).to match_array(first_assignment.submissions)
+    end
+  end
+
   describe '#filter_attributes_for_user' do
     let(:user) { instance_double('User', id: 1) }
     let(:session) { {} }
@@ -4381,17 +4588,92 @@ describe Submission do
     end
   end
 
+  describe '#update_line_item_result' do
+    it 'does nothing if lti_result does not exist' do
+      submission = submission_model assignment: @assignment
+      expect(submission).to receive(:update_line_item_result)
+      submission.save!
+    end
+
+    context 'with lti_result' do
+      let(:lti_result) { lti_result_model({ assignment: @assignment }) }
+      let(:submission) { lti_result.submission }
+
+      it 'does nothing if score has not changed' do
+        lti_result
+        expect(lti_result).not_to receive(:update)
+        submission.save!
+      end
+
+      it 'updates the lti_result score_given if the score has changed' do
+        expect(lti_result.result_score).to eq submission.score
+        submission.update!(score: 1)
+        expect(lti_result.result_score).to eq submission.score
+      end
+    end
+  end
+
+  describe '#delete_ignores' do
+    context 'for submission ignores' do
+      before :once do
+        @submission = @assignment.submissions.find_by!(user_id: @student)
+        @ignore = Ignore.create!(asset: @assignment, user: @student, purpose: 'submitting')
+      end
+
+      it 'should delete submission ignores when asset is submitted' do
+        @assignment.submit_homework(@student, {submission_type: 'online_text_entry', body: 'Hi'})
+        expect {@ignore.reload}.to raise_error ActiveRecord::RecordNotFound
+      end
+
+      it 'should not delete submission ignores when asset is not submitted' do
+        @submission.student_entered_score = 5
+        @submission.save!
+        expect(@ignore.reload).to eq @ignore
+      end
+
+      it 'should delete submission ignores when asset is excused' do
+        @submission.excused = true
+        @submission.save!
+        expect {@ignore.reload}.to raise_error ActiveRecord::RecordNotFound
+      end
+    end
+
+    context 'for grading ignores' do
+      before :once do
+        @student1 = @student
+        @student2 = student_in_course(course: @course, active_all: true).user
+        @sub1 = @assignment.submit_homework(@student1, {submission_type: 'online_text_entry', body: 'Hi'})
+        @sub2 = @assignment.submit_homework(@student2, {submission_type: 'online_text_entry', body: 'Hi'})
+        @ignore = Ignore.create!(asset: @assignment, user: @teacher, purpose: 'grading')
+      end
+
+      it 'should delete grading ignores if every submission is graded or excused' do
+        @sub1.score = 5
+        @sub1.save!
+        @sub2.excused = true
+        @sub2.save!
+        expect {@ignore.reload}.to raise_error ActiveRecord::RecordNotFound
+      end
+
+      it 'should not delete grading ignores if some submissions are ungraded' do
+        @sub1.score = 5
+        @sub1.save!
+        expect(@ignore.reload).to eq @ignore
+      end
+    end
+  end
+
   def submission_spec_model(opts={})
     opts = @valid_attributes.merge(opts)
     assignment = opts.delete(:assignment) || Assignment.find(opts.delete(:assignment_id))
     user = opts.delete(:user) || User.find(opts.delete(:user_id))
     submit_homework = opts.delete(:submit_homework)
 
-    if submit_homework
-      @submission = assignment.submit_homework(user)
-    else
-      @submission = assignment.submissions.find_by!(user: user)
-    end
+    @submission = if submit_homework
+                    assignment.submit_homework(user)
+                  else
+                    assignment.submissions.find_by!(user: user)
+                  end
     @submission.update!(opts)
     @submission
   end

@@ -319,7 +319,7 @@ interface, this is called the SIS ID.</td>
 <td>parent_account_id</td>
 <td>text</td>
 <td>✓</td>
-<td></td>
+<td>✓</td>
 <td>The account identifier of the parent account.
 If this is blank the parent account will be the root account. Note that even if
 all values are blank, the column must be included to differentiate the file
@@ -651,6 +651,20 @@ enrollments.csv
 <td></td>
 <td></td>
 <td>The domain of the account to search for the user.</td>
+</tr>
+<tr>
+<td>start_date</td>
+<td>date</td>
+<td></td>
+<td>✓</td>
+<td>The enrollment start date. For start_date to take effect the end_date also needs to be populated. The format should be in ISO 8601: YYYY-MM-DDTHH:MM:SSZ</td>
+</tr>
+<tr>
+<td>end_date</td>
+<td>date</td>
+<td></td>
+<td>✓</td>
+<td>The enrollment end date. For end_date to take effect the start_date also needs to be populated. The format should be in ISO 8601: YYYY-MM-DDTHH:MM:SSZ</td>
 </tr>
 <tr>
 <td>user_id</td>
@@ -1104,7 +1118,8 @@ object type and the root_account.</td>
 <td>text</td>
 <td>✓&#42;</td>
 <td></td>
-<td>The current integration_id of the object that should be changed.</td>
+<td>The current integration_id of the object that should be changed. This
+column is not supported for group categories.</td>
 </tr>
 <tr>
 <td>new_integration_id</td>
@@ -1112,15 +1127,16 @@ object type and the root_account.</td>
 <td>✓&#42;</td>
 <td></td>
 <td>The desired integration_id of the object. This id must be currently unique
-to the object type and the root_account. Can pass "&lt;delete>" to
-remove the integration_id from the object.</td>
+to the object type and the root_account. This column is not supported for group
+categories. Can pass "&lt;delete>" to remove the integration_id from the
+object.</td>
 </tr>
 <tr>
 <td>type</td>
 <td>text</td>
 <td>✓</td>
 <td></td>
-<td>account, term, course, section, group, user</td>
+<td>account, term, course, section, group, group_category, user</td>
 </tr>
 </table>
 

@@ -193,6 +193,11 @@
 #             "example": "2012-04-18T23:08:51Z",
 #             "type": "datetime"
 #           },
+#           "last_attended_at": {
+#             "description": "The last attended date of the user for the enrollment in a course, in ISO8601 format.",
+#             "example": "2012-04-18T23:08:51Z",
+#             "type": "datetime"
+#           },
 #           "total_activity_time": {
 #             "description": "The total activity time of the user for the enrollment, in seconds.",
 #             "example": 260,
@@ -225,6 +230,26 @@
 #           "computed_final_grade": {
 #             "description": "optional: The letter grade equivalent of computed_final_score, if available. (applies only to student enrollments, and only available in course endpoints)",
 #             "example": "B-",
+#             "type": "string"
+#           },
+#           "unposted_current_grade": {
+#             "description": "The user's current grade in the class including muted/unposted assignments. Only included if user has permissions to view this grade, typically teachers, TAs, and admins.",
+#             "example": "",
+#             "type": "string"
+#           },
+#           "unposted_final_grade": {
+#             "description": "The user's final grade for the class including muted/unposted assignments. Only included if user has permissions to view this grade, typically teachers, TAs, and admins..",
+#             "example": "",
+#             "type": "string"
+#           },
+#           "unposted_current_score": {
+#             "description": "The user's current score in the class including muted/unposted assignments. Only included if user has permissions to view this score, typically teachers, TAs, and admins..",
+#             "example": "",
+#             "type": "string"
+#           },
+#           "unposted_final_score": {
+#             "description": "The user's final score for the class including muted/unposted assignments. Only included if user has permissions to view this score, typically teachers, TAs, and admins..",
+#             "example": "",
 #             "type": "string"
 #           },
 #           "has_grading_periods": {
@@ -264,6 +289,26 @@
 #           },
 #           "current_period_computed_final_grade": {
 #             "description": "optional: The letter grade equivalent of current_period_computed_final_score, if available. If the course the enrollment belongs to does not have grading periods, or if no currently active grading period exists, the value will be null. (applies only to student enrollments, and only available in course endpoints)",
+#             "example": "B",
+#             "type": "string"
+#           },
+#           "current_period_unposted_current_score": {
+#             "description": "optional: The student's score in the course for the current grading period, including muted/unposted assignments. Only included if user has permission to view this score, typically teachers, TAs, and admins. If the course the enrollment belongs to does not have grading periods, or if no currently active grading period exists, the value will be null. (applies only to student enrollments, and only available in course endpoints)",
+#             "example": 95.80,
+#             "type": "number"
+#           },
+#           "current_period_unposted_final_score": {
+#             "description": "optional: The student's score in the course for the current grading period, including muted/unposted assignments and including ungraded assignments with a score of 0. Only included if user has permission to view this score, typically teachers, TAs, and admins. If the course the enrollment belongs to does not have grading periods, or if no currently active grading period exists, the value will be null. (applies only to student enrollments, and only available in course endpoints)",
+#             "example": 85.25,
+#             "type": "number"
+#           },
+#           "current_period_unposted_current_grade": {
+#             "description": "optional: The letter grade equivalent of current_period_unposted_current_score, if available. Only included if user has permission to view this grade, typically teachers, TAs, and admins. If the course the enrollment belongs to does not have grading periods, or if no currently active grading period exists, the value will be null. (applies only to student enrollments, and only available in course endpoints)",
+#             "example": "A",
+#             "type": "string"
+#           },
+#           "current_period_unposted_final_grade": {
+#             "description": "optional: The letter grade equivalent of current_period_unposted_final_score, if available. Only included if user has permission to view this grade, typically teachers, TAs, and admins. If the course the enrollment belongs to does not have grading periods, or if no currently active grading period exists, the value will be null. (applies only to student enrollments, and only available in course endpoints)",
 #             "example": "B",
 #             "type": "string"
 #           }
@@ -331,9 +376,14 @@ class EnrollmentsApiController < ApplicationController
   #   Return grades for the given grading_period.  If this parameter is not
   #   specified, the returned grades will be for the whole course.
   #
+  # @argument enrollment_term_id [Integer]
+  #   Returns only enrollments for the specified enrollment term. This parameter
+  #   only applies to the user enrollments path. May pass the ID from the
+  #   enrollment terms api or the SIS id prepended with 'sis_term_id:'.
+  #
   # @argument sis_account_id[] [String]
   #   Returns only enrollments for the specified SIS account ID(s). Does not
-  #   look into subaccounts. May pass in array or string.
+  #   look into sub_accounts. May pass in array or string.
   #
   # @argument sis_course_id[] [String]
   #   Returns only enrollments matching the specified SIS course ID(s).
@@ -819,7 +869,13 @@ class EnrollmentsApiController < ApplicationController
       # by default, return active and invited courses. don't use the existing
       # current_and_invited_enrollments scope because it won't return enrollments
       # on unpublished courses.
-      enrollments = enrollments.where(workflow_state: %w{active invited}) unless params[:state].present?
+      enrollments = enrollments.where(workflow_state: %w{active invited}) if params[:state].blank?
+    end
+
+    terms = @domain_root_account.enrollment_terms.active
+    if params[:enrollment_term_id]
+      term = api_find(terms, params[:enrollment_term_id])
+      enrollments = enrollments.joins(:course).where(courses: {enrollment_term_id: term})
     end
 
     @shard_scope = user

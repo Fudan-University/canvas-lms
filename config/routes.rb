@@ -162,8 +162,12 @@ CanvasRails::Application.routes.draw do
 
   concern :conferences do
     resources :conferences do
+      # rubocop:disable SymbolArray
       match :join, via: [:get, :post]
       match :close, via: [:get, :post]
+      match :recording, via: [:get]
+      match :recording, via: [:delete], to: 'conferences#delete_recording', as: :delete_recording
+      # rubocop:enable SymbolArray
       get :settings
     end
   end
@@ -809,7 +813,6 @@ CanvasRails::Application.routes.draw do
 
   get '' => 'users#user_dashboard', as: 'dashboard'
   get 'dashboard-sidebar' => 'users#dashboard_sidebar', as: :dashboard_sidebar
-  post 'users/toggle_recent_activity_dashboard' => 'users#toggle_recent_activity_dashboard'
   post 'users/toggle_hide_dashcard_color_overlays' => 'users#toggle_hide_dashcard_color_overlays'
   get 'styleguide' => 'info#styleguide'
   get 'accounts/:account_id/theme-preview' => 'brand_configs#show'
@@ -839,7 +842,6 @@ CanvasRails::Application.routes.draw do
   get 'files' => 'files#index'
   get "files/folder#{full_path_glob}", controller: 'files', action: 'react_files', format: false
   get "files/search", controller: 'files', action: 'react_files', format: false
-  get 'files/s3_success/:id' => 'files#s3_success', as: :s3_success
   get 'files/:id/public_url' => 'files#public_url', as: :public_url
   post 'files/pending' => 'files#create_pending', as: :file_create_pending
   resources :assignments, only: :index do
@@ -950,9 +952,12 @@ CanvasRails::Application.routes.draw do
     scope(controller: :account_notifications) do
       post 'accounts/:account_id/account_notifications', action: :create, as: 'account_notification'
       put 'accounts/:account_id/account_notifications/:id', action: :update, as: 'account_notification_update'
-      get 'accounts/:account_id/users/:user_id/account_notifications', action: :user_index, as: 'user_account_notifications'
-      get 'accounts/:account_id/users/:user_id/account_notifications/:id', action: :show, as: 'user_account_notification_show'
-      delete 'accounts/:account_id/users/:user_id/account_notifications/:id', action: :user_close_notification, as: 'user_account_notification'
+      get 'accounts/:account_id/account_notifications', action: :user_index, as: 'user_account_notifications' # to change the api docs
+      get 'accounts/:account_id/users/:user_id/account_notifications', action: :user_index_deprecated # for back compat
+      get 'accounts/:account_id/account_notifications/:id', action: :show, as: 'user_account_notification_show'
+      get 'accounts/:account_id/users/:user_id/account_notifications/:id', action: :show_deprecated
+      delete 'accounts/:account_id/account_notifications/:id', action: :user_close_notification, as: 'user_account_notification'
+      delete 'accounts/:account_id/users/:user_id/account_notifications/:id', action: :user_close_notification_deprecated
     end
 
     scope(controller: :brand_configs_api) do
@@ -963,6 +968,10 @@ CanvasRails::Application.routes.draw do
       get "courses/:course_id/tabs", action: :index, as: 'course_tabs'
       get "groups/:group_id/tabs", action: :index, as: 'group_tabs'
       put "courses/:course_id/tabs/:tab_id", action: :update
+    end
+
+    scope(controller: :scopes_api) do
+      get "accounts/:account_id/scopes", action: :index
     end
 
     scope(controller: :sections) do
@@ -1232,6 +1241,13 @@ CanvasRails::Application.routes.draw do
       get 'accounts/:account_id/sis_import_errors', action: :index, as: :account_sis_import_errors
     end
 
+    scope(controller: :outcome_imports_api) do
+      %w(account course).each do |context|
+        post "#{context}s/:#{context}_id/outcome_imports", action: :create
+        get "#{context}s/:#{context}_id/outcome_imports/:id", action: :show
+      end
+    end
+
     scope(controller: :users) do
       get 'users/self/activity_stream', action: :activity_stream, as: 'user_activity_stream'
       get 'users/activity_stream', action: :activity_stream # deprecated
@@ -1280,6 +1296,8 @@ CanvasRails::Application.routes.draw do
       put 'users/:id/merge_into/accounts/:destination_account_id/users/:destination_user_id', controller: 'users', action: 'merge_into'
       post 'users/:id/split', controller: 'users', action: 'split'
 
+      post 'users/:id/pandata_token', controller: 'users', action: 'pandata_token'
+
       scope(controller: :user_observees) do
         get    'users/:user_id/observees', action: :index, as: 'user_observees'
         post   'users/:user_id/observees', action: :create
@@ -1313,6 +1331,7 @@ CanvasRails::Application.routes.draw do
       get 'accounts/:account_id/courses', action: :courses_api, as: 'account_courses'
       get 'accounts/:account_id/sub_accounts', action: :sub_accounts, as: 'sub_accounts'
       get 'accounts/:account_id/courses/:id', controller: :courses, action: :show, as: 'account_course_show'
+      get 'accounts/:account_id/permissions', action: :permissions
       delete 'accounts/:account_id/users/:user_id', action: :remove_user
     end
 
@@ -1390,6 +1409,7 @@ CanvasRails::Application.routes.draw do
       post 'accounts/:account_id/bounced_communication_channels/reset', action: :bulk_reset_bounce_counts
       get 'accounts/:account_id/unconfirmed_communication_channels.csv', action: :unconfirmed_channel_report
       post 'accounts/:account_id/unconfirmed_communication_channels/confirm', action: :bulk_confirm
+      delete 'users/self/communication_channels/push', action: :delete_push_token
       delete 'users/:user_id/communication_channels/:id', action: :destroy
       delete 'users/:user_id/communication_channels/:type/:address', action: :destroy, constraints: { address: %r{[^/?]+} }
     end
@@ -1473,6 +1493,11 @@ CanvasRails::Application.routes.draw do
       get 'groups/:group_id/folders/by_path/*full_path', controller: :folders, action: :resolve_path
       get 'groups/:group_id/folders/by_path', controller: :folders, action: :resolve_path
       get 'groups/:group_id/folders/:id', controller: :folders, action: :show, as: 'group_folder'
+    end
+
+    scope(controller: :developer_key_account_bindings) do
+      post 'accounts/:account_id/developer_keys/:developer_key_id/developer_key_account_bindings', action: :create_or_update
+      get 'accounts/:account_id/developer_key_account_bindings', action: :index
     end
 
     scope(controller: :developer_keys) do
@@ -1735,6 +1760,10 @@ CanvasRails::Application.routes.draw do
     scope(controller: 'support_helpers/crocodoc') do
       get "support_helpers/crocodoc/shard", action: :shard
       get "support_helpers/crocodoc/submission", action: :submission
+    end
+
+    scope(controller: 'support_helpers/due_date_cache') do
+      get "support_helpers/due_date_cache/course", action: :course
     end
 
     scope(controller: :outcome_groups_api) do
@@ -2101,6 +2130,25 @@ CanvasRails::Application.routes.draw do
       get "assignments/:assignment_id/files/:file_id/originality_report", action: :show
     end
 
+    # Line Item Service
+    scope(controller: 'lti/ims/line_items') do
+      post "courses/:course_id/line_items", action: :create, as: :lti_line_item_create
+      get "courses/:course_id/line_items/:id", action: :show, as: :lti_line_item_show
+      get "courses/:course_id/line_items", action: :index, as: :lti_line_item_index
+      put "courses/:course_id/line_items/:id", action: :update, as: :lti_line_item_edit
+      delete "courses/:course_id/line_items/:id", action: :destroy, as: :lti_line_item_delete
+    end
+
+    # Scores Service
+    scope(controller: 'lti/ims/scores') do
+      post "courses/:course_id/line_items/:line_item_id/scores", action: :create, as: :lti_result_create
+    end
+
+    # Result Service
+    scope(controller: 'lti/ims/results') do
+      get "courses/:course_id/line_items/:line_item_id/results/:id", action: :show, as: :lti_result_show
+      get "courses/:course_id/line_items/:line_item_id/results", action: :index
+    end
   end
 
   ApiRouteSet.draw(self, '/api/sis') do

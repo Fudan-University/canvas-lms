@@ -22,15 +22,23 @@ module Api::V1::DeveloperKey
   DEVELOPER_KEY_JSON_ATTRS = %w(
     name created_at email user_id user_name icon_url notes workflow_state
   ).freeze
+  INHERITED_DEVELOPER_KEY_JSON_ATTRS = %w[name created_at icon_url workflow_state].freeze
 
-  def developer_keys_json(keys, user, session, context=nil)
-    keys.map{|k| developer_key_json(k, user, session, context) }
+  def developer_keys_json(keys, user, session, context, show_bindings=false, inherited: false)
+    keys.map { |k| developer_key_json(k, user, session, context, show_bindings, inherited: inherited) }
   end
 
-  def developer_key_json(key, user, session, context=nil)
+  def developer_key_json(key, user, session, context, show_bindings=false, inherited: false)
     context ||= Account.site_admin
-    api_json(key, user, session, :only => DEVELOPER_KEY_JSON_ATTRS).tap do |hash|
-      if context.grants_right?(user, session, :manage_developer_keys) || user.try(:id) == key.user_id
+    account_binding = key.account_binding_for(context) if show_bindings.present?
+    keys_to_show =  if inherited
+      INHERITED_DEVELOPER_KEY_JSON_ATTRS
+    else
+      DEVELOPER_KEY_JSON_ATTRS
+    end
+
+    api_json(key, user, session, :only => keys_to_show).tap do |hash|
+      if (context.grants_right?(user, session, :manage_developer_keys) || user.try(:id) == key.user_id) && !inherited
         hash['api_key'] = key.api_key
         hash['redirect_uri'] = key.redirect_uri
         hash['redirect_uris'] = key.redirect_uris.join("\n")
@@ -39,7 +47,16 @@ module Api::V1::DeveloperKey
         hash['last_used_at'] = key.last_used_at
         hash['vendor_code'] = key.vendor_code
       end
-      hash['account_name'] = key.account_name
+
+      if account_binding.present? && show_bindings
+        hash['developer_key_account_binding'] = DeveloperKeyAccountBindingSerializer.new(account_binding)
+      end
+      hash['account_owns_binding'] = account_binding&.account == context && show_bindings
+
+      unless inherited
+        hash['account_name'] = key.account_name
+        hash['visible'] = key.visible
+      end
       hash['id'] = key.global_id
     end
   end

@@ -39,7 +39,7 @@
     <%= render partial: "quizzes/quizzes/move_handle" %>
     <% end %>
 
-  <div style="float: left;">
+  <div class="pull-left">
     <input type="hidden" name="quiz_group[assessment_question_bank_id]" class="bank_id"/>
     <h2 class="group_display name"><%= hash_get(group, :name, t(:default_group_name, "Group")) %></h2>
     <input name="quiz_group[name]" aria-label=<%= t('labels.group_name', "Group Name") %> type="text" value="Group Name" class="group_edit" value="<%= hash_get(group, :name, t(:default_group_name, "Group")) %>"/>
@@ -68,7 +68,7 @@
     <% end %>
   </div>
   <% unless content_is_locked %>
-    <div style="float: right;" class="links">
+    <div style="float: <%= direction('right') %>;" class="links">
       <span class="local_group_links">
         <% collapse_title = t('titles.collapse_group', "Collapse Group") %>
         <% expand_title = t('titles.expand_group', "Expand Group") %>

@@ -22,29 +22,6 @@ require_relative './external_feed_page'
 describe "announcements index v2" do
   include_context "in-process server selenium tests"
 
-  context "as a teacher the correct page version is displayed" do
-    before :once do
-      @teacher = user_with_pseudonym(active_user: true)
-      course_with_teacher(user: @teacher, active_course: true, active_enrollment: true)
-    end
-
-    before :each do
-      user_session(@teacher)
-    end
-
-    it 'when the feature flas is off' do
-      AnnouncementIndex.set_section_specific_announcements_flag(@course,'off')
-      AnnouncementIndex.visit(@course)
-      expect(f('#external_feed_url')).not_to be_nil
-    end
-
-    it 'when the feature flag is on' do
-      AnnouncementIndex.set_section_specific_announcements_flag(@course,'on')
-      AnnouncementIndex.visit(@course)
-      expect(f('.announcements-v2__wrapper')).not_to be_nil
-    end
-  end
-
   context "as a teacher" do
     announcement1_title = 'Free food!'
     announcement2_title = 'Flu Shot'
@@ -53,7 +30,6 @@ describe "announcements index v2" do
       @teacher = user_with_pseudonym(active_user: true)
       course_with_teacher(user: @teacher, active_course: true, active_enrollment: true)
       course_with_student(course: @course, active_enrollment: true)
-      AnnouncementIndex.set_section_specific_announcements_flag(@course,'on')
 
       # Announcement attributes: title, message, delayed_post_at, allow_rating, user
       @announcement1 = @course.announcements.create!(
@@ -77,25 +53,24 @@ describe "announcements index v2" do
       AnnouncementIndex.visit(@course)
     end
 
-    it "announcements can be filtered" do
+    it "announcements can be filtered", test_id: 3469716, priority: "1" do
       AnnouncementIndex.select_filter("Unread")
       expect(AnnouncementIndex.announcement(announcement1_title)).to be_displayed
       expect(f('#content')).not_to contain_jqcss(AnnouncementIndex.announcement_title_css(announcement2_title))
     end
 
-    it "search by title works correctly" do
+    it "search by title works correctly", test_id: 3469717, priority: "1" do
       AnnouncementIndex.enter_search("Free food!")
       expect(AnnouncementIndex.announcement(announcement1_title)).to be_displayed
       expect(f('#content')).not_to contain_jqcss(AnnouncementIndex.announcement_title_css(announcement2_title))
     end
 
-    it "an announcement can be locked for commenting" do
-      AnnouncementIndex.check_announcement(announcement1_title)
-      AnnouncementIndex.toggle_lock
+    it "an announcement can be locked for commenting", test_id: 3469718, priority: "1" do
+      AnnouncementIndex.click_lock_menu(announcement1_title)
       expect(Announcement.where(title: announcement1_title).first.locked).to be true
     end
 
-    it 'multiple announcements can be locked for commenting' do
+    it 'multiple announcements can be locked for commenting', test_id: 3469719, priority: "1" do
       AnnouncementIndex.check_announcement(announcement1_title)
       AnnouncementIndex.check_announcement(announcement2_title)
       AnnouncementIndex.toggle_lock
@@ -103,15 +78,14 @@ describe "announcements index v2" do
       expect(Announcement.where(title: announcement2_title).first.locked).to be true
     end
 
-    it 'an announcement can be deleted' do
-      AnnouncementIndex.check_announcement(announcement1_title)
-      AnnouncementIndex.click_delete
+    it 'an announcement can be deleted', test_id: 3469720, priority: "1" do
+      AnnouncementIndex.click_delete_menu(announcement1_title)
       AnnouncementIndex.click_confirm_delete
       expect(f('#content')).not_to contain_jqcss(AnnouncementIndex.announcement_title_css(announcement1_title))
       expect(Announcement.where(title: announcement1_title).first.workflow_state).to eq 'deleted'
     end
 
-    it 'multiple announcements can be deleted' do
+    it 'multiple announcements can be deleted', test_id: 3469721, priority: "1" do
       AnnouncementIndex.check_announcement(announcement1_title)
       AnnouncementIndex.check_announcement(announcement2_title)
       AnnouncementIndex.click_delete
@@ -122,34 +96,34 @@ describe "announcements index v2" do
       expect(Announcement.where(title: announcement2_title).first.workflow_state).to eq 'deleted'
     end
 
-    it 'clicking the Add Announcement button redirects to new announcement page' do
+    it 'clicking the Add Announcement button redirects to new announcement page', test_id: 3469722, priority: "1" do
       expect_new_page_load { AnnouncementIndex.click_add_announcement }
       expect(driver.current_url).to include(AnnouncementIndex.new_announcement_url)
     end
 
-    it 'clicking the announcement goes to the discussion page for that announcement' do
+    it 'clicking the announcement goes to the discussion page for that announcement', test_id: 3469726, priority: "1" do
       expect_new_page_load { AnnouncementIndex.click_on_announcement(announcement1_title) }
       expect(driver.current_url).to include(AnnouncementIndex.individual_announcement_url(@announcement1))
     end
 
-    it 'pill on announcement displays correct number of unread replies' do
+    it 'pill on announcement displays correct number of unread replies', test_id: 3469727, priority: "1" do
       expect(AnnouncementIndex.announcement_unread_number(announcement1_title)).to eq "2"
     end
 
-    it 'RSS feed info displayed' do
+    it 'RSS feed info displayed', test_id: 3469723, priority: "1" do
       AnnouncementIndex.open_external_feeds
       ExternalFeedPage.click_rss_feed_link
       expect(driver.current_url).to include('.atom')
     end
 
-    it 'an external feed can be added' do
+    it 'an external feed can be added', test_id: 3469724, priority: "1" do
       AnnouncementIndex.open_external_feeds
       ExternalFeedPage.add_external_feed('http://someurl', 'full')
       ExternalFeedPage.add_external_feed('http://otherurl', 'full')
       expect(ExternalFeed.all.length).to eq 2
     end
 
-    it 'an external feed can be deleted' do
+    it 'an external feed can be deleted', test_id: 3469725, priority: "1" do
       AnnouncementIndex.open_external_feeds
       ExternalFeedPage.add_external_feed('http://someurl', 'full')
       ExternalFeedPage.add_external_feed('http://otherurl', 'full')

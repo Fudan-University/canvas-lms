@@ -101,7 +101,7 @@ describe SIS::CSV::EnrollmentImporter do
       "course_id,short_name,long_name,account_id,term_id,status",
       "test_1,TC 101,Test Course 101,,,active"
     )
-    batch = process_csv_data(
+    importer = process_csv_data(
       "user_id,login_id,first_name,last_name,email,status",
       "user_1,user1,User,Uno,user@example.com,active",
       "user_2,user2,User,Dos,user2@example.com,active",
@@ -111,15 +111,16 @@ describe SIS::CSV::EnrollmentImporter do
       "user_7,user7,User,Siete,user7@example.com,active",
       ",,,,,"
     )
-    expect(batch.errors).to eq []
+    expect(importer.errors).to eq []
     # should skip empty lines without error or warning
-    expect(batch.counts[:users]).to eq 6
+    expect(importer.batch.reload.data[:counts][:users]).to eq 6
 
     process_csv_data_cleanly(
       "section_id,course_id,name,status,start_date,end_date",
       "S001,test_1,Sec1,active,,"
     )
     # the enrollments
+    expect_any_instance_of(Enrollment).to receive(:add_to_favorites).once
     process_csv_data_cleanly(
       "course_id,user_id,role,section_id,status,associated_user_id,start_date,end_date",
       "test_1,user_1,teacher,,active,,,",
@@ -535,20 +536,35 @@ describe SIS::CSV::EnrollmentImporter do
     expect(e.completed_at).to be_present
   end
 
-  it "should only queue up one DueDateCacher job per course" do
-    course_model(:account => @account, :sis_source_id => 'C001').assignments.create!
-    course_model(:account => @account, :sis_source_id => 'C002').assignments.create!
-    @course.assignments.create!
-    user_with_managed_pseudonym(:account => @account, :sis_user_id => 'U001')
-    user_with_managed_pseudonym(:account => @account, :sis_user_id => 'U002')
+  it 'should only queue up one DueDateCacher job per course' do
+    course1 = course_model(account: @account, sis_source_id: 'C001')
+    course2 = course_model(account: @account, sis_source_id: 'C002')
+    user1 = user_with_managed_pseudonym(account: @account, sis_user_id: 'U001')
+    user2 = user_with_managed_pseudonym(account: @account, sis_user_id: 'U002')
+    course1.enroll_user(user2)
     expect(DueDateCacher).to receive(:recompute).never
-    expect(DueDateCacher).to receive(:recompute_course).twice
+    # there are no assignments so this will just return, but we just want to see
+    # that it gets called correctly and for the users that wre imported
+    expect(DueDateCacher).to receive(:recompute_users_for_course).with([user1.id], course1.id, nil, update_grades: true)
+    expect(DueDateCacher).to receive(:recompute_users_for_course).
+      with([user1.id, user2.id], course2.id, nil, update_grades: true)
     process_csv_data_cleanly(
-        "course_id,user_id,role,status",
-        "C001,U001,student,active",
-        "C001,U002,student,active",
-        "C002,U001,student,active",
-        "C002,U002,student,active",
+      'course_id,user_id,role,status',
+      'C001,U001,student,active',
+      'C002,U001,student,active',
+      'C002,U002,student,active'
+    )
+  end
+
+  it 'should only queue up one recache_grade_distribution job per course' do
+    Course.create!(account: @account, sis_source_id: 'C001', workflow_state: 'available')
+    user_with_managed_pseudonym(account: @account, sis_user_id: 'U001')
+    user_with_managed_pseudonym(account: @account, sis_user_id: 'U002')
+    expect_any_instance_of(CachedGradeDistribution).to receive(:recalculate!).once
+    process_csv_data_cleanly(
+      'course_id,user_id,role,status',
+      'C001,U001,student,active',
+      'C001,U002,student,active',
     )
   end
 
@@ -701,7 +717,7 @@ describe SIS::CSV::EnrollmentImporter do
     expect(SisPseudonym).to receive(:for).with(user, @account, type: :implicit, require_sis: false).and_return(user.pseudonyms.first)
 
     warnings = []
-    work = SIS::EnrollmentImporter::Work.new(nil, @account, Rails.logger, 1000, warnings)
+    work = SIS::EnrollmentImporter::Work.new(@account.sis_batches.create!, @account, Rails.logger, warnings)
     expect(work).to receive(:root_account_from_id).with('account2').once.and_return(account2)
     expect(SIS::EnrollmentImporter::Work).to receive(:new).with(any_args).and_return(work)
 
@@ -730,15 +746,15 @@ describe SIS::CSV::EnrollmentImporter do
     expect(SisPseudonym).to receive(:for).with(user, @account, type: :implicit, require_sis: false).once.and_return(nil)
 
     warnings = []
-    work = SIS::EnrollmentImporter::Work.new(nil, @account, Rails.logger, 1000, warnings)
+    work = SIS::EnrollmentImporter::Work.new(@account.sis_batches.create!, @account, Rails.logger, warnings)
     expect(work).to receive(:root_account_from_id).with('account2').once.and_return(account2)
     expect(SIS::EnrollmentImporter::Work).to receive(:new).with(any_args).and_return(work)
     # the enrollments
-    importer = process_csv_data(
+    process_csv_data(
         "course_id,root_account,user_id,role,status",
         "test_1,account2,user_1,teacher,active",
     )
-    expect(warnings).to eq ["User account2:user_1 does not have a usable login for this account"]
+    expect(warnings.first.message).to eq "User account2:user_1 does not have a usable login for this account"
     course = @account.courses.where(sis_source_id: 'test_1').first
     expect(course.teachers.to_a).to be_empty
   end
@@ -759,7 +775,7 @@ describe SIS::CSV::EnrollmentImporter do
     expect(SisPseudonym).to receive(:for).with(user, @account, type: :implicit, require_sis: false).never
 
     warnings = []
-    work = SIS::EnrollmentImporter::Work.new(nil, @account, Rails.logger, 1000, warnings)
+    work = SIS::EnrollmentImporter::Work.new(@account.sis_batches.create!, @account, Rails.logger, warnings)
     expect(work).to receive(:root_account_from_id).with('account2').once.and_return(nil)
     expect(SIS::EnrollmentImporter::Work).to receive(:new).with(any_args).and_return(work)
     # the enrollments
@@ -786,7 +802,7 @@ describe SIS::CSV::EnrollmentImporter do
     student = Pseudonym.where(:unique_id => "user1").first.user
 
     observer = user_with_pseudonym(:account => @account)
-    student.observers << observer
+    student.linked_observers << observer
 
     process_csv_data_cleanly(
         "course_id,user_id,role,section_id,status,associated_user_id",

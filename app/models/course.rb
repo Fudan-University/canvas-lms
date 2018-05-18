@@ -28,6 +28,7 @@ class Course < ActiveRecord::Base
   include ContentLicenses
   include TurnitinID
   include Courses::ItemVisibilityHelper
+  include OutcomeImportContext
 
   attr_accessor :teacher_names, :master_course
   attr_writer :student_count, :primary_enrollment_type, :primary_enrollment_role_id, :primary_enrollment_rank, :primary_enrollment_state, :primary_enrollment_date, :invitation, :updating_master_template_id
@@ -54,7 +55,7 @@ class Course < ActiveRecord::Base
 
   has_many :course_sections
   has_many :active_course_sections, -> { where(workflow_state: 'active') }, class_name: 'CourseSection'
-  has_many :enrollments, -> { where("enrollments.workflow_state<>'deleted'") }, dependent: :destroy, inverse_of: :course
+  has_many :enrollments, -> { where("enrollments.workflow_state<>'deleted'") }, inverse_of: :course
 
   has_many :all_enrollments, :class_name => 'Enrollment'
   has_many :current_enrollments, -> { where("enrollments.workflow_state NOT IN ('rejected', 'completed', 'deleted', 'inactive')").preload(:user) }, class_name: 'Enrollment'
@@ -198,18 +199,17 @@ class Course < ActiveRecord::Base
   prepend Profile::Association
 
   before_save :assign_uuid
-  before_save :assign_default_view
   before_validation :assert_defaults
   before_save :update_enrollments_later
   before_save :update_show_total_grade_as_on_weighting_scheme_change
+  before_save :set_self_enrollment_code
   after_save :update_final_scores_on_weighting_scheme_change
   after_save :update_account_associations_if_changed
   after_save :update_enrollment_states_if_necessary
   after_save :touch_students_if_necessary
-  after_save :set_self_enrollment_code
   after_commit :update_cached_due_dates
 
-  after_update :clear_cached_short_name, :if => :course_code_changed?
+  after_update :clear_cached_short_name, :if => :saved_change_to_course_code?
 
   before_update :handle_syllabus_changes_for_master_migration
 
@@ -217,6 +217,7 @@ class Course < ActiveRecord::Base
   before_validation :verify_unique_ids
   validate :validate_course_dates
   validate :validate_course_image
+  validate :validate_default_view
   validates_presence_of :account_id, :root_account_id, :enrollment_term_id, :workflow_state
   validates_length_of :syllabus_body, :maximum => maximum_long_text_length, :allow_nil => true, :allow_blank => true
   validates_length_of :name, :maximum => maximum_string_length, :allow_nil => true, :allow_blank => true
@@ -281,15 +282,15 @@ class Course < ActiveRecord::Base
   end
 
   def update_account_associations_if_changed
-    if (self.root_account_id_changed? || self.account_id_changed?) && !self.class.skip_updating_account_associations?
+    if (self.saved_change_to_root_account_id? || self.saved_change_to_account_id?) && !self.class.skip_updating_account_associations?
       send_now_or_later_if_production(new_record? ? :now : :later, :update_account_associations)
     end
   end
 
   def update_enrollment_states_if_necessary
-    if (changes.keys & %w{restrict_enrollments_to_course_dates account_id enrollment_term_id}).any? ||
-        (self.restrict_enrollments_to_course_dates? && (changes.keys & %w{start_at conclude_at}).any?) ||
-        (self.workflow_state_changed? && (completed? || self.workflow_state_was == 'completed'))
+    if (saved_changes.keys & %w{restrict_enrollments_to_course_dates account_id enrollment_term_id}).any? ||
+        (self.restrict_enrollments_to_course_dates? && (saved_changes.keys & %w{start_at conclude_at}).any?) ||
+        (self.saved_change_to_workflow_state? && (completed? || self.workflow_state_before_last_save == 'completed'))
         # a lot of things can change the date logic here :/
 
       EnrollmentState.send_later_if_production(:invalidate_states_for_course_or_section, self) if self.enrollments.exists?
@@ -327,18 +328,6 @@ class Course < ActiveRecord::Base
     end
 
     tags = DifferentiableAssignment.scope_filter(tags, user, self, is_teacher: user_is_teacher)
-    return tags if user.blank? || user_is_teacher
-
-    if ConditionalRelease::Service.enabled_in_context?(self)
-      path_visible_pages = self.wiki_pages.active.left_outer_joins(assignment: :submissions).
-        except(:preload).
-        where("assignments.id is null or submissions.user_id = ?", user.id).
-        select(:id)
-
-      tags = tags.where.not(content_type: 'WikiPage')
-      tags = tags.union(ContentTag.where(content_type: 'WikiPage', content_id: path_visible_pages))
-    end
-
     tags
   end
 
@@ -412,6 +401,19 @@ class Course < ActiveRecord::Base
 
   def valid_course_image_url?(image_url)
     URI.parse(image_url) rescue false
+  end
+
+  def validate_default_view
+    if self.default_view_changed?
+      if !%w{assignments feed modules syllabus wiki}.include?(self.default_view)
+        self.errors.add(:default_view, t("Home page is not valid"))
+        return false
+      elsif self.default_view == 'wiki' && !(self.wiki_id && self.wiki.has_front_page?)
+        self.errors.add(:default_view, t("A Front Page is required"))
+        return false
+      end
+    end
+    true
   end
 
   def image
@@ -702,7 +704,7 @@ class Course < ActiveRecord::Base
     p.whenever { |record|
       record.root_account &&
       ((record.just_created && record.name != Course.default_name) ||
-       (record.name_was == Course.default_name &&
+       (record.name_before_last_save == Course.default_name &&
          record.name != Course.default_name)
       )
     }
@@ -927,6 +929,7 @@ class Course < ActiveRecord::Base
     if self.course_format && !['on_campus', 'online', 'blended'].include?(self.course_format)
       self.course_format = nil
     end
+    self.default_view ||= default_home_page
     true
   end
 
@@ -1020,11 +1023,13 @@ class Course < ActiveRecord::Base
     # shard, and not all courses will have enrollment codes, so that may not be
     # necessary)
     code = nil
-    self.class.unique_constraint_retry(10) do
+    10.times do
       code = code_length.times.map{
         alphanums[(rand * alphanums.size).to_i, 1]
       }.join
-      update_attribute :self_enrollment_code, code
+      next if Course.where(self_enrollment_code: code).exists?
+      self.self_enrollment_code = code
+      break
     end
     code
   end
@@ -1059,7 +1064,7 @@ class Course < ActiveRecord::Base
   end
 
   def update_cached_due_dates
-    DueDateCacher.recompute_course(self) if previous_changes.key?(:enrollment_term_id)
+    DueDateCacher.recompute_course(self) if saved_change_to_enrollment_term_id?
   end
 
   def update_final_scores_on_weighting_scheme_change
@@ -1070,31 +1075,47 @@ class Course < ActiveRecord::Base
 
   def recompute_student_scores(student_ids = nil, grading_period_id: nil,
                                                   update_all_grading_period_scores: true,
-                                                  update_course_score: true)
-    inst_job_opts = {}
-    if student_ids.blank? && grading_period_id.nil? && update_all_grading_period_scores && update_course_score
-      # if we have all default args, let's queue this job in a singleton to avoid duplicates
-      inst_job_opts[:singleton] = "recompute_student_scores:#{global_id}"
-    elsif student_ids.blank? && grading_period_id.present?
-      # A migration that changes a lot of due dates in a grading period
-      # situation can kick off a job storm and redo work. Let's avoid
-      # that by putting it into a singleton.
-      inst_job_opts[:singleton] = "recompute_student_scores:#{global_id}:#{grading_period_id}"
-    end
+                                                  update_course_score: true,
+                                                  run_immediately: false)
+    if run_immediately
+      recompute_student_scores_without_send_later(
+        student_ids,
+        grading_period_id: grading_period_id,
+        update_all_grading_period_scores: update_all_grading_period_scores
+      )
+    else
+      inst_job_opts = {}
+      if student_ids.blank? && grading_period_id.nil? && update_all_grading_period_scores && update_course_score
+        # if we have all default args, let's queue this job in a singleton to avoid duplicates
+        inst_job_opts[:singleton] = "recompute_student_scores:#{global_id}"
+      elsif student_ids.blank? && grading_period_id.present?
+        # A migration that changes a lot of due dates in a grading period
+        # situation can kick off a job storm and redo work. Let's avoid
+        # that by putting it into a singleton.
+        inst_job_opts[:singleton] = "recompute_student_scores:#{global_id}:#{grading_period_id}"
+      end
 
-    send_later_if_production_enqueue_args(
-      :recompute_student_scores_without_send_later,
-      inst_job_opts,
-      student_ids,
-      grading_period_id: grading_period_id,
-      update_all_grading_period_scores: update_all_grading_period_scores
-    )
+      send_later_if_production_enqueue_args(
+        :recompute_student_scores_without_send_later,
+        inst_job_opts,
+        student_ids,
+        grading_period_id: grading_period_id,
+        update_all_grading_period_scores: update_all_grading_period_scores
+      )
+    end
   end
 
   def recompute_student_scores_without_send_later(student_ids = nil, opts = {})
-    student_ids = admin_visible_student_enrollments.where(user_id: student_ids).pluck(:user_id) if student_ids
-    student_ids ||= admin_visible_student_enrollments.pluck(:user_id)
-    Rails.logger.info "GRADES: recomputing scores in course=#{global_id} students=#{student_ids.inspect}"
+    if student_ids.present?
+      # We were given student_ids.  Let's see how many of those students can even see this assignment
+      student_ids = admin_visible_student_enrollments.where(user_id: student_ids).pluck(:user_id)
+    end
+
+    # We were either not given any student_ids or none of those students could see this assignment.
+    # Let's get them all!
+    student_ids = admin_visible_student_enrollments.pluck(:user_id) unless student_ids.present?
+
+    Rails.logger.debug "GRADES: recomputing scores in course=#{global_id} students=#{student_ids.inspect}"
     Enrollment.recompute_final_score(
       student_ids,
       self.id,
@@ -1469,6 +1490,12 @@ class Course < ActiveRecord::Base
     conclude_at && conclude_at < Time.now.utc && conclude_at > 1.month.ago
   end
 
+  # People may conclude courses and then unclude them. This is a good alias_method
+  # to check for in situations where we are dependent on those cases
+  def inactive?
+    self.deleted? || self.completed?
+  end
+
   # Public: Return true if the end date for a course (or its term, if the course doesn't have one) has passed.
   #
   # Returns boolean or nil.
@@ -1751,7 +1778,7 @@ class Course < ActiveRecord::Base
 
 
   def create_attachment(attachment, csv)
-    attachment.uploaded_data = StringIO.new(csv)
+    Attachments::Storage.store_for_attachment(attachment, StringIO.new(csv))
     attachment.content_type = 'text/csv'
     attachment.save!
   end
@@ -1824,7 +1851,7 @@ class Course < ActiveRecord::Base
     enrollment_state = opts[:enrollment_state]
     enrollment_state ||= 'active' if type == 'ObserverEnrollment' && user.registered?
     section = opts[:section]
-    limit_privileges_to_course_section = opts[:limit_privileges_to_course_section]
+    limit_privileges_to_course_section = opts[:limit_privileges_to_course_section] || false
     associated_user_id = opts[:associated_user_id]
 
     role = opts[:role] || Enrollment.get_built_in_role_for_type(type)
@@ -1860,7 +1887,7 @@ class Course < ActiveRecord::Base
         } if e.completed? || e.rejected? || e.deleted? || e.workflow_state != enrollment_state
       end
       # if we're reusing an enrollment and +limit_privileges_to_course_section+ was supplied, apply it
-      e.limit_privileges_to_course_section = limit_privileges_to_course_section if e unless limit_privileges_to_course_section.nil?
+      e.limit_privileges_to_course_section = limit_privileges_to_course_section if e
       # if we're creating a new enrollment, we want to return it as the correct
       # subclass, but without using associations, we need to manually activate
       # sharding. We should probably find a way to go back to using the
@@ -2327,7 +2354,10 @@ class Course < ActiveRecord::Base
     visibilities = section_visibilities_for(user, opts)
     visibility = enrollment_visibility_level_for(user, visibilities)
     if [:full, :limited, :restricted, :sections].include?(visibility)
-      if visibility == :sections || visibilities.all?{ |v| ['StudentEnrollment', 'StudentViewEnrollment', 'ObserverEnrollment'].include? v[:type] }
+      enrollment_types = ['StudentEnrollment', 'StudentViewEnrollment', 'ObserverEnrollment']
+      if [:restricted, :sections].include?(visibility) || (
+          visibilities.any? && visibilities.all? { |v| enrollment_types.include? v[:type] }
+        )
         visibilities.map{ |s| s[:course_section_id] }
       else
         :all
@@ -2803,10 +2833,6 @@ class Course < ActiveRecord::Base
     :closed
   end
 
-  def assign_default_view
-    self.default_view ||= default_home_page
-  end
-
   def default_home_page
     "modules"
   end
@@ -2860,7 +2886,7 @@ class Course < ActiveRecord::Base
                          :skip_touch_user => true)
       end
     end
-    DueDateCacher.recompute_course(self)
+    DueDateCacher.recompute_users_for_course(fake_student.id, self)
     fake_student
   end
   private :sync_enrollments
@@ -3002,7 +3028,7 @@ class Course < ActiveRecord::Base
 
   def touch_students_if_necessary
     # to update the cached current enrollments
-    if workflow_state_changed? && (workflow_state == 'available' || workflow_state_was == 'available')
+    if saved_change_to_workflow_state? && (workflow_state == 'available' || workflow_state_before_last_save == 'available')
       touch_students_later if self.students.exists?
     end
   end
@@ -3115,6 +3141,10 @@ class Course < ActiveRecord::Base
     Rails.cache.fetch(['late_policy_tainted_submissions', self].cache_key, expires_in: expire_time) do
       submissions.except(:order).where(late_policy_status: ['missing', 'late', 'none']).exists?
     end
+  end
+
+  def grading_standard_or_default
+    default_grading_standard || GradingStandard.default_instance
   end
 
   private

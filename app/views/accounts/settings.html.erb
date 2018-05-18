@@ -41,7 +41,7 @@
     }
     fieldset.nested {
       margin-top: 0;
-      margin-left: 20px;
+      margin-<%= direction('left') %>: 20px;
     }
     legend{
       font-size: 1.1em;
@@ -109,11 +109,6 @@
                              [[no_language, nil]] + available_locales.invert.sort_by { |desc, _| Canvas::ICU.collation_key(desc) },
                              {:selected => @context.default_locale}, {:class => 'locale'} %>
                 <%= render :partial => 'shared/locale_warning' %>
-                <p class="unbreakable"><%= mt :transifex_message, <<-TEXT, :transifex_url => "https://www.transifex.com/instructure/canvas-crowdsource/"
-Join the [Canvas Translation Community](%{transifex_url})
-TEXT
-                %>
-                </p>
                 <p style="font-size: 0.9em;"><%= t(:default_language_description, "This will override any browser/OS language settings. Preferred languages can still be set at the course/user level.") %></p>
               </td>
             </tr>
@@ -175,6 +170,15 @@ TEXT
                       <p style="font-size: 0.9em;"><%= t("This is a comma separated list of URL's to trust.  Trusting any URL's in this list will bypass the CSRF token when logging in to Canvas.") %></p>
                     </td>
                   </tr>
+
+                  <% if can_do(@context, @current_user, :manage_account_settings) %>
+                    <tr>
+                      <td><%= settings.blabel :default_dashboard_view, t("Default View for Dashboard") %></td>
+                      <td>
+                        <%= settings.select :default_dashboard_view, options_for_select(dashboard_view_options(@account), @account.default_dashboard_view) %>
+                      </td>
+                    </tr>
+                  <% end %>
 
                   <tr>
                     <td colspan="2"><%= settings.check_box :prevent_course_renaming_by_teachers, :checked => @account.settings[:prevent_course_renaming_by_teachers] %>
@@ -297,10 +301,13 @@ TEXT
           <% js_env(:TERMS_OF_SERVICE_CUSTOM_CONTENT => @account.terms_of_service_content&.content) %>
           <% js_bundle :terms_of_service_modal%>
           <fieldset>
-            <legend><%= t("Terms of Service") %></legend>
+            <legend><%= t("Acceptable Use Policy") %></legend>
             <%= f.fields_for :terms_of_service do |tos| %>
               <%= tos.label :terms_type, t("License Type") %>
-              <%= tos.select :terms_type, options_for_select(TermsOfService.type_dropdown_options, @account.terms_of_service.terms_type) %>
+              <% if TermsOfService.type_dropdown_options_for_account(@account)[0][1] == "built_in:default" %>
+                <label> (<%= t("Old Policy") %>)</label>
+              <% end %>
+              <%= tos.select :terms_type, options_for_select(TermsOfService.type_dropdown_options_for_account(@account), @account.terms_of_service.terms_type) %>
               <br>
               <%= tos.check_box :passive, :checked => @account.terms_of_service.passive %>
               <%= tos.label :passive, t("Allow passive acceptance of Terms of Service")%>
@@ -478,6 +485,7 @@ TEXT
                 <%= settings.check_box :author_email_in_notifications, :checked => @account.author_email_in_notifications? %>
                 <%= settings.label     :author_email_in_notifications, :en => "Show the email address of sender for user interaction Notifications" %>
               </div>
+
             <% end %>
             <% unless @account.site_admin? %>
               <div>
@@ -492,12 +500,20 @@ TEXT
               </div>
             <% end %>
           <% end %>
+
           <%= f.fields_for :services do |services| %>
             <% Account.services_exposed_to_ui_hash(:setting, @current_user, @account).sort_by { |k,h| Canvas::ICU.collation_key(h[:name]) }.each do |key, service| %>
               <div>
                 <%= services.check_box key, :checked => @account.service_enabled?(key) %>
                 <%= services.label key, service[:name] + " " %>
               </div>
+              <% if key == :avatars %>
+                <div id="account_settings_gravatar_checkbox">
+                  <%= hidden_field_tag "account[settings][enable_gravatar]", "0", id: "hidden_account_settings_enable_gravatar" %>
+                  <%= check_box_tag "account[settings][enable_gravatar]", "1", @account.enable_gravatar? %>
+                  <%= label_tag "account[settings][enable_gravatar]", t("Enable Gravatar") %>
+                </div>
+              <% end %>
             <% end %>
           <% end %>
         </fieldset>
@@ -544,6 +560,12 @@ TEXT
                     <%= t(:turnitin_pledge_help, "students must check a box acknowledging that they agree with this pledge") %>
                   </span>
                   <%= f.text_area :turnitin_pledge, :style => "width: 90%; height: 50px;" %>
+                </td>
+              </tr>
+              <tr>
+                <td><label for="account_turnitin_originality"><%= I18n.t('Students can see originality score') %></label></td>
+                <td>
+                  <%= f.select :turnitin_originality, options_for_select(turnitin_originality_options, @account.turnitin_originality)%>
                 </td>
               </tr>
             </table>
@@ -674,10 +696,10 @@ acknowledge that you have read and agreed to the
                                       :class => 'notification_from_name_option' %>
             <%= settings.label :outgoing_email_default_name_option_default, :en => "Default Canvas Setting" %>
           </div>
-          <div style='padding-left: 2em;'>
+          <div style='padding-<%= direction('left') %>: 2em;'>
             <strong><%= t 'notifications.example', 'Example:' %></strong>
             <blockquote>
-              <table class="formtable" style='margin-left: 1.5em;'>
+              <table class="formtable" style='margin-<%= direction('left') %>: 1.5em;'>
               <tr>
                 <td><%= t 'notifications.from', 'From' %></td>
                 <td><%= HostUrl.outgoing_email_default_name %> <%= '<notifications@instructure.com>' %></td>
@@ -707,17 +729,17 @@ acknowledge that you have read and agreed to the
                                       :class => 'notification_from_name_option' %>
             <%= settings.label :outgoing_email_default_name_option_custom, :en => 'Custom "From" Name' %>
           </div>
-          <div style='padding-left: 2em;'>
+          <div style='padding-<%= direction('left') %>: 2em;'>
             <p>
               <%= t('notifications.custom_name_description', 'If selected, this will replace all other branding sent in Canvas notifications.') %>
               <br/>
               <%= text_field_tag 'account[settings][outgoing_email_default_name]', @account.settings[:outgoing_email_default_name] %>
             </p>
           </div>
-          <div style='padding-left: 2em;'>
+          <div style='padding-<%= direction('left') %>: 2em;'>
             <strong><%= t 'notifications.example', 'Example:' %></strong>
             <blockquote>
-            <table class="formtable" style='margin-left: 1.5em;'>
+            <table class="formtable" style='margin-<%= direction('left') %>: 1.5em;'>
               <tr>
                 <td><%= t 'notifications.from', 'From' %></td>
                 <td><strong id='custom_default_name_display'></strong> <%= '<notifications@instructure.com>' %></td>
@@ -753,7 +775,7 @@ acknowledge that you have read and agreed to the
             </tr>
           </table>
 
-          <table style="margin-left: 1.5em;" cellspacing="0" class="formtable">
+          <table style="margin-<%= direction('left') %>: 1.5em;" cellspacing="0" class="formtable">
             <tr>
               <td>
                 <b><%= t('notifications.external_services_warning_label', 'Pop-up Message Content:') %></b>

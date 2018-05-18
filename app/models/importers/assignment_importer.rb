@@ -54,6 +54,15 @@ module Importers
         end
       end
 
+      if context.respond_to?(:assignment_group_no_drop_assignments) && context.assignment_group_no_drop_assignments
+        context.assignments.active.where.not(:migration_id => nil).
+          where(:assignment_group_id => context.assignment_group_no_drop_assignments.values).each do |item|
+          if group = context.assignment_group_no_drop_assignments[item.migration_id]
+            AssignmentGroup.add_never_drop_assignment(group, item)
+          end
+        end
+      end
+
       assignment_records.compact!
 
       assignment_ids = assignment_records.map(&:id)
@@ -199,8 +208,10 @@ module Importers
       rubric ||= context.available_rubric(hash[:rubric_id]) if hash[:rubric_id]
       if rubric
         assoc = rubric.associate_with(item, context, :purpose => 'grading', :skip_updating_points_possible => true)
-        assoc.use_for_grading = !!hash[:rubric_use_for_grading] if hash.has_key?(:rubric_use_for_grading)
-        assoc.hide_score_total = !!hash[:rubric_hide_score_total] if hash.has_key?(:rubric_hide_score_total)
+        assoc.use_for_grading = !!hash[:rubric_use_for_grading] if hash.key?(:rubric_use_for_grading)
+        assoc.hide_score_total = !!hash[:rubric_hide_score_total] if hash.key?(:rubric_hide_score_total)
+        assoc.hide_points = !!hash[:rubric_hide_points] if hash.key?(:rubric_hide_points)
+        assoc.hide_outcome_results = !!hash[:rubric_hide_outcome_results] if hash.key?(:rubric_hide_outcome_results)
         if hash[:saved_rubric_comments]
           assoc.summary_data ||= {}
           assoc.summary_data[:saved_comments] ||= {}
@@ -364,13 +375,6 @@ module Importers
         else
           item.lti_context_id ||= SecureRandom.uuid
           create_tool_settings(hash['tool_setting'], active_proxies.first, item)
-        end
-      end
-
-
-      if context.respond_to?(:assignment_group_no_drop_assignments) && context.assignment_group_no_drop_assignments
-        if group = context.assignment_group_no_drop_assignments[item.migration_id]
-          AssignmentGroup.add_never_drop_assignment(group, item)
         end
       end
 

@@ -528,6 +528,22 @@ describe AccountsController do
       expect(@account.allowed_services).to match(%r{\+test3})
     end
 
+    it "should update 'default_dashboard_view'" do
+      account_with_admin_logged_in
+      @account = @account.sub_accounts.create!
+      expect(@account.default_dashboard_view).to be_nil
+
+      post 'update', params: { id: @account.id,
+                               account: {
+                                  settings: {
+                                    default_dashboard_view: "cards"
+                                  }
+                                }
+                             }
+      @account.reload
+      expect(@account.default_dashboard_view).to eq "cards"
+    end
+
     describe "quotas" do
       before :once do
         @account = Account.create!
@@ -701,6 +717,18 @@ describe AccountsController do
       expect(response).to be_success
 
       expect(assigns[:last_reports].first.last).to eq report
+    end
+
+    it "puts up-to-date help link stuff in the env" do
+      account_with_admin_logged_in
+      @account.settings[:help_link_name] = 'Clippy'
+      @account.settings[:help_link_icon] = 'paperclip'
+      @account.save!
+      allow_any_instance_of(ApplicationHelper).to receive(:help_link_name).and_return('old_cached_nonsense')
+      allow_any_instance_of(ApplicationHelper).to receive(:help_link_icon).and_return('old_cached_nonsense')
+      get 'settings', params: {account_id: @account}
+      expect(assigns[:js_env][:help_link_name]).to eq 'Clippy'
+      expect(assigns[:js_env][:help_link_icon]).to eq 'paperclip'
     end
 
     context "sharding" do

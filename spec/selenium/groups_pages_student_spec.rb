@@ -16,7 +16,10 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require_relative 'common'
+require_relative 'announcements/announcement_index_page'
+require_relative 'announcements/announcement_new_edit_page'
 require_relative 'helpers/announcements_common'
+require_relative 'helpers/legacy_announcements_common'
 require_relative 'helpers/conferences_common'
 require_relative 'helpers/course_common'
 require_relative 'helpers/discussions_common'
@@ -121,64 +124,93 @@ describe "groups" do
       end
     end
 
-    #-------------------------------------------------------------------------------------------------------------------
-    describe "announcements page" do
-      it_behaves_like 'announcements_page', :student
+    describe "announcements page v2" do
+      it_behaves_like 'announcements_page_v2', :student
 
-      it "should allow group members to delete their own announcements", priority: "1", test_id: 326521 do
-        create_group_announcement_manually("Announcement by #{@students.first.name}",'yo ho, yo ho')
-        expect(ff('.discussion-topic').size).to eq 1
-        delete_via_gear_menu
-        expect(f("#content")).not_to contain_css('.discussion-topic')
-      end
-
-      it "should allow any group member to create an announcement", priority: "1", test_id: 273607 do
-
-        # Checks that initial user can create an announcement
-        create_group_announcement_manually("Announcement by #{@user.name}",'sup')
-
-        # Log in as a new student to verify the last group was created and that they can also create a group
-        user_session(@students.first)
-        expect(ff('.discussion-topic').size).to eq 1
-        create_group_announcement_manually("Announcement by #{@students.first.name}",'yo')
-        expect(ff('.discussion-topic').size).to eq 2
-      end
-
-      it "should allow group members to edit their own announcements", priority: "1", test_id: 312867 do
-        create_group_announcement_manually("Announcement by #{@students.first.name}",'The Force Awakens')
-        expect(ff('.discussion-topic').size).to eq 1
-        f('.discussion-title').click
-        f('.edit-btn').click
-        expect(driver.title).to eq 'Edit Announcement'
-        type_in_tiny('textarea[name=message]','Rey is Yodas daughter')
-        f('.btn-primary').click
-        wait_for_ajaximations
+      it "should allow group members to delete their own announcements" do
+        announcement = @testgroup.first.announcements.create!(
+          title: "Announcement by #{@student.name}",
+          message: 'sup',
+          user: @student
+        )
         get announcements_page
-        expect(ff('.discussion-topic').size).to eq 1
-        expect(f('.discussion-summary')).to include_text('Rey is Yodas daughter')
+        expect(ff('.ic-announcement-row').size).to eq 1
+        AnnouncementIndex.delete_announcement_manually(announcement.title)
+        expect(f(".announcements-v2__wrapper")).not_to contain_css('.ic-announcement-row')
       end
 
-      it "should not allow group members to edit someone else's announcement", priority: "1", test_id: 327111 do
-        create_group_announcement_manually("Announcement by #{@user.name}",'sup')
+      it "should allow any group member to create an announcement" do
+        @testgroup.first.announcements.create!(
+          title: "Announcement by #{@user.name}",
+          message: 'sup',
+          user: @user
+        )
+        # Log in as a new student to see if we can make an announcement
+        user_session(@students.first)
+        AnnouncementNewEdit.visit_new(@testgroup.first)
+        AnnouncementNewEdit.add_message("New Announcement")
+        AnnouncementNewEdit.add_title("New Title")
+        expect_new_page_load {AnnouncementNewEdit.submit_announcement_form}
+        expect(driver.current_url).to include(AnnouncementNewEdit.
+                                              individual_announcement_url(Announcement.last))
+      end
+
+      it "should allow group members to edit their own announcements" do
+        announcement = @testgroup.first.announcements.create!(
+          title: "Announcement by #{@user.name}",
+          message: 'The Force Awakens',
+          user: @user
+        )
+        get announcements_page
+        expect_new_page_load { AnnouncementIndex.click_on_announcement(announcement.title) }
+        expect(driver.current_url).to include AnnouncementNewEdit.individual_announcement_url(announcement)
+      end
+
+      it "edit page should succeed for their own announcements" do
+        announcement = @testgroup.first.announcements.create!(
+          title: "Announcement by #{@user.name}",
+          message: 'The Force Awakens',
+          user: @user
+        )
+        # note announcement_url includes a leading '/'
+        AnnouncementNewEdit.edit_group_announcement(@testgroup.first, announcement,
+          "Canvas will be rewritten in chicken")
+        announcement.reload
+        # Editing *appends* to existing message, and the resulting announcement's
+        # message is wrapped in paragraph tags
+        expect(announcement.message).to eq(
+          "<p>The Force AwakensCanvas will be rewritten in chicken</p>"
+        )
+      end
+
+      it "should not allow group members to edit someone else's announcement" do
+        announcement = @testgroup.first.announcements.create!(
+          title: "Announcement by #{@user.name}",
+          message: 'sup',
+          user: @user
+        )
         user_session(@students.first)
         get announcements_page
-        expect(ff('.discussion-topic').size).to eq 1
-        f('.discussion-title').click
-        expect(f("#content")).not_to contain_css('.edit-btn')
+        expect(ff('.ic-announcement-row').size).to eq 1
+        expect_new_page_load { AnnouncementIndex.click_on_announcement(announcement.title) }
+        expect(f('#content-wrapper')).not_to contain_css('.edit-btn')
       end
 
-      it "should allow all group members to see announcements", priority: "1", test_id: 273613 do
-        @announcement = @testgroup.first.announcements.create!(title: 'Group Announcement', message: 'Group',user: @teacher)
-        # Verifying with a few different group members should be enough to ensure all group members can see it
-        verify_member_sees_announcement
-
+      it "student in group can see teachers announcement in index" do
+        announcement = @testgroup.first.announcements.create!(
+          title: 'Group Announcement',
+          message: 'Group',
+          user: @teacher
+        )
         user_session(@students.first)
-        verify_member_sees_announcement
+        AnnouncementIndex.visit_groups_index(@testgroup.first)
+        expect_new_page_load { AnnouncementIndex.click_on_announcement(announcement.title) }
+        expect(f('.discussion-title').text).to eq 'Group Announcement'
+        expect(f('.message').text).to eq 'Group'
       end
 
-      it "should only allow group members to access announcements", priority: "1", test_id: 315329 do
+      it "should only allow group members to access announcements" do
         get announcements_page
-        expect(fj('.btn-primary:contains("Announcement")')).to be_displayed
         verify_no_course_user_access(announcements_page)
       end
     end

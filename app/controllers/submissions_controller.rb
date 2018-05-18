@@ -364,6 +364,8 @@ class SubmissionsController < ApplicationController
       return false
     end
 
+    always_permitted = always_permitted_create_params
+
     # Make sure that the submitted parameters match what we expect
     submission_params = (['submission_type'] + API_SUBMISSION_TYPES[submission_type]).sort
     params[:submission].slice!(*submission_params)
@@ -379,6 +381,8 @@ class SubmissionsController < ApplicationController
     if params[:submission].has_key?(:body)
       params[:submission][:body] = process_incoming_html_content(params[:submission][:body])
     end
+
+    params[:submission].merge!(always_permitted)
     return true
   end
   private :process_api_submission_params
@@ -566,6 +570,11 @@ class SubmissionsController < ApplicationController
   end
   private :resubmit_to_plagiarism
 
+  def always_permitted_create_params
+    always_permitted_params = [:eula_agreement_timestamp].freeze
+    params.require(:submission).permit(always_permitted_params)
+  end
+
   def update
     @assignment = @context.assignments.active.find(params[:assignment_id])
     @user = @context.all_students.find(params[:id])
@@ -667,10 +676,7 @@ class SubmissionsController < ApplicationController
 
     respond_to do |format|
       if attachment.zipped?
-        if Attachment.s3_storage?
-          format.html { redirect_to attachment.inline_url_for_user(@current_user) }
-          format.zip { redirect_to attachment.inline_url_for_user(@current_user) }
-        else
+        if attachment.stored_locally?
           cancel_cache_buster
 
           format.html do
@@ -686,6 +692,10 @@ class SubmissionsController < ApplicationController
               :disposition => 'inline'
             })
           end
+        else
+          inline_url = authenticated_inline_url(attachment)
+          format.html { redirect_to inline_url }
+          format.zip { redirect_to inline_url }
         end
         format.json { render :json => attachment.as_json(:methods => :readable_size) }
       else

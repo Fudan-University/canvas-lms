@@ -29,50 +29,96 @@ class DueDateCacher
     END
   SQL_FRAGMENT
 
-  def self.recompute(assignment)
+  def self.recompute(assignment, update_grades: false)
+    current_caller = caller(1..1).first
+    Rails.logger.debug "DDC.recompute(#{assignment&.id}) - #{current_caller}"
     return unless assignment.active?
-    recompute_course(assignment.context, [assignment.id],
-      singleton: "cached_due_date:calculator:Assignment:#{assignment.global_id}")
+    opts = {
+      assignments: [assignment.id],
+      inst_jobs_opts: {
+        singleton: "cached_due_date:calculator:Assignment:#{assignment.global_id}"
+      },
+      update_grades: update_grades,
+      original_caller: current_caller
+    }
+
+    recompute_course(assignment.context, opts)
   end
 
-  def self.recompute_course(course, assignments = nil, inst_jobs_opts = {})
+  def self.recompute_course(course, assignments: nil, inst_jobs_opts: {}, run_immediately: false, update_grades: false, original_caller: caller(1..1).first)
+    Rails.logger.debug "DDC.recompute_course(#{course.inspect}, #{assignments.inspect}, #{inst_jobs_opts.inspect}) - #{original_caller}"
     course = Course.find(course) unless course.is_a?(Course)
     inst_jobs_opts[:singleton] ||= "cached_due_date:calculator:Course:#{course.global_id}" if assignments.nil?
-    assignments ||= Assignment.active.where(context: course).pluck(:id)
-    return if assignments.empty?
-    new(course, assignments).send_later_if_production_enqueue_args(:recompute, inst_jobs_opts)
+
+    assignments_to_recompute = assignments || Assignment.active.where(context: course).pluck(:id)
+    return if assignments_to_recompute.empty?
+
+    due_date_cacher = new(course, assignments_to_recompute, update_grades: update_grades, original_caller: original_caller)
+    if run_immediately
+      due_date_cacher.recompute
+    else
+      due_date_cacher.send_later_if_production_enqueue_args(:recompute, inst_jobs_opts)
+    end
   end
 
   def self.recompute_users_for_course(user_ids, course, assignments = nil, inst_jobs_opts = {})
     user_ids = Array(user_ids)
     course = Course.find(course) unless course.is_a?(Course)
     if assignments.nil?
-      inst_jobs_opts[:singleton] ||= "cached_due_date:calculator:Users:#{course.global_id}:#{user_ids.join(':')}"
+      inst_jobs_opts[:singleton] ||= "cached_due_date:calculator:Users:#{course.global_id}:#{Digest::MD5.hexdigest(user_ids.sort.join(':'))}"
     end
     assignments ||= Assignment.active.where(context: course).pluck(:id)
     return if assignments.empty?
 
-    new(course, assignments, user_ids).send_later_if_production_enqueue_args(:recompute, inst_jobs_opts)
+    current_caller = caller(1..1).first
+    update_grades = inst_jobs_opts.delete(:update_grades) || false
+    due_date_cacher = new(course, assignments, user_ids, update_grades: update_grades, original_caller: current_caller)
+
+    run_immediately = inst_jobs_opts.delete(:run_immediately) || false
+    if run_immediately
+      due_date_cacher.recompute
+    else
+      due_date_cacher.send_later_if_production_enqueue_args(:recompute, inst_jobs_opts)
+    end
   end
 
-  def initialize(course, assignments, user_ids = [])
+  def initialize(course, assignments, user_ids = [], update_grades: false, original_caller: caller(1..1).first)
     @course = course
     @assignment_ids = Array(assignments).map { |a| a.is_a?(Assignment) ? a.id : a }
     @user_ids = Array(user_ids)
+    @update_grades = update_grades
+    @original_caller = original_caller
   end
 
   def recompute
+    Rails.logger.debug "DUE DATE CACHER STARTS: #{Time.zone.now.to_i}"
+    Rails.logger.debug "DDC#recompute() - original caller: #{@original_caller}"
+    Rails.logger.debug "DDC#recompute() - current caller: #{caller(1..1).first}"
+
     # in a transaction on the correct shard:
     @course.shard.activate do
       values = []
       effective_due_dates.to_hash.each do |assignment_id, student_due_dates|
-        (student_due_dates.keys - enrollment_counts.prior_student_ids).each do |student_id|
+        students_without_priors = student_due_dates.keys - enrollment_counts.prior_student_ids
+        existing_anonymous_ids = Submission.where.not(user: nil).
+          where(user: students_without_priors).
+          anonymous_ids_for(assignment_id)
+
+        students_without_priors.each do |student_id|
           submission_info = student_due_dates[student_id]
           due_date = submission_info[:due_at] ? "'#{submission_info[:due_at].iso8601}'::timestamptz" : 'NULL'
           grading_period_id = submission_info[:grading_period_id] || 'NULL'
-          values << [assignment_id, student_id, due_date, grading_period_id]
+
+          anonymous_id = Submission.generate_unique_anonymous_id(
+            assignment: assignment_id,
+            existing_anonymous_ids: existing_anonymous_ids
+          )
+          existing_anonymous_ids << anonymous_id
+          sql_ready_anonymous_id = Submission.connection.quote(anonymous_id)
+          values << [assignment_id, student_id, due_date, grading_period_id, sql_ready_anonymous_id]
         end
       end
+
       # Delete submissions for students who don't have visibility to this assignment anymore
       @assignment_ids.each do |assignment_id|
         assigned_student_ids = effective_due_dates.find_effective_due_dates_for_assignment(assignment_id).keys
@@ -100,39 +146,36 @@ class DueDateCacher
             update_all(workflow_state: :deleted)
         end
       end
+
       return if values.empty?
 
+      # prepare values for SQL interpolation
       values = values.sort_by(&:first).map { |v| "(#{v.join(',')})" }
       values.each_slice(1000) do |batch|
         # Construct upsert statement to update existing Submissions or create them if needed.
-        query = <<-SQL
+        query = <<~SQL
           UPDATE #{Submission.quoted_table_name}
             SET
               cached_due_date = vals.due_date::timestamptz,
               grading_period_id = vals.grading_period_id::integer,
               workflow_state = COALESCE(NULLIF(workflow_state, 'deleted'), (
-                -- infer actual workflow state
                 #{INFER_SUBMISSION_WORKFLOW_STATE_SQL}
-              ))
-            FROM (
-              VALUES
-                #{batch.join(',')}
-             )
-             AS vals(assignment_id, student_id, due_date, grading_period_id)
+              )),
+              anonymous_id = COALESCE(submissions.anonymous_id, vals.anonymous_id)
+            FROM (VALUES #{batch.join(',')})
+              AS vals(assignment_id, student_id, due_date, grading_period_id, anonymous_id)
             WHERE submissions.user_id = vals.student_id AND
                   submissions.assignment_id = vals.assignment_id;
           INSERT INTO #{Submission.quoted_table_name}
-           (assignment_id, user_id, workflow_state, created_at, updated_at, context_code, process_attempts,
-            cached_due_date, grading_period_id)
+            (assignment_id, user_id, workflow_state, created_at, updated_at, context_code, process_attempts,
+            cached_due_date, grading_period_id, anonymous_id)
             SELECT
               assignments.id, vals.student_id, 'unsubmitted',
               now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC',
-              assignments.context_code, 0, vals.due_date::timestamptz, vals.grading_period_id::integer
-            FROM (
-              VALUES
-                #{batch.join(',')}
-             )
-             AS vals(assignment_id, student_id, due_date, grading_period_id)
+              assignments.context_code, 0, vals.due_date::timestamptz, vals.grading_period_id::integer,
+              vals.anonymous_id
+            FROM (VALUES #{batch.join(',')})
+              AS vals(assignment_id, student_id, due_date, grading_period_id, anonymous_id)
             INNER JOIN #{Assignment.quoted_table_name} assignments
               ON assignments.id = vals.assignment_id
             LEFT OUTER JOIN #{Submission.quoted_table_name} submissions
@@ -143,6 +186,10 @@ class DueDateCacher
 
         Assignment.connection.execute(query)
       end
+    end
+
+    if @update_grades
+      @course.recompute_student_scores_without_send_later(@user_ids)
     end
 
     if @assignment_ids.size == 1
@@ -171,11 +218,12 @@ class DueDateCacher
           "count(nullif(workflow_state in ('completed'), false)) as prior_count",
           "count(nullif(workflow_state in ('rejected', 'deleted'), false)) as deleted_count"
         ).
-          where(course_id: @course, type: ['StudentEnrollment', 'StudentViewEnrollment'])
+          where(course_id: @course, type: ['StudentEnrollment', 'StudentViewEnrollment']).
+          group(:user_id)
 
         scope = scope.where(user_id: @user_ids) if @user_ids.present?
 
-        scope.group(:user_id).find_each do |record|
+        scope.find_each do |record|
           if record.accepted_count == 0 && record.deleted_count > 0
             counts.deleted_student_ids << record.user_id
           elsif record.accepted_count == 0 && record.prior_count > 0

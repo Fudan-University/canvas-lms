@@ -19,6 +19,11 @@
 require File.expand_path(File.dirname(__FILE__) + '/../sharding_spec_helper.rb')
 
 describe Account do
+  include_examples "outcome import context examples"
+
+  describe 'relationships' do
+    it { is_expected.to have_many(:feature_flags) }
+  end
 
   it "should provide a list of courses" do
     expect{ Account.new.courses }.not_to raise_error
@@ -237,7 +242,7 @@ describe Account do
       expect(@a.service_enabled?(:twitter)).to be_truthy
     end
 
-    it "should use + and - by default when setting service availabilty" do
+    it "should use + and - by default when setting service availability" do
       @a.enable_service(:twitter)
       expect(@a.service_enabled?(:twitter)).to be_truthy
       expect(@a.allowed_services).to be_nil
@@ -500,7 +505,7 @@ describe Account do
       hash[k][:user] = user
     end
 
-    limited_access = [ :read, :read_as_admin, :manage, :update, :delete, :read_outcomes ]
+    limited_access = [ :read, :read_as_admin, :manage, :update, :delete, :read_outcomes, :read_terms ]
     conditional_access = RoleOverride.permissions.select { |_, v| v[:account_allows] }.map(&:first)
     full_access = RoleOverride.permissions.keys +
                   limited_access - conditional_access +
@@ -531,8 +536,8 @@ describe Account do
     hash.each do |k, v|
       next unless k == :site_admin || k == :root
       account = v[:account]
-      expect(account.check_policy(hash[:sub][:admin])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes])
-      expect(account.check_policy(hash[:sub][:user])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes])
+      expect(account.check_policy(hash[:sub][:admin])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes, :read_terms])
+      expect(account.check_policy(hash[:sub][:user])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes, :read_terms])
     end
     hash.each do |k, v|
       next if k == :site_admin || k == :root
@@ -576,8 +581,8 @@ describe Account do
     hash.each do |k, v|
       next unless k == :site_admin || k == :root
       account = v[:account]
-      expect(account.check_policy(hash[:sub][:admin])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes])
-      expect(account.check_policy(hash[:sub][:user])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes])
+      expect(account.check_policy(hash[:sub][:admin])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes, :read_terms])
+      expect(account.check_policy(hash[:sub][:user])).to match_array(k == :site_admin ? [:read_global_outcomes] : [:read_outcomes, :read_terms])
     end
     hash.each do |k, v|
       next if k == :site_admin || k == :root
@@ -612,6 +617,7 @@ describe Account do
   it "does not allow create_courses even to admins on site admin and children" do
     a = Account.site_admin
     a.settings = { :no_enrollments_can_create_courses => true }
+    a.save!
     manual = a.manually_created_courses_account
     user_factory
 
@@ -779,6 +785,16 @@ describe Account do
 
       tabs = account.tabs_available(nil)
       expect(tabs.map{|t| t[:id] }).not_to be_include(Account::TAB_DEVELOPER_KEYS)
+    end
+
+    it "should include 'Developer Keys' for the admin users of a sub account" do
+      account = Account.create!
+      Account.site_admin.allow_feature!(:developer_key_management)
+      account.enable_feature!(:developer_key_management)
+      sub_account = Account.create!(parent_account: account)
+      admin = account_admin_user(:account => sub_account)
+      tabs = sub_account.tabs_available(admin)
+      expect(tabs.map{|t| t[:id] }).to include(Account::TAB_DEVELOPER_KEYS)
     end
 
     it "should not include 'Developer Keys' for non-site_admin accounts" do
@@ -1608,20 +1624,13 @@ describe Account do
       @account = Account.create!
     end
 
-    it "is true if hijack_crocodoc_sessions is true and new annotations are enabled" do
+    it "is true if hijack_crocodoc_sessions is true" do
       allow(Canvadocs).to receive(:hijack_crocodoc_sessions?).and_return(true)
-      @account.enable_feature!(:new_annotations)
       expect(@account).to be_migrate_to_canvadocs
     end
 
-    it "is false if new annotations are enabled but hijack_crocodoc_sessions is false" do
+    it "is false if hijack_crocodoc_sessions is false" do
       allow(Canvadocs).to receive(:hijack_crocodoc_sessions?).and_return(false)
-      @account.enable_feature!(:new_annotations)
-      expect(@account).not_to be_migrate_to_canvadocs
-    end
-
-    it "is false if hijack_crocodoc_sessions is true but new annotations are disabled" do
-      allow(Canvadocs).to receive(:hijack_crocodoc_sessions?).and_return(true)
       expect(@account).not_to be_migrate_to_canvadocs
     end
   end
@@ -1634,5 +1643,42 @@ describe Account do
     non_cached.save!
 
     expect(Account.default.settings[:blah]).to eq true
+  end
+
+  it_behaves_like 'a learning outcome context'
+
+  describe "#default_dashboard_view" do
+    before(:once) do
+      @account = Account.create!
+    end
+
+    it "should be nil by default" do
+      expect(@account.default_dashboard_view).to be_nil
+    end
+
+    it "should update if view is valid" do
+      @account.default_dashboard_view = "activity"
+      @account.save!
+
+      expect(@account.default_dashboard_view).to eq "activity"
+    end
+
+    it "should not update if view is invalid" do
+      @account.default_dashboard_view = "junk"
+      expect { @account.save! }.not_to change { @account.default_dashboard_view }
+    end
+
+    it "should not contain planner if feature is disabled" do
+      @account.default_dashboard_view = "planner"
+      @account.save!
+      expect(@account.default_dashboard_view).not_to eq "planner"
+    end
+
+    it "should contain planner if feature is enabled" do
+      @account.enable_feature! :student_planner
+      @account.default_dashboard_view = "planner"
+      @account.save!
+      expect(@account.default_dashboard_view).to eq "planner"
+    end
   end
 end

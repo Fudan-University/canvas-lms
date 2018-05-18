@@ -51,7 +51,7 @@ describe AssignmentsApiController, type: :request do
                                        user,
                                        score: '99',
                                        grade: '99',
-                                       grader: @teacher,
+                                       grader_id: @teacher.id,
                                        submitted_at: now,
                                        grade_matches_current_submission: true
     return assignment,submission
@@ -656,6 +656,122 @@ describe AssignmentsApiController, type: :request do
       end
     end
 
+    describe "updating an assignment with locked ranges" do
+      before :once do
+        course_with_teacher(:active_all => true)
+      end
+
+      it 'should not allow updating due date to invalid lock range' do
+        json = api_create_assignment_in_course(@course, {name: 'aaron assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = 1.week.ago
+        @assignment.lock_at = 3.days.ago
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: 2.days.ago.iso8601}}, {}, {expected_status: 400})
+      end
+
+      it 'should allow updating due date to invalid lock range if lock range is also updated' do
+        json = api_create_assignment_in_course(@course, {name: 'aaron assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = 1.week.ago
+        @assignment.lock_at = 3.days.ago
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {unlock_at: 4.days.ago.iso8601, lock_at: 1.day.ago.iso8601,
+                               due_at: 2.days.ago.iso8601}}, {}, {expected_status: 200})
+      end
+
+      it "should allow assignment update due_date within locked range" do
+        json = api_create_assignment_in_course(@course, {name: 'aaron assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = Time.zone.parse("2011-01-02T00:00:00Z")
+        @assignment.lock_at = Time.zone.parse("2011-01-10T00:00:00Z")
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: "2011-01-05T00:00:00Z"}}, {},
+                 {expected_status: 200})
+      end
+
+      it "should not allow assignment update due_date before locked range" do
+        json = api_create_assignment_in_course(@course, {'name' => 'my assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = Time.zone.parse("2011-01-02T00:00:00Z")
+        @assignment.lock_at = Time.zone.parse("2011-01-10T00:00:00Z")
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: "2011-01-01T00:00:00Z"}}, {},
+                 {expected_status: 400})
+      end
+
+      it "should allow assignment update due_date with no locked ranges" do
+        json = api_create_assignment_in_course(@course, {'name' => 'blerp assignment'})
+        @assignment = Assignment.find(json['id'])
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: "2011-01-01T00:00:00Z"}}, {},
+                 {expected_status: 200})
+      end
+
+      it "should not allow assignment update due_date after locked range" do
+        json = api_create_assignment_in_course(@course, {'name' => 'wow assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = Time.zone.parse("2011-01-02T00:00:00Z")
+        @assignment.lock_at = Time.zone.parse("2011-01-10T00:00:00Z")
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: "2012-01-01T00:00:00Z"}}, {},
+                 {expected_status: 400})
+      end
+
+      it "should not skip due date validation just because it somehow passed in no overrides" do
+        @assignment = @course.assignments.create!(
+          :unlock_at => Time.zone.parse("2011-01-02T00:00:00Z"),
+          :due_at => Time.zone.parse("2012-01-04T00:00:00Z")
+        )
+
+        # have to make the call without helpers to pass in an empty array correctly
+        p = Account.default.pseudonyms.create!(:unique_id => "#{@user.id}@example.com", :user => @user)
+        allow_any_instantiation_of(p).to receive(:works_for_account?).and_return(true)
+        put "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+          params: {assignment: {lock_at: "2012-01-03T00:00:00Z", assignment_overrides: []}}.to_json,
+          headers: { "CONTENT_TYPE" => "application/json", "HTTP_AUTHORIZATION" => "Bearer #{access_token_for_user(@user)}" }
+        expect(response.code.to_i).to eq 400
+        expect(@assignment.reload.lock_at).to be_nil
+      end
+
+      it "should allow assignment update due_date on locked range" do
+        json = api_create_assignment_in_course(@course, {'name' => 'cool assignment'})
+        @assignment = Assignment.find(json['id'])
+        @assignment.unlock_at = Time.zone.parse("2011-01-01T00:00:00Z")
+        @assignment.lock_at = Time.zone.parse("2011-01-10T00:00:00Z")
+        @assignment.save!
+
+        api_call(:put, "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}",
+                 {controller: 'assignments_api', action: 'update', format: 'json',
+                  course_id: @course.id.to_s, id: @assignment.to_param},
+                 {assignment: {due_at: "2011-01-01T00:00:00Z"}}, {},
+                 {expected_status: 200})
+      end
+    end
+
     describe "differentiated assignments" do
       def setup_DA
         @course_section = @course.course_sections.create
@@ -947,9 +1063,6 @@ describe AssignmentsApiController, type: :request do
   end
 
   describe "GET /users/:user_id/courses/:course_id/assignments (#user_index)" do
-    before :once do
-      course_with_teacher(:active_all => true)
-    end
 
     it "returns data for user calling on self" do
       course_with_student_submissions(:active_all => true)
@@ -960,7 +1073,7 @@ describe AssignmentsApiController, type: :request do
     it "returns assignments for authorized observer" do
       course_with_student_submissions(:active_all => true)
       parent = User.create
-      parent.user_observees.create! do |uo|
+      parent.as_observer_observation_links.create! do |uo|
         uo.user_id = @student.id
       end
       parent.save!
@@ -972,19 +1085,10 @@ describe AssignmentsApiController, type: :request do
       # unpublished course with invited student
       course_with_student
       expect(@course.grants_right?(@student, :read)).to be_falsey
-      api_call(:get,
-               "/api/v1/users/#{@student.id}/courses/#{@course.id}/assignments",
-               {
-                   :controller => 'assignments_api',
-                   :action => 'user_index',
-                   :format => 'json',
-                   :course_id=> @course.id,
-                   :user_id=> @student.id.to_s
-               },
-               {},
-               {},
-               {:expected_status => 401}
-              )
+      api_call(:get, "/api/v1/users/#{@student.id}/courses/#{@course.id}/assignments",
+               {controller: 'assignments_api', action: 'user_index',
+                format: 'json', course_id: @course.id, user_id: @student.id.to_s},
+               {}, {}, {expected_status: 401})
     end
 
     it "returns data for for teacher who can read target student data" do
@@ -1000,7 +1104,7 @@ describe AssignmentsApiController, type: :request do
       student = student_in_section(section)
       ta = ta_in_section(section)
 
-      json = api_get_assignments_user_index(student, @course, ta)
+      api_get_assignments_user_index(student, @course, ta)
       expect(response).to be_success
     end
 
@@ -1011,19 +1115,10 @@ describe AssignmentsApiController, type: :request do
       student = student_in_section(s1)
       ta = ta_in_section(s2)
 
-      api_call_as_user(ta, :get,
-               "/api/v1/users/#{student.id}/courses/#{@course.id}/assignments",
-               {
-                   :controller => 'assignments_api',
-                   :action => 'user_index',
-                   :format => 'json',
-                   :course_id=> @course.id,
-                   :user_id=> student.id.to_s
-               },
-               {},
-               {},
-               {:expected_status => 401}
-              )
+      api_call_as_user(ta, :get, "/api/v1/users/#{student.id}/courses/#{@course.id}/assignments",
+                       {controller: 'assignments_api', action: 'user_index', format: 'json',
+                        course_id: @course.id, user_id: student.id.to_s}, {}, {},
+                       {expected_status: 401})
     end
   end
 
@@ -1177,7 +1272,7 @@ describe AssignmentsApiController, type: :request do
         'points_possible' => '12',
         'due_at' => '2011-01-01T00:00:00Z',
         'lock_at' => '2011-01-03T00:00:00Z',
-        'unlock_at' => '2011-12-31T00:00:00Z',
+        'unlock_at' => '2010-12-31T00:00:00Z',
         'description' => 'assignment description',
         'assignment_group_id' => group.id,
         'submission_types' => [
@@ -1617,6 +1712,54 @@ describe AssignmentsApiController, type: :request do
       expect(response.code).to eql '400'
     end
 
+    it "calls DueDateCacher only once" do
+      student_in_course(:course => @course, :active_enrollment => true)
+
+      @adhoc_due_at = 5.days.from_now
+      @section_due_at = 7.days.from_now
+
+      @user = @teacher
+
+      assignment_params = {
+        :assignment => {
+          'name' => 'some assignment',
+          'assignment_overrides' => {
+            '0' => {
+              'student_ids' => [@student.id],
+              'due_at' => @adhoc_due_at.iso8601
+            },
+            '1' => {
+              'course_section_id' => @course.default_section.id,
+              'due_at' => @section_due_at.iso8601
+            },
+            '2' => {
+              'title' => 'Helpful Tag',
+              'noop_id' => 999
+            }
+          }
+        }
+      }
+
+      controller_params = {
+        :controller => 'assignments_api',
+        :action => 'create',
+        :format => 'json',
+        :course_id => @course.id.to_s
+      }
+
+      due_date_cacher = instance_double(DueDateCacher)
+      allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+      expect(due_date_cacher).to receive(:recompute).once
+
+      @json = api_call(
+        :post,
+        "/api/v1/courses/#{@course.id}/assignments.json",
+        controller_params,
+        assignment_params
+      )
+    end
+
     it "allows creating an assignment with overrides via the API" do
       student_in_course(:course => @course, :active_enrollment => true)
 
@@ -1983,39 +2126,40 @@ describe AssignmentsApiController, type: :request do
 
         it "allows setting the due date in an open grading period" do
           due_date = 3.days.from_now.iso8601
-          call_create({ due_at: due_date }, 201)
+          call_create({due_at: due_date, lock_at: nil, unlock_at: nil}, 201)
           expect(@course.assignments.last.due_at).to eq due_date
         end
 
         it "does not allow setting the due date in a closed grading period" do
-          call_create({ due_at: 3.days.ago.iso8601 }, 403)
+          call_create({ due_at: 3.days.ago.iso8601, lock_at: nil, unlock_at: nil}, 403)
           json = JSON.parse response.body
           expect(json["errors"].keys).to include "due_at"
         end
 
         it "allows setting the due date in a closed grading period when only visible to overrides" do
           due_date = 3.days.ago.iso8601
-          call_create({ due_at: due_date, only_visible_to_overrides: true }, 201)
+          call_create({due_at: due_date, lock_at: nil, unlock_at: nil, only_visible_to_overrides: true}, 201)
           expect(@course.assignments.last.due_at).to eq due_date
         end
 
         it "does not allow a nil due date when the last grading period is closed" do
-          call_create({ due_at: nil }, 403)
+          call_create({due_at: nil}, 403)
           json = JSON.parse response.body
           expect(json["errors"].keys).to include "due_at"
         end
 
         it "does not allow setting an override due date in a closed grading period" do
-          override_params = [{ student_ids: [@student.id], due_at: 3.days.ago.iso8601 }]
-          params = { due_at: 3.days.from_now.iso8601, assignment_overrides: override_params }
+          override_params = [{student_ids: [@student.id], due_at: 3.days.ago.iso8601, lock_at: nil, unlock_at: nil}]
+          params = {due_at: 3.days.from_now.iso8601, assignment_overrides: override_params}
           call_create(params, 403)
           json = JSON.parse response.body
           expect(json["errors"].keys).to include "due_at"
         end
 
         it "does not allow a nil override due date when the last grading period is closed" do
-          override_params = [{ student_ids: [@student.id], due_at: nil }]
-          params = { due_at: 3.days.from_now.iso8601, assignment_overrides: override_params }
+          override_params = [{student_ids: [@student.id], due_at: nil}]
+          params = {due_at: 3.days.from_now.iso8601, assignment_overrides: override_params,
+                    lock_at: nil, unlock_at: nil}
           call_create(params, 403)
           json = JSON.parse response.body
           expect(json["errors"].keys).to include "due_at"
@@ -2023,12 +2167,12 @@ describe AssignmentsApiController, type: :request do
 
         it "allows a due date in a closed grading period when the assignment is not graded" do
           due_date = 3.days.ago.iso8601
-          call_create({ due_at: due_date, submission_types: "not_graded" }, 201)
+          call_create({due_at: due_date, lock_at: nil, unlock_at: nil, submission_types: "not_graded"}, 201)
           expect(@course.assignments.last.due_at).to eq due_date
         end
 
         it "allows a nil due date when not graded and the last grading period is closed" do
-          call_create({ due_at: nil, submission_types: "not_graded" }, 201)
+          call_create({due_at: nil, submission_types: "not_graded"}, 201)
           expect(@course.assignments.last.due_at).to be_nil
         end
       end
@@ -2040,7 +2184,7 @@ describe AssignmentsApiController, type: :request do
 
         it "allows setting the due date in a closed grading period" do
           due_date = 3.days.ago.iso8601
-          call_create({ due_at: due_date }, 201)
+          call_create({ due_at: due_date, lock_at: nil, unlock_at: nil }, 201)
           json = JSON.parse response.body
           expect(json["due_at"]).to eq due_date
         end
@@ -2054,7 +2198,7 @@ describe AssignmentsApiController, type: :request do
         it "allows setting an override due date in a closed grading period" do
           due_date = 3.days.ago.iso8601
           override_params = [{ student_ids: [@student.id], due_at: due_date }]
-          params = { due_at: 5.days.from_now.iso8601, assignment_overrides: override_params }
+          params = { due_at: 5.days.from_now.iso8601, lock_at: nil, assignment_overrides: override_params }
           call_create(params, 201)
           json = JSON.parse response.body
           assignment = Assignment.find(json["id"])
@@ -2063,7 +2207,7 @@ describe AssignmentsApiController, type: :request do
 
         it "allows a nil override due date when the last grading period is closed" do
           override_params = [{ student_ids: [@student.id], due_at: nil }]
-          params = { due_at: 3.days.from_now.iso8601, assignment_overrides: override_params }
+          params = { due_at: 3.days.from_now.iso8601, lock_at: nil, assignment_overrides: override_params }
           call_create(params, 201)
           json = JSON.parse response.body
           assignment = Assignment.find(json["id"])
@@ -2568,6 +2712,68 @@ describe AssignmentsApiController, type: :request do
             }
           })
           @assignment.reload
+        end
+
+        let(:update_assignment_only) do
+          api_update_assignment_call(@course,@assignment,{
+            'name' => 'Assignment With Overrides',
+            'due_at' => 1.week.from_now.iso8601,
+            'assignment_overrides' => {
+              '0' => {
+                'student_ids' => [@student.id],
+                'title' => 'adhoc override',
+                'due_at' => @adhoc_due_at.iso8601
+              },
+              '1' => {
+                'course_section_id' => @course.default_section.id,
+                'due_at' => @section_due_at.iso8601
+              },
+              '2' => {
+                'title' => 'Group override',
+                'set_id' => @group_category.id,
+                'group_id' => @group.id,
+                'due_at' => @group_due_at.iso8601
+              },
+              '3' => {
+                'title' => 'Helpful Tag',
+                'noop_id' => 999
+              }
+            }
+          })
+          @assignment.reload
+        end
+
+        describe "DueDateCacher" do
+          it "is called only once when there are changes to overrides" do
+            due_date_cacher = instance_double(DueDateCacher)
+            allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+            expect(due_date_cacher).to receive(:recompute).once
+
+            update_assignment
+          end
+
+          it "is not called when there are no changes to overrides or assignment" do
+            update_assignment
+
+            due_date_cacher = instance_double(DueDateCacher)
+            allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+            expect(due_date_cacher).to receive(:recompute).never
+
+            update_assignment
+          end
+
+          it "is called only once when there are changes to the assignment but not to the overrides" do
+            update_assignment
+
+            due_date_cacher = instance_double(DueDateCacher)
+            allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+            expect(due_date_cacher).to receive(:recompute).once
+
+            update_assignment_only
+          end
         end
 
         it "updates any ADHOC overrides" do
@@ -3523,6 +3729,7 @@ describe AssignmentsApiController, type: :request do
           'pinned' => !!@topic.pinned,
           'position' => @topic.position,
           'topic_children' => [],
+          'group_topic_children' => [],
           'locked' => false,
           'can_lock' => true,
           'comments_disabled' => false,
@@ -4010,6 +4217,16 @@ describe AssignmentsApiController, type: :request do
         expect(result.has_key?('turnitin_enabled')).to eq false
       end
     end
+
+    it "contains true for anonymous_grading when the assignment has anonymous grading enabled" do
+      @assignment.anonymous_grading = true
+      expect(result['anonymous_grading']).to be true
+    end
+
+    it "contains false for anonymous_grading when the assignment has anonymous grading disabled" do
+      @assignment.anonymous_grading = false
+      expect(result['anonymous_grading']).to be false
+    end
   end
 
   context "update_from_params" do
@@ -4093,6 +4310,40 @@ describe AssignmentsApiController, type: :request do
       params = ActionController::Parameters.new({"muted" => "false"})
       update_from_params(@assignment, params, @teacher)
       expect(comment.reload.hidden?).to eql false
+    end
+
+    it "does not update anonymous grading if the anonymous marking feature flag is not set" do
+      params = ActionController::Parameters.new({"anonymous_grading" => "true"})
+      update_from_params(@assignment, params, @teacher)
+      expect(@assignment.anonymous_grading).to be_falsey
+    end
+
+    context "when the anonymous marking feature flag is set" do
+      before(:once) do
+        @course.account.enable_feature!(:anonymous_moderated_marking)
+        @course.enable_feature!(:anonymous_marking)
+      end
+
+      it "enables anonymous grading if anonymous_grading is true" do
+        params = ActionController::Parameters.new({"anonymous_grading" => "true"})
+        update_from_params(@assignment, params, @teacher)
+        expect(@assignment).to be_anonymous_grading
+      end
+
+      it "disables anonymous grading if anonymous_grading is false" do
+        params = ActionController::Parameters.new({"anonymous_grading" => "false"})
+        update_from_params(@assignment, params, @teacher)
+        expect(@assignment).not_to be_anonymous_grading
+      end
+
+      it "does not update anonymous grading status if anonymous_grading is not present" do
+        @assignment.anonymous_grading = true
+
+        params = ActionController::Parameters.new({})
+        update_from_params(@assignment, params, @teacher)
+
+        expect(@assignment).to be_anonymous_grading
+      end
     end
   end
 

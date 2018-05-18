@@ -32,6 +32,9 @@ describe Announcement do
 
       @course.lock_all_announcements = true
       @course.save!
+
+      # should not trigger an update callback by re-saving inside a before_save
+      expect_any_instance_of(Announcement).to receive(:clear_streams_if_not_published).never
       announcement = @course.announcements.create!(valid_announcement_attributes)
 
       expect(announcement).to be_locked
@@ -71,7 +74,6 @@ describe Announcement do
   context "section specific announcements" do
     before(:once) do
       course_with_teacher(active_course: true)
-      @course.account.set_feature_flag! :section_specific_announcements, 'on'
       @section = @course.course_sections.create!(name: 'test section')
 
       @announcement = @course.announcements.create!(:user => @teacher, message: 'hello my favorite section!')

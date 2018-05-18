@@ -47,7 +47,9 @@ const workingMenuProps = () => (
 
     publishGradesToSis: {
       isEnabled: false
-    }
+    },
+
+    gradingPeriodId: "1234"
   }
 );
 const previousExportProps = () => (
@@ -215,7 +217,7 @@ QUnit.module('ActionMenu - handleExport', {
 
   setup () {
     this.expectedPreviousExport = {
-      attachmentUrl: 'http://attachmentUrl&download_frd=1',
+      attachmentUrl: 'http://attachmentUrl',
       label: 'New Export (Jan 20, 2009 at 5pm)'
     };
     this.successfulExport = {
@@ -289,6 +291,18 @@ test('starts the export using the GradebookExportManager instance', function () 
   this.menuItem.click();
 
   equal(this.spies.startExport.callCount, 1);
+
+  return exportResult;
+});
+
+test('passes the grading period to the GradebookExportManager', function () {
+  const exportResult = this.getPromise('resolved');
+
+  this.spies.startExport.returns(exportResult);
+
+  this.menuItem.click();
+
+  strictEqual(this.spies.startExport.firstCall.args[0], "1234");
 
   return exportResult;
 });
@@ -536,7 +550,7 @@ test('returns the previous export stored in the state if it is available', funct
 
 test('returns the previous export stored in the props if nothing is available in state', function () {
   const expectedPreviousExport = {
-    attachmentUrl: 'http://downloadUrl&download_frd=1',
+    attachmentUrl: 'http://downloadUrl',
     label: 'Previous Export (Jan 20, 2009 at 5pm)'
   };
 

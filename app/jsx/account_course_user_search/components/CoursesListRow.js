@@ -19,7 +19,9 @@
 import React from 'react'
 import {number, string, shape, arrayOf, bool} from 'prop-types'
 import Button from '@instructure/ui-core/lib/components/Button'
+import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent'
 import Tooltip from '@instructure/ui-core/lib/components/Tooltip'
+import IconBlueprintLine from 'instructure-icons/lib/Line/IconBlueprintLine'
 import IconPlusLine from 'instructure-icons/lib/Line/IconPlusLine'
 import IconSettingsLine from 'instructure-icons/lib/Line/IconSettingsLine'
 import IconStatsLine from 'instructure-icons/lib/Line/IconStatsLine'
@@ -41,11 +43,17 @@ export default class CoursesListRow extends React.Component {
     subaccount_name: string.isRequired,
     term: shape({name: string.isRequired}).isRequired,
     roles: arrayOf(shape({id: string.isRequired})),
-    showSISIds: bool.isRequired
+    showSISIds: bool.isRequired,
+    can_create_enrollments: bool,
+    blueprint: bool
   }
 
   static defaultProps = {
-    roles: []
+    roles: [],
+    can_create_enrollments:
+      window.ENV &&
+      window.ENV.PERMISSIONS &&
+      window.ENV.PERMISSIONS.can_create_enrollments
   }
 
   constructor(props) {
@@ -118,15 +126,22 @@ export default class CoursesListRow extends React.Component {
       teachers,
       subaccount_name,
       showSISIds,
-      term
+      term,
+      blueprint,
+      can_create_enrollments
     } = this.props
     const {teachersToShow, newlyEnrolledStudents} = this.state
     const url = `/courses/${id}`
     const isPublished = workflow_state !== 'unpublished'
 
+    const blueprintTip = I18n.t('This is a blueprint course')
+    const addUsersTip = I18n.t('Add Users to %{name}', {name})
+    const statsTip = I18n.t('Statistics for %{name}', {name})
+    const settingsTip = I18n.t('Settings for %{name}', {name})
+
     return (
       <tr>
-        <td>
+        <th scope="row">
         {isPublished && (
           <Tooltip tip={I18n.t('Published')}>
             <span className="published-status published">
@@ -134,9 +149,18 @@ export default class CoursesListRow extends React.Component {
             </span>
           </Tooltip>
         )}
-        </td>
+        </th>
         <td>
-          <a href={url}>{name}</a>
+          <a href={url}>
+            {name}
+            {blueprint && (
+              <Tooltip tip={blueprintTip}>
+                {' '}
+                <IconBlueprintLine />
+                <ScreenReaderContent>{blueprintTip}</ScreenReaderContent>
+              </Tooltip>
+            )}
+          </a>
         </td>
         {showSISIds && <td>{sis_course_id}</td>}
         <td>{term.name}</td>
@@ -162,19 +186,21 @@ export default class CoursesListRow extends React.Component {
         <td>{subaccount_name}</td>
         <td>{I18n.n(total_students + newlyEnrolledStudents)}</td>
         <td style={{whiteSpace: 'nowrap'}}>
-          <Tooltip tip={I18n.t('Add Users to %{name}', {name})}>
-            <Button variant="icon" size="small" onClick={this.openAddUsersToCourseDialog}>
-              <IconPlusLine />
-            </Button>
-          </Tooltip>
-          <Tooltip tip={I18n.t('Statistics for %{name}', {name})}>
+          {can_create_enrollments && (
+            <Tooltip tip={addUsersTip}>
+              <Button variant="icon" size="small" onClick={this.openAddUsersToCourseDialog}>
+                <IconPlusLine title={addUsersTip} />
+              </Button>
+            </Tooltip>
+          )}
+          <Tooltip tip={statsTip}>
             <Button variant="icon" size="small" href={`${url}/statistics`}>
-              <IconStatsLine />
+              <IconStatsLine height="1.5em" title={statsTip} />
             </Button>
           </Tooltip>
-          <Tooltip tip={I18n.t('Settings for %{name}', {name})}>
+          <Tooltip tip={settingsTip}>
             <Button variant="icon" size="small" href={`${url}/settings`}>
-              <IconSettingsLine />
+              <IconSettingsLine  height="1.5em" title={settingsTip} />
             </Button>
           </Tooltip>
         </td>

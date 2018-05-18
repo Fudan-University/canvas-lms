@@ -61,6 +61,45 @@ describe GradebooksController, type: :request do
           expect(js_env.fetch('can_comment_on_submission')).to eq(true)
         end
       end
+
+      describe 'anonymous_moderated_marking_enabled' do
+        it 'is false when the root account does not have anonymous_moderated_marking enabled' do
+          get speed_grader_course_gradebook_path(course_id: @course.id), params: { assignment_id: @assignment.id }
+          js_env = js_env_from_response(response)
+
+          expect(js_env.fetch('anonymous_moderated_marking_enabled')).to be false
+        end
+
+        it 'is true when the root account has anonymous_moderated_marking enabled' do
+          @course.root_account.enable_feature!(:anonymous_moderated_marking)
+          get speed_grader_course_gradebook_path(course_id: @course.id), params: { assignment_id: @assignment.id }
+          js_env = js_env_from_response(response)
+          expect(js_env.fetch('anonymous_moderated_marking_enabled')).to be true
+        end
+      end
+
+      describe 'show_help_menu_item' do
+        it 'is false when the root account does not have a support URL configured' do
+          get speed_grader_course_gradebook_path(course_id: @course.id), params: { assignment_id: @assignment.id }
+          js_env = js_env_from_response(response)
+
+          expect(js_env.fetch('show_help_menu_item')).to be false
+        end
+
+        it 'is true when the root account has a support URL configured' do
+          root_account = @course.root_account
+          root_account.update!(settings: root_account.settings.merge(support_url: 'url'))
+          get speed_grader_course_gradebook_path(course_id: @course.id), params: { assignment_id: @assignment.id }
+          js_env = js_env_from_response(response)
+          expect(js_env.fetch('show_help_menu_item')).to be true
+        end
+      end
+
+      it 'includes the "Help" URL' do
+        get speed_grader_course_gradebook_path(course_id: @course.id), params: { assignment_id: @assignment.id }
+        js_env = js_env_from_response(response)
+        expect(js_env).to have_key 'help_url'
+      end
     end
   end
 
@@ -102,6 +141,29 @@ describe GradebooksController, type: :request do
 
             expect(course_details.fetch('grading_period_set_id')).to eq(grading_period_group_id.to_s)
           end
+        end
+      end
+    end
+  end
+
+  describe 'GET #show' do
+    describe 'js_env' do
+      describe 'anonymous_moderated_marking_enabled' do
+        before(:each) do
+          user_session(@teacher)
+        end
+
+        it 'is false when the root account does not have anonymous_moderated_marking enabled' do
+          get course_gradebook_path(course_id: @course.id)
+          js_env = js_env_from_response(response)
+          expect(js_env.dig('GRADEBOOK_OPTIONS', 'anonymous_moderated_marking_enabled')).to be false
+        end
+
+        it 'is true when the root account has anonymous_moderated_marking enabled' do
+          @course.root_account.enable_feature!(:anonymous_moderated_marking)
+          get course_gradebook_path(course_id: @course.id)
+          js_env = js_env_from_response(response)
+          expect(js_env.dig('GRADEBOOK_OPTIONS', 'anonymous_moderated_marking_enabled')).to be true
         end
       end
     end

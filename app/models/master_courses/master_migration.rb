@@ -45,9 +45,16 @@ class MasterCourses::MasterMigration < ActiveRecord::Base
     master_template.class.transaction do
       master_template.lock!
       if master_template.active_migration_running?
-        raise MigrationRunningError.new("cannot start new migration while another one is running")
+        if opts[:retry_later]
+          self.send_later_enqueue_args(:start_new_migration!,
+            {:singleton => "retry_start_master_migration_#{master_template.global_id}",
+              :run_at => 10.minutes.from_now, :max_attempts => 1},
+            master_template, user, opts)
+        else
+          raise MigrationRunningError.new("cannot start new migration while another one is running")
+        end
       else
-        new_migration = master_template.master_migrations.create!({:user => user}.merge(opts))
+        new_migration = master_template.master_migrations.create!({:user => user}.merge(opts.except(:retry_later)))
         master_template.active_migration = new_migration
         master_template.save!
         new_migration.queue_export_job
@@ -192,7 +199,12 @@ class MasterCourses::MasterMigration < ActiveRecord::Base
 
   def export_object?(obj)
     return false unless obj
-    last_export_at.nil? || obj.updated_at.nil? || obj.updated_at >= last_export_at
+    return true if last_export_at.nil?
+    if obj.is_a?(LearningOutcome) && obj.context_type == "Account"
+      link = self.master_template.course.learning_outcome_links.polymorphic_where(:content => obj).first
+      obj = link if link # export the outcome if it's a new link
+    end
+    obj.updated_at.nil? || obj.updated_at >= last_export_at
   end
 
   def detect_updated_attachments(type)

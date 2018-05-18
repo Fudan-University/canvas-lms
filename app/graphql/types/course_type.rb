@@ -1,3 +1,21 @@
+#
+# Copyright (C) 2018 - present Instructure, Inc.
+#
+# This file is part of Canvas.
+#
+# Canvas is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, version 3 of the License.
+#
+# Canvas is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
 module Types
   CourseType = GraphQL::ObjectType.define do
     name "Course"
@@ -18,8 +36,37 @@ module Types
 
     connection :assignmentsConnection do
       type AssignmentType.connection_type
-      resolve -> (course, _, ctx) {
-        Assignments::ScopedToUser.new(course, ctx[:current_user]).scope
+
+      argument :filter, AssignmentFilterInputType
+
+      resolve ->(course, args, ctx) {
+        assignments = Assignments::ScopedToUser.new(course, ctx[:current_user]).scope
+
+        assignments_resolver = ->(grading_period_id, has_grading_periods = nil) do
+          if grading_period_id
+            assignments.
+              joins(:submissions).
+              where(submissions: {grading_period_id: grading_period_id}).
+              distinct
+          elsif has_grading_periods
+            # this is the case where a grading_period_id was not passed *and*
+            # we are outside of any grading period (so we return nothing)
+            []
+          else
+            assignments
+          end
+        end
+
+        filter = args[:filter] || {}
+
+        if filter.key?(:gradingPeriodId)
+          assignments_resolver.call(filter[:gradingPeriodId])
+        else
+          Loaders::CurrentGradingPeriodLoader.load(course)
+            .then do |gp, has_grading_periods|
+            assignments_resolver.call(gp&.id, has_grading_periods)
+          end
+        end
       }
     end
 
@@ -41,9 +88,8 @@ module Types
       resolve ->(course, args, ctx) {
         if course.grants_any_right?(ctx[:current_user], ctx[:session],
             :read_roster, :view_all_grades, :manage_grades)
-          scope = UserSearch.scope_for(course, ctx[:current_user], {})
+          scope = UserSearch.scope_for(course, ctx[:current_user], include_inactive_enrollments: true)
           scope = scope.where(users: {id: args[:userIds]}) if args[:userIds].present?
-
           scope
         else
           nil
@@ -63,6 +109,7 @@ module Types
       argument :studentIds, !types[!types.ID], "Only return submissions for the given students.",
         prepare: GraphQLHelpers.relay_or_legacy_ids_prepare_func("User")
       argument :orderBy, types[SubmissionOrderInputType]
+      argument :filter, SubmissionFilterInputType
 
       resolve ->(course, args, ctx) {
         current_user = ctx[:current_user]
@@ -81,8 +128,9 @@ module Types
 
         submissions = Submission.active.joins(:assignment).where(
           user_id: allowed_user_ids,
-          assignment_id: course.assignments.published
-        ).where.not(workflow_state: "unsubmitted")
+          assignment_id: course.assignments.published,
+          workflow_state: (args[:filter] || {})[:states] || DEFAULT_SUBMISSION_STATES
+        )
 
         (args[:orderBy] || []).each { |order|
           submissions = submissions.order("#{order[:field]} #{order[:direction]}")
@@ -136,5 +184,13 @@ module Types
     value "available"
     value "completed"
     value "deleted"
+  end
+
+  AssignmentFilterInputType = GraphQL::InputObjectType.define do
+    name "AssignmentFilter"
+    argument :gradingPeriodId, types.ID, <<-DESC
+    only return assignments for the given grading period. Defaults to the
+current grading period. Pass `null` to not filter by grading period.
+    DESC
   end
 end

@@ -37,10 +37,30 @@ class ActiveRecord::Base
     # unless specifically requested
     def in_transaction_in_test?
       return false unless Rails.env.test?
-      transaction_method = ActiveRecord::ConnectionAdapters::DatabaseStatements.instance_method(:transaction).source_location.first
-      transaction_regex = /\A#{Regexp.escape(transaction_method)}:\d+:in `transaction'\z/.freeze
-      # transactions due to spec fixtures are _not_in the callstack, so we only need to find 1
-      !!caller.find { |s| s =~ transaction_regex && !s.include?('spec_helper.rb') }
+      stacktrace = caller
+
+      transaction_index, wrap_index, after_index = [
+        ActiveRecord::ConnectionAdapters::DatabaseStatements.instance_method(:transaction),
+        defined?(SpecTransactionWrapper) && SpecTransactionWrapper.method(:wrap_block_in_transaction),
+        AfterTransactionCommit::Transaction.instance_method(:commit_records)
+      ].map do |method|
+        if method
+          regex = /\A#{Regexp.escape(method.source_location.first)}:\d+:in `#{Regexp.escape(method.name)}'\z/.freeze
+          stacktrace.index{|s| s =~ regex}
+        end
+      end
+
+      if transaction_index
+        # we wrap a transaction around controller actions, so try to see if this call came from that
+        if wrap_index && (transaction_index..wrap_index).all?{|i| stacktrace[i].match?(/transaction|mon_synchronize/)}
+          false
+        else
+          # check if this is being run through an after_transaction_commit since the last transaction
+          !(after_index && after_index < transaction_index)
+        end
+      else
+        false
+      end
     end
 
     def default_scope(*)
@@ -402,6 +422,8 @@ class ActiveRecord::Base
         # The collation level of 3 is the default, but is explicitly specified here and means that
         # case, accents and base characters are all taken into account when creating a collation key
         # for a string - more at https://pgxn.org/dist/pg_collkey/0.5.1/
+        # if you change these arguments, you need to rebuild all db indexes that use them,
+        # and you should also match the settings with Canvas::ICU::Collator and natcompare.js
         "#{schema}.collkey(#{col}, '#{Canvas::ICU.locale_for_collation}', false, 3, true)"
       else
         "CAST(LOWER(replace(#{col}, '\\', '\\\\')) AS bytea)"
@@ -597,7 +619,9 @@ class ActiveRecord::Base
   def self.current_xlog_location
     Shard.current(shard_category).database_server.unshackle do
       Shackles.activate(:master) do
-        if connection.send(:postgresql_version) >= 100000
+        if Rails.env.test? ? self.in_transaction_in_test? : connection.open_transactions > 0
+          raise "don't run current_xlog_location in a transaction"
+        elsif connection.send(:postgresql_version) >= 100000
           connection.select_value("SELECT pg_current_wal_lsn()")
         else
           connection.select_value("SELECT pg_current_xlog_location()")
@@ -629,11 +653,6 @@ class ActiveRecord::Base
 
   include ActiveSupport::Callbacks::Suspension
 
-  # saves the record with all its save callbacks suspended.
-  def save_without_callbacks
-    suspend_callbacks(kind: [:validation, :save, (new_record? ? :create : :update)]) { save }
-  end
-
   def self.touch_all_records
     self.find_ids_in_ranges do |min_id, max_id|
       self.where(primary_key => min_id..max_id).touch_all
@@ -646,12 +665,17 @@ module UsefulFindInBatches
     # prefer copy unless we're in a transaction (which would be bad,
     # because we might open a separate connection in the block, and not
     # see the contents of our current transaction)
-    if connection.open_transactions == 0
+    if connection.open_transactions == 0 && !options[:start] && eager_load_values.empty?
       self.activate { |r| r.find_in_batches_with_copy(options, &block) }
-    elsif should_use_cursor? && !options[:start]
+    elsif should_use_cursor? && !options[:start] && eager_load_values.empty?
       self.activate { |r| r.find_in_batches_with_cursor(options, &block) }
     elsif find_in_batches_needs_temp_table?
-      raise ArgumentError.new("GROUP and ORDER are incompatible with :start, as is an explicit select without the primary key") if options[:start]
+      if options[:start]
+        raise ArgumentError.new("GROUP and ORDER are incompatible with :start, as is an explicit select without the primary key")
+      end
+      unless eager_load_values.empty?
+        raise ArgumentError.new("GROUP and ORDER are incompatible with `eager_load`, as is an explicit select without the primary key")
+      end
       self.activate { |r| r.find_in_batches_with_temp_table(options, &block) }
     else
       super
@@ -662,12 +686,7 @@ ActiveRecord::Relation.prepend(UsefulFindInBatches)
 
 module LockForNoKeyUpdate
   def lock(lock_type = true)
-    if lock_type == :no_key_update
-      postgres_9_3_or_above = connection.adapter_name == 'PostgreSQL' &&
-        connection.send(:postgresql_version) >= 90300
-      lock_type = true
-      lock_type = 'FOR NO KEY UPDATE' if postgres_9_3_or_above
-    end
+    lock_type = 'FOR NO KEY UPDATE' if lock_type == :no_key_update
     super(lock_type)
   end
 end
@@ -741,6 +760,7 @@ ActiveRecord::Relation.class_eval do
     limited_query = limit(0).to_sql
     full_query = "COPY (#{to_sql}) TO STDOUT"
     conn = connection
+    full_query = conn.annotate_sql(full_query) if defined?(Marginalia)
     pool = conn.pool
     # remove the connection from the pool so that any queries executed
     # while we're running this will get a new connection
@@ -806,7 +826,10 @@ ActiveRecord::Relation.class_eval do
   end
 
   def find_in_batches_with_temp_table(options = {})
-    can_do_it = Rails.env.production? || ActiveRecord::Base.in_migration || ActiveRecord::Base.in_transaction_in_test?
+    can_do_it = Rails.env.production? ||
+      ActiveRecord::Base.in_migration ||
+      (!Rails.env.test? && connection.open_transactions > 0) ||
+      ActiveRecord::Base.in_transaction_in_test?
     raise "find_in_batches_with_temp_table probably won't work outside a migration
            and outside a transaction. Unfortunately, it's impossible to automatically
            determine a better way to do it that will work correctly. You can try
@@ -1240,6 +1263,13 @@ end
 class ActiveRecord::MigrationProxy
   delegate :connection, :tags, :cassandra_cluster, to: :migration
 
+  def initialize(*)
+    super
+    if version&.to_s&.length == 14 && version.to_s > Time.now.utc.strftime("%Y%m%d%H%M%S")
+      raise "please don't create migrations with a version number in the future: #{name} #{version}"
+    end
+  end
+
   def runnable?
     !migration.respond_to?(:runnable?) || migration.runnable?
   end
@@ -1312,10 +1342,9 @@ ActiveRecord::ConnectionAdapters::SchemaStatements.class_eval do
     case self.adapter_name
     when 'PostgreSQL'
       foreign_key_name = foreign_key_name(from_table, options)
-      query = supports_delayed_constraint_validation? ? 'convalidated' : 'conname'
       schema = @config[:use_qualified_names] ? quote(shard.name) : 'current_schema()'
-      value = select_value("SELECT #{query} FROM pg_constraint INNER JOIN pg_namespace ON pg_namespace.oid=connamespace WHERE conname='#{foreign_key_name}' AND nspname=#{schema}")
-      if supports_delayed_constraint_validation? && value == 'f'
+      value = select_value("SELECT convalidated FROM pg_constraint INNER JOIN pg_namespace ON pg_namespace.oid=connamespace WHERE conname='#{foreign_key_name}' AND nspname=#{schema}")
+      if value == 'f'
         execute("ALTER TABLE #{quote_table_name(from_table)} DROP CONSTRAINT #{quote_table_name(foreign_key_name)}")
       elsif value
         return
@@ -1326,6 +1355,30 @@ ActiveRecord::ConnectionAdapters::SchemaStatements.class_eval do
       foreign_key_name = foreign_key_name(from_table, column, options)
       return if foreign_keys(from_table).find { |k| k.options[:name] == foreign_key_name }
       add_foreign_key(from_table, to_table, options)
+    end
+  end
+
+  def find_foreign_key(from_table, to_table, column: nil)
+    column ||= "#{to_table.to_s.singularize}_id"
+    foreign_keys(from_table).find do |key|
+      key.to_table == to_table.to_s && key.column == column.to_s
+    end&.name
+  end
+
+  def alter_constraint(table, constraint, new_name: nil, deferrable: nil)
+    raise ArgumentError, "must specify deferrable or a new name" if new_name.nil? && deferrable.nil?
+
+    # can't rename and alter options in the same statement, so do the rename first
+    if new_name && new_name != constraint
+      execute("ALTER TABLE #{quote_table_name(table)}
+               RENAME CONSTRAINT #{quote_column_name(constraint)} TO #{quote_column_name(new_name)}")
+      constraint = new_name
+    end
+
+    unless deferrable.nil?
+      options = deferrable ? "DEFERRABLE" : "NOT DEFERRABLE"
+      execute("ALTER TABLE #{quote_table_name(table)}
+               ALTER CONSTRAINT #{quote_column_name(constraint)} #{options}")
     end
   end
 
@@ -1344,13 +1397,10 @@ ActiveRecord::Associations::CollectionAssociation.class_eval do
 end
 
 module UnscopeCallbacks
-  method = CANVAS_RAILS5_0 ? "__run_callbacks__" : "run_callbacks"
-  module_eval <<-RUBY, __FILE__, __LINE__ + 1
-    def #{method}(*args)
-      scope = self.class.all.klass.unscoped
-      scope.scoping { super }
-    end
-  RUBY
+  def run_callbacks(*args)
+    scope = self.class.all.klass.unscoped
+    scope.scoping { super }
+  end
 end
 ActiveRecord::Base.send(:include, UnscopeCallbacks)
 
@@ -1408,8 +1458,7 @@ module SkipTouchCallbacks
   end
 
   module BelongsTo
-    def touch_record(o, *args)
-      name = CANVAS_RAILS5_0 ? args[1] : args[2]
+    def touch_record(o, _changes, _foreign_key, name, *)
       return if o.class.touch_callbacks_skipped?(name)
       super
     end
@@ -1442,7 +1491,7 @@ module DupArraysInMutationTracker
     change
   end
 end
-ActiveRecord::AttributeMutationTracker.prepend(DupArraysInMutationTracker) unless CANVAS_RAILS5_0
+ActiveRecord::AttributeMutationTracker.prepend(DupArraysInMutationTracker)
 
 module IgnoreOutOfSequenceMigrationDates
   def current_migration_number(dirname)
@@ -1460,6 +1509,17 @@ Autoextend.hook(:"ActiveRecord::Generators::MigrationGenerator",
                 singleton: true,
                 method: :prepend,
                 optional: true)
+
+module AlwaysUseMigrationDates
+  def next_migration_number(number)
+    if ActiveRecord::Base.timestamped_migrations
+      Time.now.utc.strftime("%Y%m%d%H%M%S")
+    else
+      SchemaMigration.normalize_migration_number(number)
+    end
+  end
+end
+ActiveRecord::Migration.prepend(AlwaysUseMigrationDates)
 
 module ExplainAnalyze
   def exec_explain(queries, analyze: false) # :nodoc:
@@ -1488,9 +1548,25 @@ module ExplainAnalyze
         yield
       else
         # fold in switchman's override
-        self.activate { |relation| relation.exec_queries }
+        self.activate { |relation| relation.send(:exec_queries) }
       end
     end, analyze: analyze)
   end
 end
 ActiveRecord::Relation.prepend(ExplainAnalyze)
+
+if CANVAS_RAILS5_1
+  ActiveRecord::AttributeMethods::Dirty.module_eval do
+    def emit_warning_if_needed(method_name, new_method_name)
+      unless mutation_tracker.equal?(mutations_from_database)
+        raise <<-EOW.squish
+                The behavior of `#{method_name}` inside of after callbacks will
+                be changing in the next version of Rails. The new return value will reflect the
+                behavior of calling the method after `save` returned (e.g. the opposite of what
+                it returns now). To maintain the current behavior, use `#{new_method_name}`
+                instead.
+        EOW
+      end
+    end
+  end
+end

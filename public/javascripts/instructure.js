@@ -157,8 +157,8 @@ function handleYoutubeLink () {
       $("a.instructure_scribd_file").not(".inline_disabled").each(function() {
         var $link = $(this);
         if ( $.trim($link.text()) ) {
-          var $span = $("<span class='instructure_scribd_file_holder link_holder'/>"),
-                      $scribd_link = $("<a class='scribd_file_preview_link' aria-hidden='true' tabindex='-1' href='" + htmlEscape($link.attr('href')) + "' title='" + htmlEscape(I18n.t('titles.preview_document', "Preview the document")) +
+          var $span = $("<span class='instructure_file_holder link_holder'/>"),
+                      $scribd_link = $("<a class='file_preview_link' aria-hidden='true' tabindex='-1' href='" + htmlEscape($link.attr('href')) + "' title='" + htmlEscape(I18n.t('titles.preview_document', "Preview the document")) +
                           "' style='padding-left: 5px;'><img src='/images/preview.png' alt='" + htmlEscape(I18n.t('titles.preview_document', "Preview the document")) + "'/></a>");
                   $link.removeClass('instructure_scribd_file').before($span).appendTo($span);
                   $span.append($scribd_link);
@@ -342,7 +342,7 @@ function handleYoutubeLink () {
     });
 
     if ($.filePreviewsEnabled()) {
-      $("a.scribd_file_preview_link").live('click', function(event) {
+      $("a.file_preview_link").live('click', function(event) {
         event.preventDefault();
         var $link = $(this).loadingImage({image_size: 'small'}).hide();
         $.ajaxJSON($link.attr('href').replace(/\/download/, ""), 'GET', {}, function(data) {
@@ -375,7 +375,7 @@ function handleYoutubeLink () {
         });
       });
     } else {
-      $("a.scribd_file_preview_link").live('click', function(event) {
+      $("a.file_preview_link").live('click', function(event) {
         event.preventDefault();
         alert(I18n.t('alerts.file_previews_disabled', 'File previews have been disabled for this Canvas site'));
       });
@@ -457,15 +457,6 @@ function handleYoutubeLink () {
       $editor = $($editor);
       if(!$editor || $editor.length === 0) { return; }
       RichContentEditor.destroyRCE($editor);
-    });
-
-    $(".cant_record_link").click(function(event) {
-      event.preventDefault();
-      $("#cant_record_dialog").dialog({
-        modal: true,
-        title: I18n.t('titles.cant_create_recordings', "Can't Create Recordings?"),
-        width: 400
-      });
     });
 
     $(".communication_message .content .links .show_users_link,.communication_message .header .show_users_link").click(function(event) {

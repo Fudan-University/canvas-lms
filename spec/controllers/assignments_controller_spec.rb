@@ -306,6 +306,13 @@ describe AssignmentsController do
       assert_status(404)
     end
 
+    it "doesn't fail on a public course with a nil user" do
+      course = course_factory(:active_all => true, :is_public => true)
+      assignment = assignment_model(:course => course, :submission_types => "online_url")
+      get 'show', params: {:course_id => course.id, :id => assignment.id}
+      assert_status(200)
+    end
+
     it "should return unauthorized if not enrolled" do
       get 'show', params: {:course_id => @course.id, :id => @assignment.id}
       assert_unauthorized
@@ -421,8 +428,9 @@ describe AssignmentsController do
     it "should not show locked external tool assignments" do
       user_session(@student)
 
-      @assignment.lock_at = Time.now - 1.week
-      @assignment.unlock_at = Time.now + 1.week
+      @assignment.lock_at = 1.week.ago
+      @assignment.due_at = 10.days.ago
+      @assignment.unlock_at = 2.weeks.ago
       @assignment.submission_types = 'external_tool'
       @assignment.save
       # This is usually a ContentExternalTool, but it only needs to
@@ -751,8 +759,18 @@ describe AssignmentsController do
     context 'plagiarism detection platform' do
       include_context 'lti2_spec_helper'
 
-      it "bootstraps the correct message_handler id for LTI 2 tools to js_env" do
-        user_session(@teacher)
+      let(:service_offered) do
+        [
+          {
+            "endpoint" => "http://originality.docker/eula",
+            "action" => ["GET"],
+            "@id" => "http://originality.docker/lti/v2/services#vnd.Canvas.Eula",
+            "@type" => "RestService"
+          }
+        ]
+      end
+
+      before do
         allow_any_instance_of(AssignmentConfigurationToolLookup).to receive(:create_subscription).and_return true
         allow(Lti::ToolProxy).to receive(:find_active_proxies_for_context).with(@course) { Lti::ToolProxy.where(id: tool_proxy.id) }
         tool_proxy.resources << resource_handler
@@ -764,9 +782,21 @@ describe AssignmentsController do
           tool_type: 'Lti::MessageHandler',
           tool_id: message_handler.id
         )
+      end
 
+      it "bootstraps the correct message_handler id for LTI 2 tools to js_env" do
+        user_session(@teacher)
         get 'edit', params: {:course_id => @course.id, :id => @assignment.id}
         expect(assigns[:js_env][:SELECTED_CONFIG_TOOL_ID]).to eq message_handler.id
+      end
+
+      it "bootstraps the correct EULA link for the associated LTI 2 tool" do
+        tool_proxy.raw_data['tool_profile']['service_offered'] = service_offered
+        tool_proxy.save!
+
+        user_session(@student)
+        get 'show', params: {:course_id => @course.id, :id => @assignment.id}
+        expect(assigns[:js_env][:EULA_URL]).to eq service_offered[0]['endpoint']
       end
     end
 
@@ -818,6 +848,27 @@ describe AssignmentsController do
         user_session(@teacher)
         get 'edit', params: {:course_id => @course.id, :id => @assignment.id}
         expect(assigns[:js_env][:dummy]).to be nil
+      end
+    end
+
+    describe 'js_env ANONYMOUS_GRADING_ENABLED' do
+      before(:each) do
+        @course.account.enable_feature!(:anonymous_moderated_marking)
+        user_session(@teacher)
+      end
+
+      it 'is false when the anonymous marking flag is not enabled' do
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_GRADING_ENABLED]).to be false
+      end
+
+      it 'is true when the anonymous marking flag is enabled' do
+        @course.enable_feature!(:anonymous_marking)
+
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_GRADING_ENABLED]).to be true
       end
     end
   end

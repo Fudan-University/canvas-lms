@@ -141,12 +141,14 @@ class AssignmentsController < ApplicationController
         :ROOT_OUTCOME_GROUP => outcome_group_json(@context.root_outcome_group, @current_user, session),
         :COURSE_ID => @context.id,
         :ASSIGNMENT_ID => @assignment.id,
-        :EXTERNAL_TOOLS => external_tools_json(@external_tools, @context, @current_user, session)
+        :EXTERNAL_TOOLS => external_tools_json(@external_tools, @context, @current_user, session),
+        :EULA_URL => tool_eula_url
       })
       set_master_course_js_env_data(@assignment, @context)
       conditional_release_js_env(@assignment, includes: :rule)
 
       @can_view_grades = @context.grants_right?(@current_user, session, :view_all_grades)
+      @downloadable_submissions = downloadable_submissions?(@current_user, @context, @assignment)
       @can_grade = @assignment.grants_right?(@current_user, session, :grade)
       if @can_view_grades || @can_grade
         visible_student_ids = @context.apply_enrollment_visibility(@context.all_student_enrollments, @current_user).pluck(:user_id)
@@ -167,10 +169,7 @@ class AssignmentsController < ApplicationController
       respond_to do |format|
         format.html do
           render locals: {
-            eula_url: @assignment.tool_settings_tool
-                      &.try(:tool_proxy)
-                      &.find_service(Assignment::Lti::EULA_SERVICE, 'GET')
-                      &.endpoint
+            eula_url: tool_eula_url
           }
         end
         format.json { render :json => @assignment.as_json(:permissions => {:user => @current_user, :session => session}) }
@@ -210,6 +209,19 @@ class AssignmentsController < ApplicationController
         format.html { render }
       end
     end
+  end
+
+  def downloadable_submissions?(current_user, context, assignment)
+    types = ["online_upload", "online_url", "online_text_entry"]
+    return unless (assignment.submission_types.split(",") & types).any? && current_user
+
+    student_ids =
+      if assignment.grade_as_group?
+        assignment.representatives(current_user).map(&:id)
+      else
+        context.apply_enrollment_visibility(context.student_enrollments, current_user).pluck(:user_id)
+      end
+    student_ids.any? && assignment.submissions.where(user_id: student_ids, submission_type: types).exists?
   end
 
   def list_google_docs
@@ -510,6 +522,9 @@ class AssignmentsController < ApplicationController
       if @context.grading_periods?
         hash[:active_grading_periods] = GradingPeriod.json_for(@context, @current_user)
       end
+
+      hash[:ANONYMOUS_GRADING_ENABLED] = @context.feature_enabled?(:anonymous_marking)
+
       append_sis_data(hash)
       if context.is_a?(Course)
         hash[:allow_self_signup] = true  # for group creation
@@ -545,6 +560,10 @@ class AssignmentsController < ApplicationController
   end
 
   protected
+
+  def tool_eula_url
+    @assignment.tool_settings_tool.try(:tool_proxy)&.find_service(Assignment::LTI_EULA_SERVICE, 'GET')&.endpoint
+  end
 
   def strong_assignment_params
     params.require(:assignment).

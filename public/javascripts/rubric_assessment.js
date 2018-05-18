@@ -26,6 +26,7 @@ import 'jqueryui/dialog'
 import './jquery.instructure_misc_plugins' /* showIf */
 import './jquery.templateData'
 import './vendor/jquery.scrollTo'
+import 'compiled/jquery.rails_flash_notifications' // eslint-disable-line
 
 // TODO: stop managing this in the view and get it out of the global scope submissions/show.html.erb
 /*global rubricAssessment*/
@@ -95,22 +96,7 @@ window.rubricAssessment = {
           $criterion.find(".rating.selected").removeClass('selected');
           if (val || val === 0) {
             $criterion.find(".criterion_description").addClass('completed');
-            $criterion.find(".rating").each(function() {
-              const rating_val = numberHelper.parse($(this).find(".points").text());
-              const use_range = $criterion.find('.criterion_use_range').attr('checked')
-              if (rating_val === val) {
-                $(this).addClass('selected');
-              } else if (use_range) {
-                const $nextRating = $(this).next('.rating')
-                let min_value = 0;
-                if ($nextRating.find(".points").text()) {
-                  min_value = numberHelper.parse($nextRating.find('.points').text());
-                }
-                if ((rating_val > val) && (min_value < val)){
-                  $(this).addClass('selected');
-                }
-              }
-            });
+            rubricAssessment.highlightCriterionScore($criterion, val)
           } else {
             $criterion.find(".criterion_description").removeClass('completed');
           }
@@ -167,6 +153,35 @@ window.rubricAssessment = {
     });
 
     setInterval(rubricAssessment.sizeRatings, 2500);
+  },
+
+  checkScoreAdjustment: ($criterion, rating, rawData) => {
+    const rawPoints = rawData[`rubric_assessment[criterion_${rating.criterion_id}][points]`]
+    const points = rubricAssessment.roundAndFormat(rating.points)
+    if (rawPoints > points) {
+      const criterionDescription = htmlEscape($criterion.find('.description_title').text())
+      $.flashWarning((I18n.t("Extra credit not permitted on outcomes, " +
+        "score adjusted to maximum possible for %{outcome}", {outcome: criterionDescription})))
+    }
+  },
+
+  highlightCriterionScore: function($criterion, val){
+    $criterion.find(".rating").each(function() {
+      const rating_val = numberHelper.parse($(this).find(".points").text());
+      const use_range = $criterion.find('.criterion_use_range').attr('checked')
+      if (rating_val === val) {
+        $(this).addClass('selected');
+      } else if (use_range) {
+        const $nextRating = $(this).next('.rating')
+        let min_value = 0;
+        if ($nextRating.find(".points").text()) {
+          min_value = numberHelper.parse($nextRating.find('.points').text());
+        }
+        if ((rating_val > val) && (min_value < val)){
+          $(this).addClass('selected');
+        }
+      }
+    });
   },
 
   sizeRatings: function() {
@@ -243,7 +258,7 @@ window.rubricAssessment = {
     }
   },
 
-  populateRubric: function($rubric, data) {
+  populateRubric: function($rubric, data, submitted_data = null) {
     $rubric = rubricAssessment.findRubric($rubric);
     var id = $rubric.attr('id').substring(7);
     $rubric.find(".user_id").text(ENV.RUBRIC_ASSESSMENT.assessment_user_id || data.user_id).end()
@@ -261,6 +276,7 @@ window.rubricAssessment = {
     if(data) {
       var assessment = data;
       var total = 0;
+      var $criterion = null;
       for(var idx in assessment.data) {
         var rating = assessment.data[idx];
         var comments = rating.comments_enabled ? rating.comments : rating.description;
@@ -269,7 +285,7 @@ window.rubricAssessment = {
         } else {
           var comments_html = htmlEscape(comments);
         }
-        var $criterion = $rubric.find("#criterion_" + rating.criterion_id);
+        $criterion = $rubric.find("#criterion_" + rating.criterion_id);
         if(!rating.id) {
           $criterion.find(".rating").each(function() {
             var rating_val = parseFloat($(this).find(".points").text(), 10);
@@ -277,6 +293,9 @@ window.rubricAssessment = {
               rating.id = $(this).find(".rating_id").text();
             }
           });
+        }
+        if (submitted_data && $criterion.hasClass('learning_outcome_criterion')) {
+          rubricAssessment.checkScoreAdjustment($criterion, rating, submitted_data)
         }
         $criterion
           .find(".custom_rating_field").val(comments).end()
@@ -301,20 +320,26 @@ window.rubricAssessment = {
         }
       }
       total = window.rubricAssessment.roundAndFormat(total);
+      if ($criterion) rubricAssessment.highlightCriterionScore($criterion, total);
       $rubric.find(".rubric_total").text(total);
     }
   },
 
-  populateRubricSummary: function($rubricSummary, data) {
+  populateRubricSummary: function($rubricSummary, data, editing_data) {
     $rubricSummary.find(".criterion_points").text("").end()
       .find(".rating_custom").text("");
 
     if(data) {
       var assessment = data;
       var total = 0;
+      let $criterion = null;
       for(var idx in assessment.data) {
         var rating = assessment.data[idx];
-        $rubricSummary.find("#criterion_" + rating.criterion_id)
+        $criterion = $rubricSummary.find("#criterion_" + rating.criterion_id);
+        if (editing_data && $criterion.hasClass('learning_outcome_criterion')) {
+          rubricAssessment.checkScoreAdjustment($criterion, rating, editing_data)
+        }
+        $criterion
           .find(".rating").hide().end()
           .find(".rating_" + rating.id).show().end()
           .find('.criterion_points')
@@ -322,11 +347,11 @@ window.rubricAssessment = {
           .end()
           .find(".ignore_for_scoring").showIf(rating.ignore_for_scoring);
         if(ratingHasScore(rating) && !$rubricSummary.hasClass('free_form')){
-          $rubricSummary.find("#criterion_" + rating.criterion_id)
-            .find(".rating.description").show().text(rating.description).end()
+          $criterion.find(".rating.description").show()
+          .text(rating.description).end()
         }
         if(rating.comments_enabled && rating.comments) {
-          $rubricSummary.find("#criterion_" + rating.criterion_id).find(".rating_custom").show().text(rating.comments);
+          $criterion.find(".rating_custom").show().text(rating.comments);
         }
         if(rating.points && !rating.ignore_for_scoring) {
           total += rating.points;

@@ -49,6 +49,7 @@ module Api::V1::Assignment
       moderated_grading
       omit_from_final_grade
       anonymous_instructor_annotations
+      anonymous_grading
     )
   }.freeze
 
@@ -158,6 +159,10 @@ module Api::V1::Assignment
     end
 
     hash['is_quiz_assignment'] = assignment.quiz? && assignment.quiz.assignment?
+    hash['can_duplicate'] = assignment.can_duplicate?
+    hash['original_assignment_id'] = assignment.duplicate_of&.id
+    hash['original_assignment_name'] = assignment.duplicate_of&.name
+    hash['workflow_state'] = assignment.workflow_state
 
     if assignment.quiz_lti?
       hash['is_quiz_lti_assignment'] = true
@@ -192,7 +197,7 @@ module Api::V1::Assignment
       hash['external_tool_tag_attributes'] = {
         'url' => external_tool_tag.url,
         'new_tab' => external_tool_tag.new_tab,
-        'resource_link_id' => ContextExternalTool.opaque_identifier_for(external_tool_tag, assignment.shard)
+        'resource_link_id' => assignment.lti_resource_link_id
       }
       hash['url'] = sessionless_launch_url(@context,
                                            :launch_type => 'assessment',
@@ -297,7 +302,7 @@ module Api::V1::Assignment
       end
     end
 
-    hash['published'] = !assignment.unpublished?
+    hash['published'] = assignment.published?
     if can_manage
       hash['unpublishable'] = assignment.can_unpublish?
     end
@@ -335,6 +340,8 @@ module Api::V1::Assignment
       override = assignment.planner_override_for(user)
       hash['planner_override'] = planner_override_json(override, user, session)
     end
+
+    hash['anonymous_grading'] = value_to_boolean(assignment.anonymous_grading)
 
     hash
   end
@@ -421,13 +428,21 @@ module Api::V1::Assignment
     prepared_create = prepare_assignment_create_or_update(assignment, assignment_params, user, context)
     return false unless prepared_create[:valid]
 
-    assignment.quiz_lti! if assignment_params.key?(:quiz_lti)
-    if prepared_create[:overrides].present?
-      create_api_assignment_with_overrides(prepared_create, user)
-    else
-      prepared_create[:assignment].save!
-      return :created
+    response = :created
+
+    Assignment.suspend_due_date_caching do
+      assignment.quiz_lti! if assignment_params.key?(:quiz_lti)
+
+      response = if prepared_create[:overrides].present?
+        create_api_assignment_with_overrides(prepared_create, user)
+      else
+        prepared_create[:assignment].save!
+        :created
+      end
     end
+
+    DueDateCacher.recompute(prepared_create[:assignment], update_grades: true)
+    response
   rescue ActiveRecord::RecordInvalid
     false
   rescue Lti::AssignmentSubscriptionsHelper::AssignmentSubscriptionError => e
@@ -441,12 +456,23 @@ module Api::V1::Assignment
     prepared_update = prepare_assignment_create_or_update(assignment, assignment_params, user, context)
     return false unless prepared_update[:valid]
 
-    if prepared_update[:overrides]
-      update_api_assignment_with_overrides(prepared_update, user)
-    else
-      prepared_update[:assignment].save!
-      :ok
+    cached_due_dates_changed = prepared_update[:assignment].update_cached_due_dates?
+    response = :ok
+
+    Assignment.suspend_due_date_caching do
+      response = if prepared_update[:overrides]
+        update_api_assignment_with_overrides(prepared_update, user)
+      else
+        prepared_update[:assignment].save!
+        :ok
+      end
     end
+
+    if @overrides_affected.to_i > 0 || cached_due_dates_changed
+      DueDateCacher.recompute(prepared_update[:assignment], update_grades: true)
+    end
+
+    response
   rescue ActiveRecord::RecordInvalid
     false
   rescue Lti::AssignmentSubscriptionsHelper::AssignmentSubscriptionError => e
@@ -634,6 +660,10 @@ module Api::V1::Assignment
 
     if assignment_params.key?('moderated_grading')
       assignment.moderated_grading = value_to_boolean(assignment_params['moderated_grading'])
+    end
+
+    if assignment_params.key?('anonymous_grading') && assignment.course.feature_enabled?(:anonymous_marking)
+      assignment.anonymous_grading = value_to_boolean(assignment_params['anonymous_grading'])
     end
 
     apply_report_visibility_options!(assignment_params, assignment)

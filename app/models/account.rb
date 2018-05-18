@@ -20,6 +20,7 @@ require 'atom'
 
 class Account < ActiveRecord::Base
   include Context
+  include OutcomeImportContext
 
   INSTANCE_GUID_SUFFIX = 'canvas-lms'
 
@@ -60,6 +61,7 @@ class Account < ActiveRecord::Base
   has_many :folders, -> { order('folders.name') }, as: :context, inverse_of: :context, dependent: :destroy
   has_many :active_folders, -> { where("folder.workflow_state<>'deleted'").order('folders.name') }, class_name: 'Folder', as: :context, inverse_of: :context
   has_many :developer_keys
+  has_many :developer_key_account_bindings, inverse_of: :account, dependent: :destroy
   has_many :authentication_providers,
            -> { order(:position) },
            extend: AccountAuthorizationConfig::FindWithType,
@@ -76,8 +78,7 @@ class Account < ActiveRecord::Base
   has_many :sis_batch_errors, foreign_key: :root_account_id, inverse_of: :root_account
 
   def inherited_assessment_question_banks(include_self = false, *additional_contexts)
-    sql = []
-    conds = []
+    sql, conds = [], []
     contexts = additional_contexts + account_chain
     contexts.delete(self) unless include_self
     contexts.each { |c|
@@ -109,7 +110,7 @@ class Account < ActiveRecord::Base
   after_save :invalidate_caches_if_changed
   after_update :clear_special_account_cache_if_special
 
-  after_update :clear_cached_short_name, :if => :name_changed?
+  after_update :clear_cached_short_name, :if => :saved_change_to_name?
 
   after_create :create_default_objects
 
@@ -231,13 +232,18 @@ class Account < ActiveRecord::Base
   add_setting :strict_sis_check, :boolean => true, :root_only => true, :default => false
   add_setting :lock_all_announcements, default: false, boolean: true, inheritable: true
 
+  add_setting :enable_gravatar, :boolean => true, :root_only => true, :default => true
+
+  # For Student Planner/List View
+  add_setting :default_dashboard_view, :inheritable => true
+
   def settings=(hash)
     if hash.is_a?(Hash) || hash.is_a?(ActionController::Parameters)
       hash.each do |key, val|
-        if account_settings_options && account_settings_options[key.to_sym]
-          opts = account_settings_options[key.to_sym]
+        key = key.to_sym
+        if account_settings_options && (opts = account_settings_options[key])
           if (opts[:root_only] && !self.root_account?) || (opts[:condition] && !self.send("#{opts[:condition]}?".to_sym))
-            settings.delete key.to_sym
+            settings.delete key
           elsif opts[:hash]
             new_hash = {}
             if val.is_a?(Hash) || val.is_a?(ActionController::Parameters)
@@ -252,11 +258,11 @@ class Account < ActiveRecord::Base
                 end
               end
             end
-            settings[key.to_sym] = new_hash.empty? ? nil : new_hash
+            settings[key] = new_hash.empty? ? nil : new_hash
           elsif opts[:boolean]
-            settings[key.to_sym] = Canvas::Plugin.value_to_boolean(val)
+            settings[key] = Canvas::Plugin.value_to_boolean(val)
           else
-            settings[key.to_sym] = val.to_s
+            settings[key] = val.to_s
           end
         end
       end
@@ -392,7 +398,7 @@ class Account < ActiveRecord::Base
   end
 
   def update_account_associations_if_changed
-    send_later_if_production(:update_account_associations) if self.parent_account_id_changed? || self.root_account_id_changed?
+    send_later_if_production(:update_account_associations) if self.saved_change_to_parent_account_id? || self.saved_change_to_root_account_id?
   end
 
   def equella_settings
@@ -565,7 +571,7 @@ class Account < ActiveRecord::Base
 
   def invalidate_caches_if_changed
     @invalidations ||= []
-    if self.parent_account_id_changed?
+    if self.saved_change_to_parent_account_id?
       @invalidations += Account.inheritable_settings # invalidate all of them
     elsif @old_settings
       Account.inheritable_settings.each do |key|
@@ -912,7 +918,7 @@ class Account < ActiveRecord::Base
   end
 
   def get_role_by_name(role_name)
-    if role = Role.get_built_in_role(role_name)
+    if (role = Role.get_built_in_role(role_name))
       return role
     end
 
@@ -1015,15 +1021,17 @@ class Account < ActiveRecord::Base
   end
 
   set_policy do
-    enrollment_types = RoleOverride.enrollment_type_labels.map { |role| role[:name] }
-    RoleOverride.permissions.each do |permission, details|
+    RoleOverride.permissions.each do |permission, _details|
       given { |user| self.account_users_for(user).any? { |au| au.has_permission_to?(self, permission) } }
       can permission
       can :create_courses if permission == :manage_courses
     end
 
     given { |user| !self.account_users_for(user).empty? }
-    can :read and can :read_as_admin and can :manage and can :update and can :delete and can :read_outcomes
+    can :read and can :read_as_admin and can :manage and can :update and can :delete and can :read_outcomes and can :read_terms
+
+    given { |user| self.root_account? && self.all_account_users_for(user).any? }
+    can :read_terms
 
     given { |user|
       result = false
@@ -1141,7 +1149,7 @@ class Account < ActiveRecord::Base
     return if self.settings[:auth_discovery_url].blank?
 
     begin
-      value, uri = CanvasHttp.validate_url(self.settings[:auth_discovery_url])
+      value, _uri = CanvasHttp.validate_url(self.settings[:auth_discovery_url])
       self.auth_discovery_url = value
     rescue URI::Error, ArgumentError
       errors.add(:discovery_url, t('errors.invalid_discovery_url', "The discovery URL is not valid" ))
@@ -1287,12 +1295,12 @@ class Account < ActiveRecord::Base
       scopes = if root_account?
                 [all_courses,
                  associated_courses.
-                     where("root_account_id<>?", self)]
-              else
-                [courses,
-                 associated_courses.
+                   where("root_account_id<>?", self)]
+               else
+                 [courses,
+                  associated_courses.
                     where("courses.account_id<>?", self)]
-              end
+               end
       # match the "batch" size in Course.update_account_associations
       scopes.each do |scope|
         scope.select([:id, :account_id]).find_in_batches(:batch_size => 500) do |courses|
@@ -1346,24 +1354,20 @@ class Account < ActiveRecord::Base
   end
 
   def closest_turnitin_pledge
-    account_with_pledge = account_chain.find { |a| a.turnitin_pledge.present? }
-    account_with_pledge&.turnitin_pledge || t('This assignment submission is my own, original work')
+    closest_account_value(:turnitin_pledge, t('This assignment submission is my own, original work'))
   end
 
   def closest_turnitin_comments
-    if self.turnitin_comments && !self.turnitin_comments.empty?
-      self.turnitin_comments
-    else
-      self.parent_account.try(:closest_turnitin_comments)
-    end
+    closest_account_value(:turnitin_comments)
   end
 
   def closest_turnitin_originality
-    if self.turnitin_originality && !self.turnitin_originality.empty?
-      self.turnitin_originality
-    else
-      self.parent_account.try(:turnitin_originality)
-    end
+    closest_account_value(:turnitin_originality, 'immediate')
+  end
+
+  def closest_account_value(value, default = '')
+    account_with_value = account_chain.find { |a| a.send(value.to_sym).present? }
+    account_with_value&.send(value.to_sym) || default
   end
 
   def self_enrollment_allowed?(course)
@@ -1440,7 +1444,13 @@ class Account < ActiveRecord::Base
     end
 
     tabs << { :id => TAB_BRAND_CONFIGS, :label => t('#account.tab_brand_configs', "Themes"), :css_class => 'brand_configs', :href => :account_brand_configs_path } if manage_settings && branding_allowed?
-    tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: root_account.id } if root_account? && self.grants_right?(user, :manage_developer_keys)
+
+    if self.root_account.feature_enabled?(:developer_key_management)
+      tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: self.id } if self.grants_right?(user, :manage_developer_keys)
+    else
+      tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: root_account.id } if root_account? && self.grants_right?(user, :manage_developer_keys)
+    end
+
 
     tabs += external_tool_tabs(opts)
     tabs += Lti::MessageHandler.lti_apps_tabs(self, [Lti::ResourcePlacement::ACCOUNT_NAVIGATION], opts)
@@ -1658,7 +1668,7 @@ class Account < ActiveRecord::Base
 
   def trusted_referer?(referer_url)
     return if !self.settings.has_key?(:trusted_referers) || self.settings[:trusted_referers].blank?
-    if referer_with_port = format_referer(referer_url)
+    if (referer_with_port = format_referer(referer_url))
       self.settings[:trusted_referers].split(',').include?(referer_with_port)
     end
   end
@@ -1692,7 +1702,7 @@ class Account < ActiveRecord::Base
   end
 
   def migrate_to_canvadocs?
-    Canvadocs.hijack_crocodoc_sessions? && feature_enabled?(:new_annotations)
+    Canvadocs.hijack_crocodoc_sessions?
   end
 
   def update_terms_of_service(terms_params)
@@ -1710,5 +1720,20 @@ class Account < ActiveRecord::Base
         self.errors.add(:terms_of_service, t("Terms of Service attributes not valid"))
       end
     end
+  end
+
+  # Different views are available depending on feature flags
+  def dashboard_views
+    ['activity', 'cards'].tap {|views| views << 'planner' if feature_enabled?(:student_planner)}
+  end
+
+  # Getter/Setter for default_dashboard_view account setting
+  def default_dashboard_view=(default_dashboard_view)
+    return unless dashboard_views.include?(default_dashboard_view)
+    self.settings[:default_dashboard_view] = default_dashboard_view
+  end
+
+  def default_dashboard_view
+    self.settings[:default_dashboard_view]
   end
 end

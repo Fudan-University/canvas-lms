@@ -59,15 +59,11 @@ module Api::V1::User
         if user_can_read_sis_data?(current_user, context)
           json.merge! :sis_user_id => pseudonym&.sis_user_id,
                       :integration_id => pseudonym&.integration_id
-          # TODO: don't send sis_login_id; it's garbage data
-          if @domain_root_account.settings['return_sis_login_id'] == 'true'
-            json.merge! :sis_login_id => pseudonym&.unique_id
-          end
         end
         json[:sis_import_id] = pseudonym&.sis_batch_id if @domain_root_account.grants_right?(current_user, session, :manage_sis)
         json[:root_account] = HostUrl.context_host(pseudonym&.account) if include_root_account
 
-        if pseudonym
+        if pseudonym && context.grants_right?(current_user, session, :view_user_logins)
           json[:login_id] = pseudonym.unique_id
         end
       end
@@ -82,7 +78,7 @@ module Api::V1::User
       end
       # include a permissions check here to only allow teachers and admins
       # to see user email addresses.
-      if includes.include?('email') && !excludes.include?('personal_info') && context.grants_right?(current_user, session, :read_roster)
+      if includes.include?('email') && !excludes.include?('personal_info') && context.grants_right?(current_user, session, :read_email_addresses)
         json[:email] = user.email
       end
 
@@ -218,7 +214,8 @@ module Api::V1::User
                               :created_at,
                               :start_at,
                               :end_at,
-                              :type]
+                              :type
+                            ]
 
   def enrollment_json(enrollment, user, session, includes = [], opts = {})
     api_json(enrollment, user, session, :only => API_ENROLLMENT_JSON_OPTS).tap do |json|
@@ -229,6 +226,7 @@ module Api::V1::User
       json[:role] = enrollment.role.name
       json[:role_id] = enrollment.role_id
       json[:last_activity_at] = enrollment.last_activity_at
+      json[:last_attended_at] = enrollment.last_attended_at
       json[:total_activity_time] = enrollment.total_activity_time
       if enrollment.root_account.grants_right?(user, session, :manage_sis)
         json[:sis_import_id] = enrollment.sis_batch_id

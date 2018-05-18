@@ -18,6 +18,41 @@
 
 class ParallelImporter < ActiveRecord::Base
   belongs_to :sis_batch
+  belongs_to :attachment
   has_many :sis_batch_errors, foreign_key: :parallel_importer_id, inverse_of: :parallel_importer
+
+  scope :running, -> {where(workflow_state: 'running')}
+  scope :completed, -> {where(workflow_state: 'completed')}
+
+  include Workflow
+  workflow do
+    state :pending
+    state :running
+    state :retry
+    state :failed
+    state :aborted
+    state :completed
+  end
+
+  def start
+    if workflow_state == 'retry'
+      self.update_attributes!(started_at: Time.now.utc)
+    else
+      self.update_attributes!(:workflow_state => "running", :started_at => Time.now.utc)
+    end
+  end
+
+  def fail
+    self.update_attributes!(:workflow_state => "failed", :ended_at => Time.now.utc)
+  end
+
+  def abort
+    self.update_attributes!(:workflow_state => "aborted", :ended_at => Time.now.utc)
+  end
+
+  def complete(opts={})
+    updates = {:workflow_state => "completed", :ended_at => Time.now.utc}.merge(opts)
+    self.update_attributes!(updates)
+  end
 end
 

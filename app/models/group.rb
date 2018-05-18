@@ -71,7 +71,7 @@ class Group < ActiveRecord::Base
 
   after_create :refresh_group_discussion_topics
 
-  after_update :clear_cached_short_name, :if => :name_changed?
+  after_update :clear_cached_short_name, :if => :saved_change_to_name?
 
   delegate :time_zone, :to => :context
 
@@ -193,6 +193,10 @@ class Group < ActiveRecord::Base
 
   def context_code
     raise "DONT USE THIS, use .short_name instead" unless Rails.env.production?
+  end
+
+  def inactive?
+    self.context.deleted? || (self.context.is_a?(Course) && self.context.inactive?)
   end
 
   def context_available?
@@ -565,6 +569,12 @@ class Group < ActiveRecord::Base
 
       given {|user, session| self.context && self.context.grants_right?(user, session, :read_sis)}
       can :read_sis
+
+      given {|user, session| self.context && self.context.grants_right?(user, session, :view_user_logins)}
+      can :view_user_logins
+
+      given {|user, session| self.context && self.context.grants_right?(user, session, :read_email_addresses)}
+      can :read_email_addresses
     end
   end
 
@@ -756,6 +766,14 @@ class Group < ActiveRecord::Base
     Folder.unique_constraint_retry do
       @submissions_folder = self.folders.where(parent_folder_id: Folder.root_folders(self).first, submission_context_code: 'root')
         .first_or_create!(name: I18n.t('Submissions'))
+    end
+  end
+
+  def grading_standard_or_default
+    if context.respond_to?(:grading_standard_or_default)
+      context.grading_standard_or_default
+    else
+      GradingStandard.default_instance
     end
   end
 end

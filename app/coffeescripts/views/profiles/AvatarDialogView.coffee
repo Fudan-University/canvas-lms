@@ -135,11 +135,13 @@ define [
           @enableSelectButton()
 
     preflightRequest: =>
+      # not using uploader.uploadFile because need to have completeUpload also
+      # wait on @getImage in imageUpdateAvatar
       $.post('/files/pending', {
         name: 'profile.jpg'
         format: 'text'
         no_redirect: true
-        'attachment[duplicate_handling]': 'overwrite'
+        'attachment[on_duplicate]': 'overwrite'
         'attachment[folder_id]': ENV.folder_id
         'attachment[filename]': 'profile.jpg'
         'attachment[context_code]': 'user_'+ENV.current_user_id
@@ -212,4 +214,4 @@ define [
     toJSON: ->
       hasFileReader = !!window.FileReader
       hasUserMedia = !!(navigator.getUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.webkitGetUserMedia)
-      { hasFileReader: hasFileReader, hasGetUserMedia: hasUserMedia }
+      { hasFileReader: hasFileReader, hasGetUserMedia: hasUserMedia, enableGravatar: ENV.enable_gravatar }

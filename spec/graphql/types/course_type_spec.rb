@@ -1,3 +1,21 @@
+#
+# Copyright (C) 2017 - present Instructure, Inc.
+#
+# This file is part of Canvas.
+#
+# Canvas is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, version 3 of the License.
+#
+# Canvas is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
 require File.expand_path(File.dirname(__FILE__) + '/../../spec_helper')
 require File.expand_path(File.dirname(__FILE__) + '/../../helpers/graphql_type_tester')
 
@@ -18,6 +36,55 @@ describe Types::CourseType do
     it "only returns visible assignments" do
       expect(course_type.assignmentsConnection(current_user: @teacher).size).to eq 1
       expect(course_type.assignmentsConnection(current_user: @student).size).to eq 0
+    end
+
+    context "grading periods" do
+      before(:once) do
+        gpg = GradingPeriodGroup.create! title: "asdf",
+          root_account: course.root_account
+        course.enrollment_term.update_attributes grading_period_group: gpg
+        @term1 = gpg.grading_periods.create! title: "past grading period",
+        start_date: 2.weeks.ago,
+          end_date: 1.weeks.ago
+        @term2 = gpg.grading_periods.create! title: "current grading period",
+        start_date: 2.days.ago,
+          end_date: 2.days.from_now
+        @term1_assignment1 = course.assignments.create! name: "asdf",
+          due_at: (1.5).weeks.ago
+        @term2_assignment1 = course.assignments.create! name: ";lkj",
+          due_at: Date.today
+      end
+
+      it "only returns assignments for the current grading period" do
+        expect(
+          course_type.assignmentsConnection(current_user: @student)
+        ).to eq [@term2_assignment1]
+      end
+
+      it "returns no assignments when outside of a grading period" do
+        @term2.destroy
+        expect(
+          course_type.assignmentsConnection(current_user: @student)
+        ).to eq []
+      end
+
+      it "returns assignments for the requested grading period" do
+        expect(
+          course_type.assignmentsConnection(
+            current_user: @student,
+            args: {filter: {gradingPeriodId: @term1.id.to_s}}
+          )
+        ).to eq [@term1_assignment1]
+      end
+
+      it "can still return assignments for all grading periods" do
+        expect(
+          course_type.assignmentsConnection(
+            current_user: @student,
+            args: {filter: {gradingPeriodId: nil}}
+          )
+        ).to eq course.assignments.published
+      end
     end
   end
 
@@ -116,18 +183,35 @@ describe Types::CourseType do
         ]
       end
     end
+
+    context "filtering" do
+      it "allows filtering submissions by their state" do
+        expect(
+          course_type.submissionsConnection(
+            current_user: @teacher,
+            args: {
+              studentIds: [@student1.id.to_s],
+              filter: {states: %[unsubmitted]}
+            }
+          )
+        ).to eq [ ]
+      end
+    end
   end
 
   describe "usersConnection" do
     before(:once) do
       @student1 = @student
       @student2 = student_in_course(active_all: true).user
+      @inactive_user = student_in_course.tap { |enrollment|
+        enrollment.update_attribute :workflow_state, 'inactive'
+      }.user
     end
 
     it "returns all visible users" do
       expect(
         course_type.usersConnection(current_user: @teacher)
-      ).to eq [@teacher, @student1, @student2]
+      ).to eq [@teacher, @student1, @student2, @inactive_user]
     end
 
     it "returns only the specified users" do

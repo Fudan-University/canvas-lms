@@ -71,15 +71,18 @@ export default class SubmissionTray extends React.Component {
     contentRef: undefined,
     gradingDisabled: false,
     latePolicy: { lateSubmissionInterval: 'day' },
-    submission: { drop: false }
+    submission: { drop: false },
+    pendingGradeInfo: null,
   };
 
   static propTypes = {
+    anonymousModeratedMarkingEnabled: bool.isRequired,
     assignment: shape({
       name: string.isRequired,
       htmlUrl: string.isRequired,
       muted: bool.isRequired,
-      published: bool.isRequired
+      published: bool.isRequired,
+      anonymousGrading: bool.isRequired
     }).isRequired,
     contentRef: func,
     currentUserId: string.isRequired,
@@ -97,6 +100,11 @@ export default class SubmissionTray extends React.Component {
     onClose: func.isRequired,
     onGradeSubmission: func.isRequired,
     onRequestClose: func.isRequired,
+    pendingGradeInfo: shape({
+      excused: bool.isRequired,
+      grade: string,
+      valid: bool.isRequired
+    }),
     student: shape({
       id: string.isRequired,
       avatarUrl: string,
@@ -139,7 +147,8 @@ export default class SubmissionTray extends React.Component {
     setProcessing: func.isRequired,
     isInOtherGradingPeriod: bool.isRequired,
     isInClosedGradingPeriod: bool.isRequired,
-    isInNoGradingPeriod: bool.isRequired
+    isInNoGradingPeriod: bool.isRequired,
+    isNotCountedForScore: bool.isRequired
   };
 
   cancelCommenting = () => {
@@ -174,7 +183,7 @@ export default class SubmissionTray extends React.Component {
     if (this.props.submissionCommentsLoaded) {
       return (
         <div>
-          {renderTraySubHeading('Comments')}
+          {renderTraySubHeading(I18n.t('Comments'))}
 
           {this.renderSubmissionCommentList()}
 
@@ -201,8 +210,12 @@ export default class SubmissionTray extends React.Component {
   render () {
     const { name, avatarUrl } = this.props.student;
     const assignmentParam = `assignment_id=${this.props.submission.assignmentId}`;
-    const studentParam = `#%7B%22student_id%22%3A${this.props.student.id}%7D`;
-    const speedGraderUrl = `/courses/${this.props.courseId}/gradebook/speed_grader?${assignmentParam}${studentParam}`;
+    const studentParam = `#{"student_id":"${this.props.student.id}"}`;
+    const speedGraderUrlParams = this.props.anonymousModeratedMarkingEnabled && this.props.assignment.anonymousGrading
+      ? assignmentParam
+      : `${assignmentParam}${studentParam}`
+    const speedGraderUrl = encodeURI(`/courses/${this.props.courseId}/gradebook/speed_grader?${speedGraderUrlParams}`)
+
     const submissionCommentsProps = {
       submissionComments: this.props.submissionComments,
       submissionCommentsLoaded: this.props.submissionCommentsLoaded,
@@ -282,6 +295,7 @@ export default class SubmissionTray extends React.Component {
                 isInOtherGradingPeriod={this.props.isInOtherGradingPeriod}
                 isInClosedGradingPeriod={this.props.isInClosedGradingPeriod}
                 isInNoGradingPeriod={this.props.isInNoGradingPeriod}
+                isNotCountedForScore={this.props.isNotCountedForScore}
                 submission={this.props.submission}
               />
 
@@ -290,6 +304,7 @@ export default class SubmissionTray extends React.Component {
                 disabled={this.props.gradingDisabled}
                 enterGradesAs={this.props.enterGradesAs}
                 gradingScheme={this.props.gradingScheme}
+                pendingGradeInfo={this.props.pendingGradeInfo}
                 onSubmissionUpdate={this.props.onGradeSubmission}
                 submission={this.props.submission}
                 submissionUpdating={this.props.submissionUpdating}

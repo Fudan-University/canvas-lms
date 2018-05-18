@@ -54,12 +54,12 @@
 #           "type": "string"
 #         },
 #         "unlock_at": {
-#           "description": "(Optional) Time at which this was/will be unlocked.",
+#           "description": "(Optional) Time at which this was/will be unlocked. Must be before the due date.",
 #           "example": "2013-01-01T00:00:00-06:00",
 #           "type": "datetime"
 #         },
 #         "lock_at": {
-#           "description": "(Optional) Time at which this was/will be locked.",
+#           "description": "(Optional) Time at which this was/will be locked. Must be after the due date.",
 #           "example": "2013-02-01T00:00:00-06:00",
 #           "type": "datetime"
 #         },
@@ -162,14 +162,17 @@
 #           "type": "string"
 #         },
 #         "due_at": {
+#          "description": "The due date for the assignment. Must be between the unlock date and the lock date if there are lock dates",
 #           "example": "2013-08-28T23:59:00-06:00",
 #           "type": "datetime"
 #         },
 #         "unlock_at": {
+#           "description": "The unlock date for the assignment. Must be before the due date if there is a due date.",
 #           "example": "2013-08-01T00:00:00-06:00",
 #           "type": "datetime"
 #         },
 #         "lock_at": {
+#           "description": "The lock date for the assignment. Must be after the due date if there is a due date.",
 #           "example": "2013-08-31T23:59:00-06:00",
 #           "type": "datetime"
 #         }
@@ -605,11 +608,11 @@ class AssignmentsApiController < ApplicationController
     old_assignment = @context.active_assignments.find_by({ id: assignment_id })
 
     if !old_assignment || old_assignment.workflow_state == "deleted"
-      return render json: { error: 'assignment does not exist' }, status: :bad_request
+      return render json: { error: t('assignment does not exist') }, status: :bad_request
     end
 
     if old_assignment.quiz
-      return render json: { error: 'quiz duplication not implemented' }, status: :bad_request
+      return render json: { error: t('quiz duplication not implemented') }, status: :bad_request
     end
 
     return unless authorized_action(old_assignment, @current_user, :create)
@@ -625,13 +628,17 @@ class AssignmentsApiController < ApplicationController
       positions_hash[id_pos_pair[0]] = id_pos_pair[1]
     end
     if new_assignment
+      assignment_topic = old_assignment.discussion_topic
+      if assignment_topic&.pinned && !assignment_topic&.position.nil?
+        new_assignment.discussion_topic.insert_at(assignment_topic.position + 1)
+      end
       # Include the updated positions in the response so the frontend can
       # update them appropriately
       result_json = assignment_json(new_assignment, @current_user, session)
       result_json['new_positions'] = positions_hash
       render :json => result_json
     else
-      render json: { error: 'cannot save new assignment' }, status: :bad_request
+      render json: { error: t('cannot save new assignment') }, status: :bad_request
     end
   end
 
@@ -871,15 +878,15 @@ class AssignmentsApiController < ApplicationController
   #  The assignment defaults to "points" if this field is omitted.
   #
   # @argument assignment[due_at] [DateTime]
-  #   The day/time the assignment is due.
+  #   The day/time the assignment is due. Must be between the lock dates if there are lock dates.
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[lock_at] [DateTime]
-  #   The day/time the assignment is locked after.
+  #   The day/time the assignment is locked after. Must be after the due date if there is a due date.
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[unlock_at] [DateTime]
-  #   The day/time the assignment is unlocked.
+  #   The day/time the assignment is unlocked. Must be before the due date if there is a due date.
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[description] [String]
@@ -897,7 +904,6 @@ class AssignmentsApiController < ApplicationController
   #
   # @argument assignment[assignment_overrides][] [AssignmentOverride]
   #   List of overrides for the assignment.
-  #   NOTE: The assignment overrides feature is in beta.
   #
   # @argument assignment[only_visible_to_overrides] [Boolean]
   #   Whether this assignment is only visible to overrides
@@ -1029,11 +1035,11 @@ class AssignmentsApiController < ApplicationController
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[lock_at] [DateTime]
-  #   The day/time the assignment is locked after.
+  #   The day/time the assignment is locked after. Must be after the due date if there is a due date.
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[unlock_at] [DateTime]
-  #   The day/time the assignment is unlocked.
+  #   The day/time the assignment is unlocked. Must be before the due date if there is a due date.
   #   Accepts times in ISO 8601 format, e.g. 2014-10-21T18:48:00Z.
   #
   # @argument assignment[description] [String]
@@ -1051,7 +1057,6 @@ class AssignmentsApiController < ApplicationController
   #
   # @argument assignment[assignment_overrides][] [AssignmentOverride]
   #   List of overrides for the assignment.
-  #   NOTE: The assignment overrides feature is in beta.
   #
   # @argument assignment[only_visible_to_overrides] [Boolean]
   #   Whether this assignment is only visible to overrides
@@ -1070,8 +1075,6 @@ class AssignmentsApiController < ApplicationController
   # overrides are kept as is. If the assignment [assignment_overrides] key is
   # present, existing overrides are updated or deleted (and new ones created,
   # as necessary) to match the provided list.
-  #
-  # NOTE: The assignment overrides feature is in beta.
   #
   # @argument assignment[omit_from_final_grade] [Boolean]
   #   Whether this assignment is counted towards a student's final grade.
@@ -1123,6 +1126,6 @@ class AssignmentsApiController < ApplicationController
       return if @context.students_visible_to(@current_user).include?(@user)
     end
     # self, observer
-    authorized_action(@user, @current_user, [:read_as_parent, :read])
+    authorized_action(@user, @current_user, %i(read_as_parent read))
   end
 end

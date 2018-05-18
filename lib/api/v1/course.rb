@@ -19,6 +19,7 @@
 module Api::V1::Course
   include Api::V1::Json
   include Api::V1::EnrollmentTerm
+  include Api::V1::Account
   include Api::V1::SectionEnrollments
   include Api::V1::PostGradesStatus
   include Api::V1::User
@@ -90,12 +91,14 @@ module Api::V1::Course
       hash['course_progress'] = CourseProgress.new(course, subject_user).to_json if includes.include?('course_progress')
       hash['apply_assignment_group_weights'] = course.apply_group_weights?
       hash['sections'] = section_enrollments_json(enrollments) if includes.include?('sections')
-      hash['total_students'] = course.student_count || course.students.count if includes.include?('total_students')
+      hash['total_students'] = course.student_count || course.student_enrollments.not_fake.distinct.count(:user_id) if includes.include?('total_students')
       hash['passback_status'] = post_grades_status_json(course) if includes.include?('passback_status')
       hash['is_favorite'] = course.favorite_for_user?(user) if includes.include?('favorites')
-      hash['teachers'] = course.teachers.map { |teacher| user_display_json(teacher) } if includes.include?('teachers')
+      hash['teachers'] = course.teachers.distinct.map { |teacher| user_display_json(teacher) } if includes.include?('teachers')
       hash['tabs'] = tabs_available_json(course, user, session, ['external']) if includes.include?('tabs')
       hash['locale'] = course.locale unless course.locale.nil?
+      hash['account'] = account_json(course.account, user, session, []) if includes.include?('account')
+      # undocumented, but leaving for backwards compatibility.
       hash['subaccount_name'] = course.account.name if includes.include?('subaccount')
       add_helper_dependant_entries(hash, course, builder)
       apply_nickname(hash, course, user) if user

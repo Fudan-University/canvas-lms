@@ -276,7 +276,7 @@ describe UsersController do
           expect(response).to be_success
           new_pseudo = Pseudonym.where(unique_id: 'jane@example.com').first
           new_user = new_pseudo.user
-          expect(new_user.observed_users).to eq [@user]
+          expect(new_user.linked_students).to eq [@user]
           oe = new_user.observer_enrollments.first
           expect(oe.course).to eq @course
           expect(oe.associated_user).to eq @user
@@ -484,7 +484,7 @@ describe UsersController do
         u = User.where(name: 'Jacob Fugal').first
         expect(u).to be_pre_registered
         expect(response).to be_success
-        expect(u.observed_users).to include(@user)
+        expect(u.linked_students).to include(@user)
       end
     end
 
@@ -596,9 +596,12 @@ describe UsersController do
         u = User.create! { |u| u.workflow_state = 'registered' }
         u.communication_channels.create!(:path => 'jacob@instructure.com', :path_type => 'email') { |cc| cc.workflow_state = 'active' }
         u.pseudonyms.create!(:unique_id => 'jon@instructure.com')
-        expect_any_instance_of(CommunicationChannel).to receive(:send_merge_notification!)
+        notification = Notification.create(:name => 'Merge Email Communication Channel', :category => 'Registration')
+
         post 'create', params: {:account_id => account.id, :pseudonym => { :unique_id => 'jacob@instructure.com', :send_confirmation => '0' }, :user => { :name => 'Jacob Fugal' }}, format: 'json'
         expect(response).to be_success
+        p = Pseudonym.where(unique_id: 'jacob@instructure.com').first
+        expect(Message.where(:communication_channel_id => p.user.email_channel, :notification_id => notification).first).to be_present
       end
 
       it "should not notify the user if the merge opportunity can't log in'" do
@@ -691,11 +694,92 @@ describe UsersController do
       end
     end
 
+    context "with unposted assignments" do
+      before(:each) do
+        unposted_assignment = assignment_model(
+          course: test_course, due_at: Time.zone.now,
+          points_possible: 90, muted: true
+        )
+        unposted_assignment.grade_student(student, grade: '100%', grader: @teacher)
+
+        user_session(@teacher)
+      end
+
+      let(:response) do
+        get('grades_for_student', params: {enrollment_id: student_enrollment.id})
+      end
+
+      let(:parsed_response) do
+        json_parse(response.body)
+      end
+
+      context "when the requester can manage grades" do
+        before(:each) do
+          test_course.root_account.role_overrides.create!(
+            permission: 'view_all_grades', role: teacher_role, enabled: false
+          )
+          RoleOverride.create!(
+            permission: 'manage_grades', role: teacher_role, enabled: true
+          )
+        end
+
+        it "allows access" do
+          expect(response).to be_ok
+        end
+
+        it "returns the grade" do
+          expect(parsed_response['grade']).to eq 94.55
+        end
+
+        it "returns the unposted_grade" do
+          expect(parsed_response['unposted_grade']).to eq 97
+        end
+      end
+
+      context "when the requester can view all grades" do
+        before(:each) do
+          test_course.root_account.role_overrides.create!(
+            permission: 'view_all_grades', role: teacher_role, enabled: true
+          )
+          test_course.root_account.role_overrides.create!(
+            permission: 'manage_grades', role: teacher_role, enabled: false
+          )
+        end
+
+        it "allows access" do
+          expect(response).to be_ok
+        end
+
+        it "returns the grade" do
+          expect(parsed_response['grade']).to eq 94.55
+        end
+
+        it "returns the unposted_grade" do
+          expect(parsed_response['unposted_grade']).to eq 97
+        end
+      end
+
+      context "when the requester does not have permissions to see unposted grades" do
+        before(:each) do
+          test_course.root_account.role_overrides.create!(
+            permission: 'view_all_grades', role: teacher_role, enabled: false
+          )
+          test_course.root_account.role_overrides.create!(
+            permission: 'manage_grades', role: teacher_role, enabled: false
+          )
+        end
+
+        it "returns unauthorized" do
+          expect(response).to have_http_status(401)
+        end
+      end
+    end
+
     context "as an observer" do
       let(:observer) { user_with_pseudonym(active_all: true) }
 
       it "returns the grade and the total for a student, filtered by grading period" do
-        student.observers << observer
+        student.linked_observers << observer
         user_session(observer)
         get('grades_for_student', params: {enrollment_id: student_enrollment.id,
           grading_period_id: grading_period.id})
@@ -717,7 +801,7 @@ describe UsersController do
 
       it "does not filter the grades by a grading period if " \
       "'All Grading Periods' is selected" do
-        student.observers << observer
+        student.linked_observers << observer
         all_grading_periods_id = 0
         user_session(observer)
         get('grades_for_student', params: {grading_period_id: all_grading_periods_id,
@@ -769,8 +853,8 @@ describe UsersController do
           observer = user_with_pseudonym(active_all: true)
           course_with_user('StudentEnrollment', course: test_course, user: student1, active_all: true)
           course_with_user('StudentEnrollment', course: test_course, user: student2, active_all: true)
-          student1.observers << observer
-          student2.observers << observer
+          student1.linked_observers << observer
+          student2.linked_observers << observer
           observer
         end
 
@@ -1026,14 +1110,14 @@ describe UsersController do
       expect(response).to redirect_to User.default_avatar_fallback
     end
 
-    it "should pass along the default fallback to gravatar" do
+    it "should pass along the default fallback to placeholder image" do
       course_with_student_logged_in(:active_all => true)
       @account = Account.default
       @account.enable_service(:avatars)
       @account.save!
       expect(@account.service_enabled?(:avatars)).to be_truthy
       get 'avatar_image', params: {:user_id  => @user.id}
-      expect(response).to redirect_to "https://secure.gravatar.com/avatar/000?s=50&d=#{CGI.escape("http://test.host/images/messages/avatar-50.png")}"
+      expect(response).to redirect_to "http://test.host/images/messages/avatar-50.png"
     end
 
     it "should take an invalid id and return silhouette" do
@@ -1253,7 +1337,7 @@ describe UsersController do
       user2 = user_with_pseudonym(name: "user2", short_name: "u2")
       user2.pseudonym.sis_user_id = "user2_sisid1"
       user2.pseudonym.integration_id = "user2_intid1"
-      user2.pseudonym.login = "user2_login1@foo.com"
+      user2.pseudonym.unique_id = "user2_login1@foo.com"
       user2.pseudonym.save!
       user2
     end
@@ -1274,7 +1358,7 @@ describe UsersController do
         sortable_name: user2.sortable_name,
         email: user2.email,
         pseudonyms: [
-          { login_id: user2.pseudonym.login,
+          { login_id: user2.pseudonym.unique_id,
             sis_id: user2.pseudonym.sis_user_id,
             integration_id: user2.pseudonym.integration_id }
         ]
@@ -1389,22 +1473,6 @@ describe UsersController do
     end
   end
 
-  describe '#toggle_recent_activity_dashboard' do
-    it 'updates user preference based on value provided' do
-      course_factory
-      user_factory(active_all: true)
-      user_session(@user)
-
-      expect(@user.preferences[:recent_activity_dashboard]).to be_falsy
-
-      post :toggle_recent_activity_dashboard
-
-      expect(@user.reload.preferences[:recent_activity_dashboard]).to be_truthy
-      expect(response).to be_success
-      expect(JSON.parse(response.body)).to be_empty
-    end
-  end
-
   describe '#toggle_hide_dashcard_color_overlays' do
     it 'updates user preference based on value provided' do
       course_factory
@@ -1430,36 +1498,12 @@ describe UsersController do
 
     it 'sets the proper user preference on PUT requests' do
       put :dashboard_view, params: {:dashboard_view => 'cards'}
-      expect(@user.preferences[:dashboard_view]).to eql('cards')
+      expect(@user.dashboard_view).to eql('cards')
     end
 
     it 'does not allow arbitrary values to be set' do
       put :dashboard_view, params: {:dashboard_view => 'a non-whitelisted value'}
       assert_status(400)
-    end
-  end
-
-  describe "show_planner?" do
-    before(:each) do
-      course_factory
-      user_factory(active_all: true)
-      user_session(@user)
-      subject.instance_variable_set(:@current_user, @user)
-    end
-
-    it "should be false if preferences[:dashboard_view] is not set" do
-      @user.preferences.delete(:dashboard_view)
-      expect(subject.show_planner?).to be_falsey
-    end
-
-    it "should be false if preferences[:dashboard_view] is not planner" do
-      @user.preferences[:dashboard_view] = 'something_that_isnt_planner'
-      expect(subject.show_planner?).to be_falsey
-    end
-
-    it "should be true if preferences[:dashboard_view] is planner" do
-      @user.preferences[:dashboard_view] = 'planner'
-      expect(subject.show_planner?).to be_truthy
     end
   end
 

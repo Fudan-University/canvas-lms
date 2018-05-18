@@ -17,12 +17,19 @@
 #
 
 module Factories
-  def line_item_model(overrides: {})
-    options = {
-      score_maximum: 1,
+  def line_item_model(overrides = {})
+    params = {
+      score_maximum: 10,
       label: 'Test Line Item',
-      assignment: assignment_model
-    }
-    Lti::LineItem.create!(options.merge(overrides))
+      assignment: overrides[:assignment] ||
+        assignment_model(
+          course: overrides[:course] || course_factory(active_course: true)
+        ),
+      resource_link: overrides.fetch(
+        :resource_link,
+        overrides[:with_resource_link] ? resource_link_model : nil
+      )
+    }.merge(overrides.except(:assignment, :course, :resource_link, :with_resource_link))
+    Lti::LineItem.create!(params)
   end
 end

@@ -88,7 +88,12 @@ describe "Default Account Reports" do
       @enrollment1.find_score.update_attribute(:unposted_final_score, 92)
     end
 
-    it "should run grade export for a term" do
+    it "should run grade export for a term and return one line per enrollment" do
+      user_with_managed_pseudonym(user: @user1, account: @account)
+      p = @account.pseudonyms.where(sis_user_id: 'user_sis_id_01').take
+      @enrollment1.sis_pseudonym = p
+      @enrollment1.save!
+
       parameters = {}
       parameters["enrollment_term"] = @term1.id
       parsed = read_report('grade_export_csv', {order: 13, params: parameters})
@@ -422,6 +427,27 @@ describe "Default Account Reports" do
         expect(mike2["Past final score"].to_f).to eq 25
         expect(mike1["Past unposted final score"].to_f).to eq 25
         expect(mike2["Past unposted final score"].to_f).to eq 25
+      end
+
+      it "returns empty score values when a score for a grading period/enrollment is missing" do
+        enrollment = Enrollment.find_by(course: @course3, user: @user2)
+        past_grading_period = GradingPeriod.find_by(title: "Past")
+        Score.find_by(enrollment: enrollment, grading_period: past_grading_period).destroy!
+
+        reports = read_report("mgp_grade_export_csv",
+                              params: {enrollment_term_id: @default_term.id},
+                              parse_header: true,
+                              order: ["student name", "course"])
+        csv = reports["Default Term.csv"]
+
+        deleted_score_row = csv.find { |row| row["student name"] == "Michael Bolton" && row["course"] == "Fun 404" }
+        expect(deleted_score_row["section"]).to eq "Fun 404"
+        expect(deleted_score_row.to_hash).to include(
+          "Past current score" => nil,
+          "Past unposted current score" => nil,
+          "Past final score" => nil,
+          "Past unposted final score" => nil
+        )
       end
 
       it "returns nothing for terms without grading periods" do

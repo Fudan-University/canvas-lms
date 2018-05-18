@@ -61,46 +61,28 @@ GreatExpectations.install!
 
 ActionView::TestCase::TestController.view_paths = ApplicationController.view_paths
 
-if CANVAS_RAILS5_0
-  module EnforceKwargTestFormat
-    def non_kwarg_request_warning
-      raise "Please use keyword arguments in your calls in controller/integration specs. e.g. `get :show, params: {id: 1}`"
-    end
-  end
-  [ActionDispatch::Integration::Session, ActionController::TestCase::Behavior].each do |mod|
-    mod.prepend(EnforceKwargTestFormat)
-  end
-end
-
 # this makes sure that a broken transaction becomes functional again
 # by the time we hit rescue_action_in_public, so that the error report
 # can be recorded
-ActionController::Base.set_callback(:process_action, :around, ->(_r, block) do
-  exception = nil
-  ActiveRecord::Base.transaction(joinable: false, requires_new: true) do
-    begin
-      if Rails.version < '5'
-        # that transaction didn't count as a "real" transaction within the test
-        test_open_transactions = ActiveRecord::Base.connection.instance_variable_get(:@test_open_transactions)
-        ActiveRecord::Base.connection.instance_variable_set(:@test_open_transactions, test_open_transactions.to_i - 1)
-        begin
-          block.call
-        ensure
-          ActiveRecord::Base.connection.instance_variable_set(:@test_open_transactions, test_open_transactions)
-        end
-      else
+module SpecTransactionWrapper
+  def self.wrap_block_in_transaction(block)
+    exception = nil
+    ActiveRecord::Base.transaction(joinable: false, requires_new: true) do
+      begin
         block.call
+      rescue ActiveRecord::StatementInvalid
+        # these need to properly roll back the transaction
+        raise
+      rescue
+        # anything else, the transaction needs to commit, but we need to re-raise outside the transaction
+        exception = $!
       end
-    rescue ActiveRecord::StatementInvalid
-      # these need to properly roll back the transaction
-      raise
-    rescue
-      # anything else, the transaction needs to commit, but we need to re-raise outside the transaction
-      exception = $!
     end
+    raise exception if exception
   end
-  raise exception if exception
-end)
+end
+ActionController::Base.set_callback(:process_action, :around,
+  ->(_r, block) { SpecTransactionWrapper.wrap_block_in_transaction(block) })
 
 module RSpec::Core::Hooks
 class AfterContextHook < Hook
@@ -236,6 +218,7 @@ if defined?(Spec::DSL::Main)
 end
 
 RSpec::Matchers.define_negated_matcher :not_eq, :eq
+RSpec::Matchers.define_negated_matcher :not_have_key, :have_key
 
 RSpec::Matchers.define :encompass do |expected|
   match do |actual|
@@ -315,6 +298,7 @@ RSpec.configure do |config|
   config.raise_errors_for_deprecations!
   config.color = true
   config.order = :random
+  config.filter_run_excluding :pact
 
   config.include Helpers
   config.include Factories
@@ -344,7 +328,7 @@ RSpec.configure do |config|
     RoleOverride.clear_cached_contexts
     Delayed::Job.redis.flushdb if Delayed::Job == Delayed::Backend::Redis::Job
     Rails::logger.try(:info, "Running #{self.class.description} #{@method_name}")
-    Attachment.domain_namespace = nil
+    Attachment.current_root_account = nil
     Canvas::DynamicSettings.reset_cache!
     ActiveRecord::Migration.verbose = false
     RequestStore.clear!
@@ -400,6 +384,11 @@ RSpec.configure do |config|
     end
 
     Timecop.safe_mode = true
+
+    # cache brand variables because if we try to look them up inside a Timecop
+    # block, we will conflict our active record patch to prevent future
+    # migrations.
+    BrandableCSS.default_variables_md5
   end
 
   config.before do
@@ -505,7 +494,7 @@ RSpec.configure do |config|
   end
 
   def default_uploaded_data
-    fixture_file_upload('scribd_docs/doc.doc', 'application/msword', true)
+    fixture_file_upload('docs/doc.doc', 'application/msword', true)
   end
 
   def factory_with_protected_attributes(ar_klass, attrs, do_save = true)
@@ -548,7 +537,10 @@ RSpec.configure do |config|
     path = generate_csv_file(lines)
     opts[:files] = [path]
 
-    importer = SIS::CSV::Import.process(account, opts)
+    use_parallel = SisBatch.use_parallel_importers?(account)
+    import_class = use_parallel ? SIS::CSV::ImportRefactored : SIS::CSV::Import
+    importer = import_class.process(account, opts)
+    run_jobs
 
     File.unlink path
 
@@ -799,7 +791,7 @@ RSpec.configure do |config|
   end
 
   def dummy_io
-    fixture_file_upload('scribd_docs/doc.doc', 'application/msword', true)
+    fixture_file_upload('docs/doc.doc', 'application/msword', true)
   end
 
   def consider_all_requests_local(value)

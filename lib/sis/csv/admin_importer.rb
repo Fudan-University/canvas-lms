@@ -32,21 +32,20 @@ module SIS
       # user_id, account_id, role_id, role
       def process(csv, index=nil, count=nil)
         messages = []
-        @sis.counts[:admins] += SIS::AdminImporter.new(@root_account, importer_opts).process(messages) do |i|
+        count = SIS::AdminImporter.new(@root_account, importer_opts).process do |i|
           csv_rows(csv, index, count) do |row|
             update_progress
-
             begin
               i.process_admin(user_id: row['user_id'], account_id: row['account_id'],
                               role_id: row['role_id'], role: row['role'],
                               status: row['status'], root_account: row['root_account'])
             rescue ImportError => e
-              messages << e.to_s
-              next
+              messages << SisBatch.build_error(csv, e.to_s, sis_batch: @batch, row: row['lineno'], row_info: row)
             end
           end
         end
-        messages.each { |message| add_warning(csv, message) }
+        SisBatch.bulk_insert_sis_errors(messages)
+        count
       end
     end
   end

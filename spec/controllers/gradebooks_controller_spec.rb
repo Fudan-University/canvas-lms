@@ -727,6 +727,20 @@ describe GradebooksController do
         user_session(@teacher)
       end
 
+      describe "default_grading_standard" do
+        it "uses the course's grading standard" do
+          grading_standard = grading_standard_for(@course)
+          @course.update!(default_grading_standard: grading_standard)
+          get :show, params: { course_id: @course.id }
+          expect(gradebook_options.fetch(:default_grading_standard)).to eq grading_standard.data
+        end
+
+        it "uses the Canvas default grading standard if the course does not have one" do
+          get :show, params: { course_id: @course.id }
+          expect(gradebook_options.fetch(:default_grading_standard)).to eq GradingStandard.default_grading_standard
+        end
+      end
+
       it "includes colors if New Gradebook is enabled" do
         @course.enable_feature!(:new_gradebook)
         get :show, params: {course_id: @course.id}
@@ -1135,6 +1149,30 @@ describe GradebooksController do
     end
   end
 
+  describe "GET 'history'" do
+    it "grants authorization to teachers in active courses" do
+      user_session(@teacher)
+
+      get 'history', params: { course_id: @course.id }
+      expect(response).to be_ok
+    end
+
+    it "grants authorization to teachers in concluded courses" do
+      @course.complete!
+      user_session(@teacher)
+
+      get 'history', params: { course_id: @course.id }
+      expect(response).to be_ok
+    end
+
+    it "returns unauthorized for students" do
+      user_session(@student)
+
+      get 'history', params: { course_id: @course.id }
+      assert_unauthorized
+    end
+  end
+
   describe "POST 'submissions_zip_upload'" do
     it "requires authentication" do
       course_factory
@@ -1205,7 +1243,7 @@ describe GradebooksController do
       user_session(@teacher)
       @assignment = @course.assignments.create!(:title => "some assignment")
       @student = @course.enroll_user(User.create!(:name => "some user"))
-      data = fixture_file_upload("scribd_docs/doc.doc", "application/msword", true)
+      data = fixture_file_upload("docs/doc.doc", "application/msword", true)
       post 'update_submission',
         params: {:course_id => @course.id,
         :attachments => { "0" => { :uploaded_data => data } },

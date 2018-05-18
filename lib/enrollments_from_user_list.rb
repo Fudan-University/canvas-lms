@@ -57,12 +57,13 @@ class EnrollmentsFromUserList
     end
     if !@enrollments.empty?
       @course.transaction do
-        DueDateCacher.recompute_course(@course)
+        user_ids = @enrollments.map(&:user_id).uniq
+        DueDateCacher.recompute_users_for_course(user_ids, @course)
       end
     end
     @user_ids_to_touch.uniq.each_slice(100) do |user_ids|
       User.where(id: user_ids).touch_all
-      User.where(id: UserObserver.where(user_id: user_ids).select(:observer_id)).touch_all
+      User.where(id: UserObservationLink.where(user_id: user_ids).select(:observer_id)).touch_all
     end
 
     @enrollments

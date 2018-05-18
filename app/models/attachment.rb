@@ -53,6 +53,7 @@ class Attachment < ActiveRecord::Base
        :content_export, :content_migration, :course, :eportfolio, :epub_export,
        :gradebook_upload, :group, :submission, :purgatory,
        { context_folder: 'Folder', context_sis_batch: 'SisBatch',
+         context_outcome_import: 'OutcomeImport',
          context_user: 'User', quiz: 'Quizzes::Quiz',
          quiz_statistics: 'Quizzes::QuizStatistics',
          quiz_submission: 'Quizzes::QuizSubmission' }]
@@ -484,7 +485,7 @@ class Attachment < ActiveRecord::Base
       # I've added the root_account_id accessor above, but I didn't verify there
       # isn't any code still accessing the namespace for the account id directly.
       ns = root_attachment.try(:namespace) if root_attachment_id
-      ns ||= Attachment.domain_namespace
+      ns ||= Attachment.current_namespace
       ns ||= self.context.root_account.file_namespace rescue nil
       ns ||= self.context.account.file_namespace rescue nil
       if Rails.env.development? && Attachment.local_storage?
@@ -713,7 +714,9 @@ class Attachment < ActiveRecord::Base
         copy_access_attributes!(atts)
         atts.each do |a|
           # update content tags to refer to the new file
-          ContentTag.where(:content_id => a, :content_type => 'Attachment').update_all(content_id: self.id)
+          if ContentTag.where(:content_id => a, :content_type => 'Attachment').update_all(content_id: self.id, updated_at: Time.now.utc) > 0
+            ContextModule.where(:id => ContentTag.where(:content_id => self.id, :content_type => 'Attachment').select(:context_module_id)).touch_all
+          end
           # update replacement pointers pointing at the overwritten file
           context.attachments.where(:replacement_attachment_id => a).update_all(replacement_attachment_id: self.id)
           # delete the overwritten file (unless the caller is queueing them up)
@@ -767,12 +770,10 @@ class Attachment < ActiveRecord::Base
     instfs_hosted? || !!(authenticated_s3_url rescue false)
   end
 
-  def authenticated_url(**options)
+  def public_url(**options)
     if instfs_hosted?
-      InstFS.authenticated_url(self, options)
+      InstFS.authenticated_url(self, options.merge(user: nil))
     else
-      # attachment_fu doesn't like the extra option when building s3 urls
-      options.delete(:user)
       should_download = options.delete(:download)
       disposition = should_download ? "attachment" : "inline"
       options[:response_content_disposition] = "#{disposition}; #{disposition_filename}"
@@ -780,33 +781,20 @@ class Attachment < ActiveRecord::Base
     end
   end
 
-  def authenticated_url_for_user(user, **options)
-    authenticated_url(options.merge(user: user))
-  end
-
-  def download_url_for_user(user, ttl = url_ttl)
-    authenticated_url_for_user(user, expires_in: ttl, download: true)
-  end
-
-  def inline_url_for_user(user, ttl = url_ttl)
-    authenticated_url_for_user(user, expires_in: ttl, download: false)
-  end
-
-  def public_url(**options)
-    authenticated_url_for_user(nil, options)
-  end
-
   def public_inline_url(ttl = url_ttl)
-    inline_url_for_user(nil, ttl)
+    public_url(expires_in: ttl, download: false)
   end
 
   def public_download_url(ttl = url_ttl)
-    download_url_for_user(nil, ttl)
+    public_url(expires_in: ttl, download: true)
   end
 
   def url_ttl
-    settings = root_account_id && Account.find_cached(root_account_id)&.settings
-    setting = settings && settings[:s3_url_ttl_seconds]
+    settings = begin
+      root_account_id && Account.find_cached(root_account_id).settings
+    rescue ::Canvas::AccountCacheError
+    end
+    setting = settings&.[](:s3_url_ttl_seconds)
     setting ||= Setting.get('attachment_url_ttl', 1.hour.to_s)
     setting.to_i.seconds
   end
@@ -861,7 +849,38 @@ class Attachment < ActiveRecord::Base
   # path will be used instead of the default system temporary path. It'll be
   # created if necessary.
   def open(opts = {}, &block)
-    store.open(opts, &block)
+    if instfs_hosted?
+      if block_given?
+        streaming_download(&block)
+      else
+        create_tempfile(opts) do |tempfile|
+          streaming_download(tempfile)
+        end
+      end
+    else
+      store.open(opts, &block)
+    end
+  end
+
+  # GETs this attachment's public_url and streams the response to the
+  # passed block; this is a helper function for #open
+  # (you should call #open instead of this)
+  private def streaming_download(dest=nil, &block)
+    CanvasHttp.get(public_url) do |response|
+      response.read_body(dest, &block)
+    end
+  end
+
+  def create_tempfile(opts)
+    if opts[:temp_folder].present? && !File.exist?(opts[:temp_folder])
+      FileUtils.mkdir_p(opts[:temp_folder])
+    end
+    tempfile = Tempfile.new(["attachment_#{id}", extension],
+                            opts[:temp_folder].presence || Dir.tmpdir)
+    tempfile.binmode
+    yield tempfile
+    tempfile.rewind
+    tempfile
   end
 
   def has_thumbnail?
@@ -870,13 +889,14 @@ class Attachment < ActiveRecord::Base
 
   # you should be able to pass an optional width, height, and page_number/video_seconds to this method for media objects
   # you should be able to pass an optional size (e.g. '64x64') to this method for other thumbnailable content types
+  #
+  # direct use of this method is deprecated. use the controller's
+  # `file_authenticator.thumbnail_url(attachment)` instead.
   def thumbnail_url(options={})
     return nil if Attachment.skip_thumbnails
 
     geometry = options[:size]
-    if instfs_hosted? && thumbnailable?
-      InstFS.authenticated_thumbnail_url(self, geometry: geometry)
-    elsif self.thumbnail || geometry.present?
+    if self.thumbnail || geometry.present?
       to_use = thumbnail_for_size(geometry) || self.thumbnail
       to_use.cached_s3_url
     elsif self.media_object && self.media_object.media_id
@@ -1245,9 +1265,8 @@ class Attachment < ActiveRecord::Base
   include Workflow
 
   # Right now, using the state machine to manage whether an attachment has
-  # been uploaded to Scribd.  It can be uploaded to other places, or
-  # scrubbed in other ways.  All that work should be managed by the state
-  # machine.
+  # been uploaded or scrubbed in other ways.  All that work should be managed by
+  # the state machine.
   workflow do
     state :pending_upload do
       event :upload, :transitions_to => :processing
@@ -1319,7 +1338,10 @@ class Attachment < ActiveRecord::Base
     att.send_to_purgatory(deleted_by_user)
     att.destroy_content
     att.thumbnail&.destroy
-    att.uploaded_data = File.open Rails.root.join('public', 'file_removed', 'file_removed.pdf')
+    file_removed_file = File.open Rails.root.join('public', 'file_removed', 'file_removed.pdf')
+    # TODO set the instfs_uuid of the attachment to a single "file removed" file to avoid
+    # upload the same file over and over. This instfs_uuid should be retrieved from the inst-fs services
+    Attachments::Storage.store_for_attachment(att, file_removed_file)
     CrocodocDocument.where(attachment_id: att.children_and_self.select(:id)).delete_all
     Canvadoc.where(attachment_id: att.children_and_self.select(:id)).delete_all
     att.save!
@@ -1383,7 +1405,11 @@ class Attachment < ActiveRecord::Base
   def destroy_content
     raise 'must be a root_attachment' if self.root_attachment_id
     return unless self.filename
-    if Attachment.s3_storage?
+    if instfs_hosted?
+      self.instfs_uuid = nil
+      # TODO: once inst-fs has a delete method, call here
+      # for now these objects will be orphaned
+    elsif Attachment.s3_storage?
       self.s3object.delete unless ApplicationController.try(:test_cluster?)
     else
       FileUtils.rm full_filename
@@ -1425,7 +1451,11 @@ class Attachment < ActiveRecord::Base
       old_content_type = self.content_type
       scope = Attachment.where(:md5 => self.md5, :namespace => self.namespace, :root_attachment_id => nil)
       scope.update_all(:content_type => "invalid/invalid") # prevents find_existing_attachment_for_md5 from reattaching the child to the old root
-      destination.uploaded_data = open
+
+      # TODO when RECNVS-323 is complete, branch here to call an inst-fs
+      # copy method to avoid sending object when it is not necessary
+      Attachments::Storage.store_for_attachment(destination, open)
+
       scope.where.not(:id => destination).update_all(:content_type => old_content_type)
     end
     destination.save!
@@ -1623,13 +1653,22 @@ class Attachment < ActiveRecord::Base
     file
   end
 
-  def self.domain_namespace=(val)
-    @domain_namespace = val
+  def self.current_root_account=(account)
+    # TODO rename to @current_root_account
+    @domain_namespace = account
   end
 
-  def self.domain_namespace
+  def self.current_root_account
+    @domain_namespace
+  end
+
+  def self.current_namespace
     @domain_namespace.respond_to?(:file_namespace) ? @domain_namespace.file_namespace : @domain_namespace
   end
+
+  # deprecated
+  def self.domain_namespace=(val); self.current_root_account = val; end
+  def self.domain_namespace; self.current_namespace; end
 
   def self.serialization_methods; [:mime_class, :currently_locked, :crocodoc_available?]; end
   cattr_accessor :skip_thumbnails
@@ -1655,7 +1694,7 @@ class Attachment < ActiveRecord::Base
     addition = 1
     dir = File.dirname(filename)
     dir = dir == "." ? "" : "#{dir}/"
-    extname = File.extname(filename)
+    extname = filename[/(\.[A-Za-z][A-Za-z0-9]*)+$/] || ''
     basename = File.basename(filename, extname)
 
     until block.call(new_name = "#{dir}#{basename}-#{addition}#{extname}")
@@ -1707,6 +1746,12 @@ class Attachment < ActiveRecord::Base
 
       self.file_state = 'available'
       self.save!
+
+      if opts[:progress]
+        # the UI only needs the id from here
+        opts[:progress].set_results({ id: self.id })
+      end
+
       handle_duplicates(duplicate_handling || 'overwrite')
     rescue Exception, Timeout::Error => e
       self.file_state = 'errored'
@@ -1728,6 +1773,12 @@ class Attachment < ActiveRecord::Base
       else
         self.upload_error_message = t :upload_error_unexpected, "An unknown error occurred downloading from %{url}", :url => url
       end
+
+      if opts[:progress]
+        opts[:progress].message = self.upload_error_message
+        opts[:progress].fail!
+      end
+
       self.save!
     end
   end
@@ -1807,7 +1858,7 @@ class Attachment < ActiveRecord::Base
         tmpfile.rewind
         attachment = opts[:attachment] || Attachment.new(:filename => File.basename(uri.path))
         attachment.filename ||= File.basename(uri.path)
-        attachment.uploaded_data = tmpfile
+        Attachments::Storage.store_for_attachment(attachment, tmpfile)
         if attachment.content_type.blank? || attachment.content_type == "unknown/unknown"
           # uploaded_data= clobbers the content_type set in preflight; if it was given, prefer it to the HTTP response
           attachment.content_type = if attachment.content_type_was.present? && attachment.content_type_was != 'unknown/unknown'
@@ -1857,7 +1908,7 @@ class Attachment < ActiveRecord::Base
             new_attachment.root_attachment = existing_attachment
           else
             new_attachment.write_attribute(:filename, attachment.filename)
-            new_attachment.uploaded_data = attachment.open
+            Attachments::Storage.store_for_attachment(new_attachment, attachment.open)
           end
 
           new_attachment.content_type = attachment.content_type
