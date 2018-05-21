@@ -103,6 +103,7 @@
     </td>
   </tr>
 </table>
+<% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
 <div class="content-box-mini">
   <table class="channel_list other_channels ic-Table ic-Table--condensed">
     <thead>
@@ -157,11 +158,14 @@
     </tfoot>
   </table>
 </div>
+<% end %>
 </div>
 <div id="communication_channels" style="display: none;">
 <ul>
   <li><a href="#register_email_address"><%= t('links.email', "Email") %></a></li>
+  <% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
   <li><a href="#register_sms_number"><%= t('links.text_sms', "Text (SMS)") %></a></li>
+  <% end %>
 </ul>
 <%= form_tag communication_channels_url, {:id => "register_email_address", :class => 'form-horizontal'} do %>
     <input type="hidden" name="communication_channel[type]" value="email"/>
@@ -172,7 +176,7 @@
       </div>
     </div>
 
-    <% if @domain_root_account == Account.default %>
+    <% if @domain_root_account == Account.default && Setting.get("sinicized.allow_custom_email_login", "true") == "true" %>
       <div class="control-group">
         <div class="controls">
           <label class='checkbox' for="build_pseudonym_for_email">
@@ -187,6 +191,7 @@
       <button type="submit" class="btn btn-primary"><%= t('buttons.register_email', "Register Email") %></button>
     </div>
 <% end %>
+<% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
 <%= form_tag communication_channels_url, {:id => "register_sms_number", :class => 'form-horizontal'} do %>
     <input type="hidden" name="communication_channel[type]" value="sms"/>
 
@@ -240,6 +245,7 @@
     <div class="form-actions">
       <button type="submit" class="btn btn-primary"><%= t('buttons.register_sms', "Register SMS") %></button>
     </div>
+<% end %>
 <% end %>
 </div>
 <div id="confirm_email_channel" style="display: none;" class="dialog" role="dialog">
