@@ -165,7 +165,7 @@ Which is you?", :count => @merge_opportunities.length %>
           <%= time_zone_select :user, :time_zone, I18nTimeZone.us_zones, :model => I18nTimeZone, :default => @pseudonym.account.default_time_zone %>
         </div>
       </div>
-      <% if @pseudonym.account == Account.default %>
+      <% if @pseudonym.account == Account.default && Setting.get("sinicized.show_instructure", "true") == "true" %>
       <div class="control-group">
         <div class="controls">
           <label for="user_subscribe_to_emails" class="checkbox">

@@ -137,7 +137,7 @@
       <span class="edit_data"><%= f.time_zone_select :time_zone, I18nTimeZone.us_zones, :model => I18nTimeZone, :default => (@domain_root_account.try(:default_time_zone) || "Mountain Time (US & Canada)") %></span>
     </td>
   </tr>
-  <% if @domain_root_account == Account.default %>
+  <% if @domain_root_account == Account.default && Setting.get("sinicized.show_instructure", "true") == "true"%>
     <tr>
       <td colspan="2">
         <div class="edit_data">
