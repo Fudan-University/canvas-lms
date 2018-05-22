@@ -4903,8 +4903,8 @@ zh-Hans:
     other: "%{count} 项已成功删除。"
   count_items_on_page_page_961fc0c7: "%{count} 页面上的项目%{page}"
   count_items_selected_91814713: 
-    one: "%{count} 项已选定"
-    other: "%{count} 项已选定"
+    one: "已选定 %{count} 项"
+    other: "已选定 %{count} 项"
   count_items_would_be_deleted_and_exceeds_the_set_t_a4a21dbe: "%{count} 项目将被删除并超出设定的阈值%{change_threshold}%"
   count_max_students_2db76773: "%{count} / %{max} 学生"
   count_max_users_bdebb537: "%{count} / %{max} 用户"
@@ -5737,7 +5737,7 @@ zh-Hans:
       send_failed: 请求失败。请重试。
       teachers_only: 在*发布*之前只有教师才能查看此课程
       titles: 
-        drop_course: 放弃此课程
+        drop_course: 退出此课程
         recent_feedback: 最近反馈
     sidebar_weighting: 
       default_name: 小组
@@ -7899,7 +7899,7 @@ zh-Hans:
       page_title: 文件预览
   files_and_folder_contents_only_available_to_studen_944f9166: 只能通过链接向学生提供文件和文件夹内容。在学生文件中不显示。
   files_c300e900: 文件
-  files_quota_percentused_of_bytesavailable_used_7f62792c: "文件配额：%{percentUsed} 已使用……，共 %{bytesAvailable}"
+  files_quota_percentused_of_bytesavailable_used_7f62792c: "已使用%{bytesAvailable}中的%{percentUsed}"
   files_quota_percentused_of_bytesavailable_used_d208857a: "文件配额: %{percentUsed}% of %{bytesAvailable} 被使用"
   files_toolbar_2f2f0976: 文件工具栏
   files_tutorial_tray_3ad1eea6: 文件教程托盘
@@ -9741,7 +9741,7 @@ zh-Hans:
   item_type_locked_85c560ec: 题型：已锁定
   item_type_quiz_c894ddb1: 项目类型：测验
   items_299a7626: 项目
-  items_items_selected_5b55e566: "%{items} 项已选定"
+  items_items_selected_5b55e566: "已选定 %{items} 项"
   items_selected_have_different_usage_rights_52b325cc: 选定的项具有不同使用权限。
   j_5226008a: j
   japan_81_d1832e9d: 日本(+81)
@@ -13497,7 +13497,7 @@ zh-Hans:
   percent_of_students_scoring_1239d948: 学生分数的百分比
   percentage_34ab7c2c: 百分比、百分率
   percentused_of_bytesavailable_used_894e2327: "%{percentUsed}% 已使用，共 %{bytesAvailable}"
-  percentused_of_bytesavailable_used_a859a40d: "%{percentUsed} 已使用……，共 %{bytesAvailable}"
+  percentused_of_bytesavailable_used_a859a40d: "已使用%{bytesAvailable}中的%{percentUsed}"
   performance_ac5f9e70: 表现
   performance_enhancements_for_the_gradebook_e6c5d5a5: 提高成绩册的性能
   permission_must_be_enabled_for_someone_397e1ce3: 权限必须为人所启用
@@ -13538,7 +13538,7 @@ zh-Hans:
   please_create_a_group_set_8db6e8fe: 请创建组集合
   please_enter_a_due_date_on_or_after_earliestdate_b3fe6d29: "请输入该日期或该日期后的截止日期%{earliestDate}"
   please_enter_a_name_for_this_link_318f01a4: 请为此链接输入一个名称。
-  please_enter_a_search_term_with_three_or_more_char_53fd5ed8: 请输入具有三个或更多字符的搜索词
+  please_enter_a_search_term_with_three_or_more_char_53fd5ed8: 搜索词需要至少三个字符
   please_enter_a_valid_url_protocol_is_required_e_g__4bc49ab1: "请输入有效的 URL。要求协议（例如 http://、https://、ftp://、tel:、mailto:）。"
   please_enter_a_valid_url_protocol_is_required_e_g__6dc0071c: "请输入有效的 URL。协议是必填项（例如，http://、https://、ftp://，电话：）。"
   please_enter_a_valid_url_protocol_is_required_e_g__c6ccfeca: "请输入一个有效的 URL。协议是必需的 (例如， http://, https://, ftp://)."
@@ -15916,7 +15916,7 @@ zh-Hans:
     confirm_delete_with_contents: 
       one: "是否确实要删除这 %{count} 个项目和其中的任何内容？"
       other: "是否确实要删除这 %{count} 个项目和其中的任何内容？"
-    created_at: 创建日期
+    created_at: 创建时间
     created_at_short: 已创建
     delete: 删除
     download: 下载
@@ -15936,7 +15936,7 @@ zh-Hans:
     folder_browsing_tree: 文件夹浏览树
     folder_name: 文件夹名称
     loading_more_results: 正在加载更多结果...
-    modified_by: 修改者
+    modified_by: 修改人
     move: 移动
     move_question: 
       one: "您希望将这 %{count} 个项目移到何处？"
@@ -15944,7 +15944,7 @@ zh-Hans:
     move_success: 
       one: "%{count} 个项目已移到 %{destinationFolder}"
       other: "%{count} 个项目已移到 %{destinationFolder}"
-    name: 姓名
+    name: 标题
     progress_message: "正在准备下载：%{percent}% 已完成"
     restrict_access: 限制访问
     results_count: "显示 %{num_results} 个搜索结果"
@@ -15956,7 +15956,7 @@ zh-Hans:
     sorted_ascending: 按升序排序
     sorted_desending: 按降序排序
     this_folder_is_empty: 此文件夹为空
-    updated_at: 修改日期
+    updated_at: 修改时间
     updated_at_short: 已修改
     view: 查看
   react_ui_rewrite_developer_key_management_aa1df236: "React UI重写开发人员密钥管理"
@@ -15964,7 +15964,7 @@ zh-Hans:
   ready_to_enroll_panel_46f45abb: 注册面板准备就绪
   recaptcha_not_configured_3a6ef9ee: "Recaptcha 未配置"
   recent_activity_51239235: 最近活动
-  recent_announcements_8becc59c: 最近的公告
+  recent_announcements_8becc59c: 最近公告
   recent_student: 
     last_logged_in: "上次登录时间 %{last_login}"
   recentint_remainderint_decaying_average_79bc09fb: "%{recentInt}/%{remainderInt} 衰减平均分"
