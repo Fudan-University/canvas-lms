@@ -1532,7 +1532,7 @@ zh-Hans:
   add_new_group_7ac49f31: 添加新组
   add_new_set_of_due_dates_e8e240f: 添加新的截止日期
   add_new_term_d2217c0d: 添加新学期
-  add_people_7ee4b2ec: 添加人员
+  add_people_7ee4b2ec: 添加成员
   add_people_to_coursename_5ea234e1: "将人员添加到：%{courseName}"
   add_quiz_ip_filter_c7b37dc5: "添加测验 IP 过滤器"
   add_rating_89d7fbde: 添加评分
@@ -1553,7 +1553,7 @@ zh-Hans:
   add_trigger_bc1a0fae: 添加触发器
   add_user_by_email_address_login_id_or_sis_id_7dd370dd: "通过电子邮件地址、登录 ID 或 SIS ID 添加用户。"
   add_user_e73e8e50: 添加用户
-  add_user_s_by_b2549f89: 通过……添加用户
+  add_user_s_by_b2549f89: 用户凭证
   add_users_b10c7fb1: 添加用户
   add_users_to_name_b8109bbb: "添加用户到 %{name}"
   add_your_assignments_you_can_just_make_a_long_list_8a7862dd: "添加您的作业。您可以只列一个长列表，或者将其分为几组 - 甚至可以为每个作业组指定权重。"
@@ -6095,19 +6095,19 @@ zh-Hans:
       tomorrow: 明天
       yesterday: 昨天
     formats: 
-      date_at_time: "%b %-d 于 %H:%M"
+      date_at_time: "%-m月%-d日 %H:%M"
       default: "%Y-%m-%d"
-      full: "%Y %b %-d %-k:%M"
-      full_with_weekday: "%Y %a %b %-d %-k:%M"
-      long: "%Y %B %-d"
-      long_with_weekday: "%A, %B %-d"
-      medium: "%Y %b %-d"
-      medium_month: "%Y %b"
-      medium_with_weekday: "%a %Y %b %-d"
-      short: "%b %-d"
-      short_month: "%b"
+      full: "%Y年%-m月%-d日 %-k:%M"
+      full_with_weekday: "%Y年%-m月-d日 %A %-k:%M"
+      long: "%Y年%-m月%-d日"
+      long_with_weekday: "%Y年%-m月%-d日 %A"
+      medium: "%Y年%-m月%-d日"
+      medium_month: "%Y年%-m月"
+      medium_with_weekday: "%Y年%-m月%-d日 %A"
+      short: "%-m月%-d日"
+      short_month: "%-m月"
       short_weekday: "%a"
-      short_with_weekday: "%a, %b %-d"
+      short_with_weekday: "%-m月%-d日 %A"
       weekday: "%A"
     month_names: 
       - ~
@@ -17637,7 +17637,7 @@ zh-Hans:
   sis_export_title: "SIS 导出"
   sis_friendly_name_52b5683d: "SIS 友好名称"
   sis_grade_export_settings_45a9f709: "SIS 评分导出设置"
-  sis_id_4495a887: "SIS ID"
+  sis_id_4495a887: 工号或学号
   sis_id_70eda157: 学号：
   sis_id_8c2029e1: "sis id"
   sis_import: 
@@ -18354,7 +18354,7 @@ zh-Hans:
   the_following_content_is_partner_provided_ed1da756: 以下内容由合作伙伴提供
   the_following_errors_occurred_bdec1e44: 发生以下错误：
   the_following_fields_are_invalid_fields_b3565800: "以下栏目是无效的：%{fields}"
-  the_following_users_are_ready_to_be_added_to_the_c_1ea01560: 以下用户已经准备好添加到课程。
+  the_following_users_are_ready_to_be_added_to_the_c_1ea01560: 即将添加以下用户为站点成员。
   the_following_users_could_not_be_created_2573360a: 无法创建以下用户。
   the_full_hostname_for_the_account_instance_somethi_e325da1f: "为帐户实例的完整名称 (例如，something.instructure.com)"
   the_global_context_9c3a8062: 全局上下文
