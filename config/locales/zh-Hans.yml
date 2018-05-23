@@ -13486,7 +13486,7 @@ zh-Hans:
   penalty_adjusted_707df573: "*%{penalty}* **%{adjusted}**"
   pending_3e506a5b: 审核中
   pending_message_2d9a8796: "审核中：%{message}"
-  people_b4ebb13c: 人员、人们
+  people_b4ebb13c: 成员
   people_options_cfb419a6: 人员选项
   people_tutorial_tray_a87a6c48: 人员教程托盘
   people_will_see_this_name_in_discussions_messages__fca9ebb2: 人们将在讨论、留言和评论中看到这个名称。
@@ -19673,7 +19673,7 @@ zh-Hans:
   we_were_unable_to_find_a_tool_profile_match_for_pr_34e6a5d2: "我们找不到与“%{product_name}”匹配的工具模板。"
   we_were_unable_to_find_a_tool_profile_match_for_pr_cd98678e: "我们找不到与“%{product_name}”匹配的工具模板。如果您要使用此工具，请使用以下注册 URL 进行安装：%{registration_url}"
   we_were_unable_to_find_a_tool_profile_match_for_ve_5645a3e0: "我们找不到vendor_code：“%{vendor_code}”product_code：“%{product_code}”的工具模板匹配。"
-  we_were_unable_to_find_matches_below_f1c6d1ed: 我们无法找到与下方内容匹配的项。
+  we_were_unable_to_find_matches_below_f1c6d1ed: 无法找到与下方内容匹配的结果。
   we_were_unable_to_find_matches_below_select_any_yo_87035b30: 我们无法找到与下方内容匹配的项。选择您要创建为新用户的任何人。此时将跳过取消选择。
   we_were_unable_to_find_matches_for_the_logins_belo_d5f79db2: 我们无法找到与下方登录匹配的人。选择您要创建为新用户的人。
   we_were_unable_to_update_the_app_659f5bc6: 我们无法更新应用程序。
