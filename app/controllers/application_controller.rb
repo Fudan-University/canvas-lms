@@ -80,6 +80,10 @@ class ApplicationController < ActionController::Base
   after_action :set_response_headers
   after_action :update_enrollment_last_activity_at
 
+  def default_url_options(options={})
+    options.merge(protocol: HostUrl.protocol)
+  end
+
   add_crumb(proc {
     title = I18n.t('links.dashboard', 'My Dashboard')
     crumb = <<-END
