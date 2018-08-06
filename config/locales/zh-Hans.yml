@@ -1101,7 +1101,7 @@ zh-Hans:
         self_registration: 自行注册
         self_registration_type_all: 所有帐户类型
         self_registration_type_observer: 仅限观察员帐户
-        show_scheduler: 启用计划程序
+        show_scheduler: 在“日历”中启用“预约”功能
         sis_app_token: "SIS 代理令牌"
         sis_app_url: "SIS 应用程序的网址"
         sis_default_grade_export: 在默认情况下，“把评分输入到SIS”的复选框为作业、评分讨论和测验启用
@@ -3174,13 +3174,13 @@ zh-Hans:
       scheduler_explanation_student_paragraph_1: 教师可以利用该工具安排事项供学生注册，例如师生互动时间、小组演讲时段，等等。
       scheduler_explanation_student_paragraph_2: 目前，你的教师没有布置任何作业。如果有可用的作业位置，您将收到通知。
       scheduler_explanation_teacher_header: 您尚未创建任何预约组，也没有您可注册的预约
-      scheduler_explanation_teacher_paragraph_1: "这是计划程序工具。 您可以利用它为学生创建要注册的预约组。"
-      scheduler_explanation_teacher_paragraph_2: "比方说，您想与参加您课程的每个学生单独讨论期中论文作业。您可以新建一个预约组， 指定对您方便的日期和时间，并将该时间分成多个时间块（每个块 15 分钟），每个时间块仅允许一个学生参与。"
-      scheduler_explanation_teacher_paragraph_3: 然后，学生将收到通知，并了解需要注册一个指定的时间块。在随后显示的日历中，可用时间块覆盖在日历的上部，这样学生就可选择一个合适的时间。
+      scheduler_explanation_teacher_paragraph_1: "这是预约工具。 您可以利用它为学生创建要注册的预约组。"
+      scheduler_explanation_teacher_paragraph_2: "例如，您想与参与课程的每个学生单独讨论期中论文作业。您可以新建一个预约组， 指定日期和时间，并将该时间分成多个时段（每个时段的时长可指定），每个时段仅允许一个学生参与。"
+      scheduler_explanation_teacher_paragraph_3: 然后，学生将收到通知，并了解需要注册一个指定的时段。在随后显示的日历中，可用时段将覆盖在日历上，这样学生就可选择合适的时间。
       scheduler_explanation_teacher_paragraph_4: "* 单击右侧的“创建预约组”按钮，即可开始创建。*"
-      signed_up_for: "您所登记的*%{title} 预约小组* "
-      x_groups_have_signed_up: "%{n_participant_count} 已经登记的小组"
-      x_people_have_signed_up: "%{n_participant_count} 已经登记的人员"
+      signed_up_for: "您所注册的*%{title} 预约小组* "
+      x_groups_have_signed_up: "已经注册 %{n_participant_count} 个小组"
+      x_people_have_signed_up: "已经注册 %{n_participant_count} 人"
     buttons: 
       cancel: 取消
       send_message: 发送
@@ -3192,7 +3192,7 @@ zh-Hans:
         accessibility_warning: 警告：为了提高对日历活动的访问，请使用日程视图。
         calendar_agenda: 日程
         calendar_month: 月
-        calendar_scheduler: 计划程序
+        calendar_scheduler: 预约
         calendar_week: 周
         improved_accessibility_recommend_agenda: 警告：为改善可访问性，请使用“日程视图”日历。
       loading: 正在加载
@@ -3230,9 +3230,9 @@ zh-Hans:
       date: 日期
       details: 详细信息：
       group_category: 小组类别
-      group_signup: 让学生按学习小组登录。
+      group_signup: 让学生按学习小组注册。
       location: 位置
-      name: 姓名
+      name: 名称
       time_range: 时间范围
     edit_appt_calendar_event: 
       description: "描述:"
@@ -3360,7 +3360,7 @@ zh-Hans:
     save_and_publish: 保存和发布
     save_changes: 保存更改
     scheduler_right_side_admin_section: 
-      create_a_new_set_of_appointments: 创建一个预约组
+      create_a_new_set_of_appointments: 新建预约组
     screenreader_date_suggestion: "%{date}。按 Enter 接受。"
     time_block_errors: 在您的时间段选择方面有错误。
     time_block_row: 
@@ -6095,19 +6095,19 @@ zh-Hans:
       tomorrow: 明天
       yesterday: 昨天
     formats: 
-      date_at_time: "%-m月%-d日 %H:%M"
-      default: "%Y-%m-%d"
-      full: "%Y年%-m月%-d日 %-k:%M"
-      full_with_weekday: "%Y年%-m月-d日 %A %-k:%M"
-      long: "%Y年%-m月%-d日"
-      long_with_weekday: "%Y年%-m月%-d日 %A"
-      medium: "%Y年%-m月%-d日"
-      medium_month: "%Y年%-m月"
-      medium_with_weekday: "%Y年%-m月%-d日 %A"
-      short: "%-m月%-d日"
-      short_month: "%-m月"
-      short_weekday: "%a"
-      short_with_weekday: "%-m月%-d日 %A"
+      date_at_time: "%b%-d日 %H:%M"
+      default: "%Y年%b%-d日"
+      full: "%Y年%b%-d日 %-k:%M"
+      full_with_weekday: "%Y年%b%-d日 %A %-k:%M"
+      long: "%Y年%b%-d日"
+      long_with_weekday: "%Y年%b%-d日 %A"
+      medium: "%Y年%b%-d日"
+      medium_month: "%Y年%b"
+      medium_with_weekday: "%Y年%b%-d日 %A"
+      short: "%b%d日"
+      short_month: "%b"
+      short_weekday: "%A"
+      short_with_weekday: "%b%d日 %A"
       weekday: "%A"
     month_names: 
       - ~
@@ -10026,15 +10026,15 @@ zh-Hans:
   light_pink_e1214d62: 浅粉红色
   limit_assignment_names_lengths_max_255_5ee9ebb5: "限制作业名称长度（最多 255 个字符）"
   limit_each_time_slot_to_input_value_user_s_47461538: "把每个时段限制为%{input_value}个用户。"
-  limit_each_time_slot_to_num_participants_groups_us_14ec4d65: "对*小组。* **用户。**限制每个时段 %{num_participants} "
+  limit_each_time_slot_to_num_participants_groups_us_14ec4d65: "每个间段限制 %{num_participants} *个小组* **个用户**。"
   limit_file_size_limit_per_file_b336c0d8: "每个文件限制%{file_size_limit}"
   limit_participants_to_attend_num_appointments_appo_dd3fd62f: "限制参与者出席%{num_appointments} 的预约。"
   limit_search_to_activity_after_c1ac2449: 限制搜索活动后
   limit_search_to_activity_before_e05aad05: 限制搜索活动前
   limit_section_privileges_e6425dfd: limit_section_privileges
-  limit_students_to_attend_input_value_slot_s_9a5bf576: "把学生数限制为参加%{input_value}个时段。"
-  limit_this_slot_to_input_type_number_name_max_part_1580add0: "将此段限制给 %{input_type_number_name_max_parti} 组。"
-  limit_this_slot_to_input_type_number_name_max_part_8344547a: "将此段限制给 %{input_type_number_name_max_parti} 用户。"
+  limit_students_to_attend_input_value_slot_s_9a5bf576: "每名学生最多参加 %{input_value} 个时段。"
+  limit_this_slot_to_input_type_number_name_max_part_1580add0: "此时段限制给 %{input_type_number_name_max_parti} 组。"
+  limit_this_slot_to_input_type_number_name_max_part_8344547a: "此时段限制给 %{input_type_number_name_max_parti} 人。"
   link_7262adec: 联系、链接
   link_color_55f8b835: 链接颜色
   link_description_4355ca82: 链接说明
