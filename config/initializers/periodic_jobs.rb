@@ -80,7 +80,7 @@ Rails.configuration.after_initialize do
   end
 
   Delayed::Periodic.cron 'Reporting::CountsReport.process', '0 11 * * 0' do
-    Reporting::CountsReport.process
+    with_each_shard_by_database(Reporting::CountsReport, :process_shard)
   end
 
   Delayed::Periodic.cron 'Account.update_all_update_account_associations', '0 10 * * 0' do
@@ -91,25 +91,13 @@ Rails.configuration.after_initialize do
     with_each_shard_by_database(StreamItem, :destroy_stream_items_using_setting)
   end
 
-  if IncomingMailProcessor::IncomingMessageProcessor.run_periodically?
-    Delayed::Periodic.cron 'IncomingMailProcessor::IncomingMessageProcessor#process', '*/1 * * * *' do
-      imp = IncomingMailProcessor::IncomingMessageProcessor.new(IncomingMail::MessageHandler.new, ErrorReport::Reporter.new)
-      IncomingMailProcessor::IncomingMessageProcessor.workers.times do |worker_id|
-        if IncomingMailProcessor::IncomingMessageProcessor.dedicated_workers_per_mailbox
-          # Launch one per mailbox
-          IncomingMailProcessor::IncomingMessageProcessor.mailbox_accounts.each do |account|
-            imp.send_later_enqueue_args(:process,
-                                        {singleton: "IncomingMailProcessor::IncomingMessageProcessor#process:#{worker_id}:#{account.address}", max_attempts: 1},
-                                        {worker_id: worker_id, mailbox_account_address: account.address})
-          end
-        else
-          # Just launch the one
-          imp.send_later_enqueue_args(:process,
-                                      {singleton: "IncomingMailProcessor::IncomingMessageProcessor#process:#{worker_id}", max_attempts: 1},
-                                      {worker_id: worker_id})
-        end
-      end
-    end
+  Delayed::Periodic.cron 'IncomingMailProcessor::IncomingMessageProcessor#process', '*/1 * * * *' do
+    DatabaseServer.send_in_each_region(
+      IncomingMailProcessor::IncomingMessageProcessor,
+      :queue_processors,
+      { run_current_region_asynchronously: true,
+        singleton: 'IncomingMailProcessor::IncomingMessageProcessor.queue_processors' }
+    )
   end
 
   Delayed::Periodic.cron 'IncomingMailProcessor::Instrumentation#process', '*/5 * * * *' do
@@ -173,27 +161,31 @@ Rails.configuration.after_initialize do
     with_each_shard_by_database(Version::Partitioner, :process)
   end
 
-  if AccountAuthorizationConfig::SAML.enabled?
-    Delayed::Periodic.cron 'AccountAuthorizationConfig::SAML::MetadataRefresher.refresh_providers', '15 0 * * *' do
-      with_each_shard_by_database(AccountAuthorizationConfig::SAML::MetadataRefresher,
+  if AuthenticationProvider::SAML.enabled?
+    Delayed::Periodic.cron 'AuthenticationProvider::SAML::MetadataRefresher.refresh_providers', '15 0 * * *' do
+      with_each_shard_by_database(AuthenticationProvider::SAML::MetadataRefresher,
                                   :refresh_providers)
     end
 
-    AccountAuthorizationConfig::SAML::Federation.descendants.each do |federation|
-      Delayed::Periodic.cron "AccountAuthorizationConfig::SAML::#{federation.class_name}.refresh_providers", '45 0 * * *' do
+    AuthenticationProvider::SAML::Federation.descendants.each do |federation|
+      Delayed::Periodic.cron "AuthenticationProvider::SAML::#{federation.class_name}.refresh_providers", '45 0 * * *' do
         DatabaseServer.send_in_each_region(federation,
                                     :refresh_providers,
-                                    singleton: "AccountAuthorizationConfig::SAML::#{federation.class_name}.refresh_providers")
+                                    singleton: "AuthenticationProvider::SAML::#{federation.class_name}.refresh_providers")
       end
     end
   end
 
-  Delayed::Periodic.cron 'SisBatchErrors.cleanup_old_errors', '*/15 * * * *', priority: Delayed::LOW_PRIORITY do
+  Delayed::Periodic.cron 'SisBatchError.cleanup_old_errors', '*/15 * * * *', priority: Delayed::LOW_PRIORITY do
     with_each_shard_by_database(SisBatchError, :cleanup_old_errors)
   end
 
   Delayed::Periodic.cron 'AccountReport.delete_old_rows_and_runners', '*/15 * * * *', priority: Delayed::LOW_PRIORITY do
     with_each_shard_by_database(AccountReport, :delete_old_rows_and_runners)
+  end
+
+  Delayed::Periodic.cron 'SisBatchRollBackData.cleanup_expired_data', '*/15 * * * *', priority: Delayed::LOW_PRIORITY do
+    with_each_shard_by_database(SisBatchRollBackData, :cleanup_expired_data)
   end
 
   Delayed::Periodic.cron 'EnrollmentState.recalculate_expired_states', '*/5 * * * *', priority: Delayed::LOW_PRIORITY do
@@ -202,5 +194,25 @@ Rails.configuration.after_initialize do
 
   Delayed::Periodic.cron 'MissingPolicyApplicator.apply_missing_deductions', '*/5 * * * *', priority: Delayed::LOW_PRIORITY do
     with_each_shard_by_database(MissingPolicyApplicator, :apply_missing_deductions)
+  end
+
+  Delayed::Periodic.cron 'Assignment.clean_up_duplicating_assignments', '*/5 * * * *', priority: Delayed::LOW_PRIORITY do
+    with_each_shard_by_database(Assignment, :clean_up_duplicating_assignments)
+  end
+
+  Delayed::Periodic.cron 'Assignment.clean_up_importing_assignments', '*/5 * * * *', priority: Delayed::LOW_PRIORITY do
+    with_each_shard_by_database(Assignment, :clean_up_importing_assignments)
+  end
+
+  Delayed::Periodic.cron 'ObserverAlert.clean_up_old_alerts', '0 * * * *', priority: Delayed::LOW_PRIORITY do
+    with_each_shard_by_database(ObserverAlert, :clean_up_old_alerts)
+  end
+
+  Delayed::Periodic.cron 'ObserverAlert.create_assignment_missing_alerts', '*/5 * * * *', priority: Delayed::LOW_PRIORITY do
+    with_each_shard_by_database(ObserverAlert, :create_assignment_missing_alerts)
+  end
+
+  Delayed::Periodic.cron 'abandoned job cleanup', '*/10 * * * *' do
+    Delayed::Worker::HealthCheck.reschedule_abandoned_jobs
   end
 end

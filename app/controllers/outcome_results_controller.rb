@@ -218,12 +218,21 @@ class OutcomeResultsController < ApplicationController
   #   "outcomes.alignments" includes all alignments referenced by outcomes in the
   #   context.
   #
+  # @argument include_hidden [Boolean]
+  #   If true, results that are hidden from the learning mastery gradebook and student rollup
+  #   scores will be included
+  #
   # @example_response
   #    {
   #      outcome_results: [OutcomeResult]
   #    }
   def index
-    @results = find_outcome_results(users: @users, context: @context, outcomes: @outcomes)
+    @results = find_outcome_results(
+      users: @users,
+      context: @context,
+      outcomes: @outcomes,
+      include_hidden: value_to_boolean(params[:include_hidden])
+    )
     @results = Api.paginate(@results, self, api_v1_course_outcome_results_url)
     json = outcome_results_json(@results)
     json[:linked] = linked_include_collections if params[:include].present?
@@ -367,6 +376,11 @@ class OutcomeResultsController < ApplicationController
   def include_outcomes_alignments
     alignments = ContentTag.learning_outcome_alignments.not_deleted.where(learning_outcome_id: @outcomes).preload(:content).map(&:content).uniq
     outcome_results_include_alignments_json(alignments)
+  end
+
+  def include_assignments
+    assignments = @results.map(&:assignment)
+    outcome_results_assignments_json(assignments)
   end
 
   def require_outcome_context

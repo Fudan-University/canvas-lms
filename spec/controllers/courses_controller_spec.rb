@@ -473,6 +473,42 @@ describe CoursesController do
         expect(assigns[:future_enrollments]).to eq []
       end
     end
+
+    describe "per-assignment permissions" do
+      let(:js_permissions) { assigns[:js_env][:PERMISSIONS] }
+
+      before(:each) do
+        course_with_teacher_logged_in(active_all: true)
+
+        @course.update!(default_view: 'assignments')
+        @course.enable_feature!(:moderated_grading)
+
+        @editable_assignment = @course.assignments.create!(
+          moderated_grading: true,
+          grader_count: 2,
+          final_grader: @teacher
+        )
+
+        ta_in_course(active_all: true)
+        @uneditable_assignment = @course.assignments.create!(
+          moderated_grading: true,
+          grader_count: 2,
+          final_grader: @ta
+        )
+      end
+
+      let(:assignment_permissions) { assigns[:js_env][:PERMISSIONS][:by_assignment_id] }
+
+      it "sets the 'update' attribute for an editable assignment to true" do
+        get 'show', params: {id: @course.id}
+        expect(assignment_permissions[@editable_assignment.id][:update]).to eq(true)
+      end
+
+      it "sets the 'update' attribute for an uneditable assignment to false" do
+        get 'show', params: {id: @course.id}
+        expect(assignment_permissions[@uneditable_assignment.id][:update]).to eq(false)
+      end
+    end
   end
 
   describe "GET 'statistics'" do
@@ -2329,11 +2365,11 @@ describe CoursesController do
       user_session(@teacher)
       post 'student_view', params: {course_id: @course.id}
       test_student = @course.student_view_student
-      assignment = @course.assignments.create!(:workflow_state => 'published', :moderated_grading => true)
+      assignment = @course.assignments.create!(workflow_state: 'published', moderated_grading: true, grader_count: 2)
       assignment.grade_student test_student, { :grade => 1, :grader => @teacher, :provisional => true }
       file = assignment.attachments.create! uploaded_data: default_uploaded_data
       assignment.submissions.first.add_comment(commenter: @teacher, message: 'blah', provisional: true, attachments: [file])
-      assignment.moderated_grading_selections.create!(:student => test_student, :provisional_grade => ModeratedGrading::ProvisionalGrade.last)
+      assignment.moderated_grading_selections.where(student: test_student).first.update_attribute(:provisional_grade, ModeratedGrading::ProvisionalGrade.last)
 
       expect(test_student.submissions.size).not_to be_zero
       delete 'reset_test_student', params: {course_id: @course.id}

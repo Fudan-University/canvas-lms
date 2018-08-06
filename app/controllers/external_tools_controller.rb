@@ -634,6 +634,10 @@ class ExternalToolsController < ApplicationController
   # @argument account_navigation[selection_height] [String]
   #   The height of the dialog the tool is launched in
   #
+  # @argument account_navigation[display_type] [String]
+  #   The layout type to use when launching the tool. Must be
+  #   "full_width", "borderless", or "default"
+  #
   # @argument user_navigation[url] [String]
   #   The url of the external tool for user navigation
   #
@@ -677,6 +681,10 @@ class ExternalToolsController < ApplicationController
   # @argument course_navigation[default] [Boolean]
   #   Whether the navigation option will show in the course by default or
   #   whether the teacher will have to explicitly enable it
+  #
+  # @argument course_navigation[display_type] [String]
+  #   The layout type to use when launching the tool. Must be
+  #   "full_width", "borderless", or "default"
   #
   # @argument editor_button[url] [String]
   #   The url of the external tool
@@ -1045,9 +1053,14 @@ class ExternalToolsController < ApplicationController
       return unless find_tool(tool_id, launch_type)
     end
 
-    if @tool&.url.blank? && @tool&.extension_setting(launch_type, :url).blank?
-      flash[:error] = t "#application.errors.invalid_external_tool", "Couldn't find valid settings for this link"
-      return redirect_to named_context_url(@context, :context_url)
+    if @tool.blank? || (@tool.url.blank? && @tool&.extension_setting(launch_type, :url).blank? && launch_url.blank?)
+      respond_to do |format|
+        format.html do
+          flash[:error] = t "#application.errors.invalid_external_tool", "Couldn't find valid settings for this link"
+          return redirect_to named_context_url(@context, :context_url)
+        end
+        format.json { render json: {errors: {external_tool: "Unable to find a matching external tool"}} and return }
+      end
     end
 
     # generate the launch

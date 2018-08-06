@@ -173,6 +173,9 @@ class ContentMigrationsController < ApplicationController
       js_env(:OLD_END_DATE => datetime_string(@context.conclude_at, :verbose))
       js_env(:SHOW_SELECT => @current_user.manageable_courses.count <= 100)
       js_env(:CONTENT_MIGRATIONS_EXPIRE_DAYS => ContentMigration.expire_days)
+      js_env(:QUIZZES_NEXT_CONFIGURED_ROOT => @context.root_account.feature_allowed?(:quizzes_next) &&
+             @context.root_account.feature_enabled?(:import_to_quizzes_next))
+      js_env(:QUIZZES_NEXT_ENABLED => @context.feature_enabled?(:quizzes_next) && @context.quiz_lti_tool.present?)
       set_tutorial_js_env
     end
   end
@@ -190,7 +193,7 @@ class ContentMigrationsController < ApplicationController
   def show
     @content_migration = @context.content_migrations.find(params[:id])
     @content_migration.check_for_pre_processing_timeout
-    render :json => content_migration_json(@content_migration, @current_user, session)
+    render :json => content_migration_json(@content_migration, @current_user, session, nil, params[:include])
   end
 
   def migration_plugin_supported?(plugin)
@@ -503,5 +506,4 @@ class ContentMigrationsController < ApplicationController
       render :json => @content_migration.errors, :status => :bad_request
     end
   end
-
 end

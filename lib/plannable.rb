@@ -40,44 +40,14 @@ module Plannable
     @associated_planner_items_need_updating = false
     return if self.new_record?
     return if self.respond_to?(:context_type) && !PlannerOverride::CONTENT_TYPES.include?(self.context_type)
-    @associated_planner_items_need_updating = true if self.respond_to?(:workflow_state_changed?) && self.workflow_state_changed? || self.workflow_state == 'deleted'
-  end
-
-  def visible_in_planner_for?(user)
-    return true unless planner_enabled?
-    self.planner_overrides.where(user_id: user, marked_complete: true, workflow_state: 'active').blank?
-  end
-
-  def planner_date
-    return nil unless planner_enabled?
-    date_to_use = [:todo_date, :due_at, :posted_at, :created_at].
-                  detect { |field| valid_planner_date?(field) }
-    self.send(date_to_use)
+    @associated_planner_items_need_updating = true if self.try(:workflow_state_changed?) || self.workflow_state == 'deleted'
   end
 
   def planner_override_for(user)
-    return nil unless planner_enabled?
-    self.planner_overrides.where(user_id: user).where.not(workflow_state: 'deleted').take
-  end
-  private
-
-  def valid_planner_date?(field)
-    self.respond_to?(field.to_sym) && self.send(field.to_sym).present?
-  end
-
-  def planner_enabled?
-    unless defined?(@planner_enabled)
-      @planner_enabled = root_account_for_model(self).feature_enabled?(:student_planner)
-    end
-    @planner_enabled
-  end
-
-  def root_account_for_model(base)
-    case base
-    when PlannerNote
-      base.user.account
+    if self.association(:planner_overrides).loaded?
+      self.planner_overrides.find{|po| po.user_id == user.id && po.workflow_state != 'deleted'}
     else
-      base.context.root_account
+      self.planner_overrides.where(user_id: user).where.not(workflow_state: 'deleted').take
     end
   end
 
@@ -104,7 +74,6 @@ module Plannable
     end
 
     def bookmark_for(object)
-      values = object.attributes.values_at *@columns
       bookmark = Bookmark.new
       bookmark.descending = @descending
       @columns.each do |col|
@@ -121,7 +90,7 @@ module Plannable
       string: -> (val) { val.is_a?(String) },
       integer: -> (val) { val.is_a?(Integer) },
       datetime: -> (val) { val.is_a?(String) && !!(DateTime.parse(val) rescue false) }
-    }
+    }.freeze
 
     def validate(bookmark)
       bookmark.is_a?(Array) &&
@@ -142,14 +111,14 @@ module Plannable
     end
 
     def restrict_scope(scope, pager)
-      if bookmark = pager.current_bookmark
+      if (bookmark = pager.current_bookmark)
         scope = scope.where(*comparison(bookmark))
       end
       scope.except(:order).order(order_by)
     end
 
     def order_by
-      @order_by ||= @columns.map { |col| column_order(col) }.join(', ')
+      @order_by ||= Arel.sql(@columns.map { |col| column_order(col) }.join(', '))
     end
 
     def column_order(col_name)

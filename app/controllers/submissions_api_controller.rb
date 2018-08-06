@@ -524,6 +524,13 @@ class SubmissionsApiController < ApplicationController
       submissions = submissions.where("graded_at>?", graded_since_date) if graded_since_date
       submissions = submissions.preload(:user, :originality_reports, :quiz_submission)
 
+      # this will speed up pagination for large collections when order_direction is asc
+      if order_by == 'graded_at' && order_direction == 'asc'
+        submissions = BookmarkedCollection.wrap(Submission::GradedAtBookmarker, submissions)
+      elsif order_by == :id && order_direction == 'asc'
+        submissions = BookmarkedCollection.wrap(Submission::IdBookmarker, submissions)
+      end
+
       submissions = Api.paginate(submissions, self, polymorphic_url([:api_v1, @section || @context, :student_submissions]))
       Submission.bulk_load_versioned_attachments(submissions)
       Version.preload_version_number(submissions)
@@ -719,6 +726,13 @@ class SubmissionsApiController < ApplicationController
   #       rubric_assessment[crit1][points]=3&rubric_assessment[crit2][points]=5&rubric_assessment[crit2][comments]=Well%20Done.
   def update
     @assignment = @context.assignments.active.find(params[:assignment_id])
+
+    if params[:submission] && params[:submission][:posted_grade] && !params[:submission][:provisional] &&
+        @assignment.moderated_grading && !@assignment.grades_published?
+      render_unauthorized_action
+      return
+    end
+
     @user = get_user_considering_section(params[:user_id])
 
     @submission = @assignment.all_submissions.find_or_create_by!(user: @user)
@@ -853,27 +867,27 @@ class SubmissionsApiController < ApplicationController
     if authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
       @assignment = @context.assignments.active.find(params[:assignment_id])
       includes = Array(params[:include])
+
+      # When mobile supports new anonymous we can remove the allow_new flag
+      allow_new_anonymous_id = value_to_boolean(params[:allow_new_anonymous_id])
+      can_view_student_names = allow_new_anonymous_id ? @assignment.can_view_student_names?(@current_user) : true
+
       student_scope = context.students_visible_to(@current_user, include: :inactive)
-      student_scope = @assignment.students_with_visibility(student_scope)
-      student_scope = student_scope.order(:id)
-      students = Api.paginate(student_scope, self, api_v1_course_assignment_gradeable_students_url(@context, @assignment))
+      submission_scope = @assignment.submissions.except(:preload).where(user_id: student_scope).
+        order(can_view_student_names ? :user_id : :anonymous_id)
+      submission_scope = submission_scope.preload(:user) if can_view_student_names
       if (include_pg = includes.include?('provisional_grades'))
-        return unless authorized_action(@context, @current_user, :moderate_grades)
-        submissions = @assignment.submissions.where(user_id: students).preload(:provisional_grades).index_by(&:user_id)
-        selections = @assignment.moderated_grading_selections.where(student_id: students).index_by(&:student_id)
+        render_unauthorized_action and return unless @assignment.permits_moderation?(@current_user)
+        submission_scope = submission_scope.preload(provisional_grades: :selection)
       end
-      render :json => students.map { |student|
-        json = user_display_json(student, @context)
+      submissions = Api.paginate(submission_scope, self, api_v1_course_assignment_gradeable_students_url(@context, @assignment))
+      render json: submissions.map { |submission|
+        json = can_view_student_names ? user_display_json(submission.user, @context) : anonymous_user_display_json(submission.anonymous_id)
         if include_pg
-          selection = selections[student.id]
+          selection = submission.provisional_grades.find(&:selection)
           json.merge!(in_moderation_set: selection.present?,
-                      selected_provisional_grade_id: selection && selection.selected_provisional_grade_id)
-          sub = submissions[student.id]
-          pg_list = if sub
-            submission_provisional_grades_json(sub, @assignment, @current_user, includes)
-          else
-            []
-          end
+                      selected_provisional_grade_id: selection&.provisional_grade_id)
+          pg_list = submission_provisional_grades_json(submission, @assignment, @current_user, includes)
           json.merge!({ provisional_grades: pg_list })
         end
         json
@@ -1038,6 +1052,9 @@ class SubmissionsApiController < ApplicationController
   # Returns the number of submissions for the given assignment based on gradeable students
   # that fall into three categories: graded, ungraded, not submitted.
   #
+  # @argument grouped [Boolean]
+  #   If this argument is true, the response will take into account student groups.
+  #
   # @example_response
   #   {
   #     "graded": 5,
@@ -1047,10 +1064,14 @@ class SubmissionsApiController < ApplicationController
   def submission_summary
     if authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
       @assignment = @context.assignments.active.find(params[:assignment_id])
-      student_scope = @context.students_visible_to(@current_user).
-        where("enrollments.type<>'StudentViewEnrollment' AND enrollments.workflow_state = 'active'").distinct
-      student_scope = @assignment.students_with_visibility(student_scope)
-      student_ids = student_scope.pluck(:id)
+      student_ids = if should_group?
+                      @assignment.representatives(@current_user).map(&:id)
+                    else
+                      student_scope = @context.students_visible_to(@current_user).
+                        where("enrollments.type<>'StudentViewEnrollment' AND enrollments.workflow_state = 'active'").distinct
+                      student_scope = @assignment.students_with_visibility(student_scope)
+                      student_scope.pluck(:id)
+                    end
 
       graded = @context.submissions.graded.where(user_id: student_ids, assignment_id: @assignment).count
       ungraded = @context.submissions.
@@ -1058,10 +1079,19 @@ class SubmissionsApiController < ApplicationController
         where(user_id: student_ids, assignment_id: @assignment, excused: [nil, false]).
         except(:order).
         count
-      not_submitted = student_ids.count - graded - ungraded
+      total = if should_group?
+                @assignment.group_category.groups.count
+              else
+                student_ids.count
+              end
+      not_submitted = total - graded - ungraded
 
       render json: {graded: graded, ungraded: ungraded, not_submitted: not_submitted}
     end
+  end
+
+  def should_group?
+    value_to_boolean(params[:grouped]) && @assignment.group_category_id && !@assignment.grade_group_students_individually
   end
 
   private

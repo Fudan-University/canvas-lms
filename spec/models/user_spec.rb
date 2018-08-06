@@ -1282,6 +1282,9 @@ describe User do
       expect(User.avatar_fallback_url('%{fallback}')).to eq(
         '%{fallback}'
       )
+      expect(User.avatar_fallback_url("http://somedomain/path",
+                                      OpenObject.new(:host => "somedomain", :protocol => "http://",
+                                                     :params => {:no_avatar_fallback => 1}))).to be_nil
     end
 
     describe "#clear_avatar_image_url_with_uuid" do
@@ -1709,6 +1712,12 @@ describe User do
         events = @user.calendar_events_for_calendar(:contexts => [@course])
         expect(events.size).to eql 1
         expect(events.first.title).to eql 'Published'
+      end
+
+      it "should not include events for the user if the user asset string is not included" do
+        user_event = @user.calendar_events.create!(context: @user, start_at: 1.minute.from_now, end_at: 5.minutes.from_now)
+        events = @user.calendar_events_for_calendar(contexts: [@course])
+        expect(events).not_to include user_event
       end
     end
 

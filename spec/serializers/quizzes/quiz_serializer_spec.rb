@@ -60,8 +60,8 @@ describe Quizzes::QuizSerializer do
     :allowed_attempts, :one_question_at_a_time, :question_count,
     :points_possible, :cant_go_back, :access_code, :ip_filter, :due_at,
     :lock_at, :unlock_at, :published, :show_correct_answers_at,
-    :hide_correct_answers_at, :show_correct_answers_last_attempt, :question_types,
-    :has_access_code
+    :hide_correct_answers_at, :show_correct_answers_last_attempt,
+    :has_access_code, :migration_id
   ].each do |attribute|
 
       it "serializes #{attribute}" do
@@ -126,10 +126,10 @@ describe Quizzes::QuizSerializer do
 
     # nil when context doesn't allow speedgrader
     allow(@quiz).to receive(:published?).and_return true
-    expect(@context).to receive(:allows_speed_grader?).and_return false
+    expect(assignment).to receive(:can_view_speed_grader?).with(@user).and_return false
     expect(@serializer.as_json[:quiz][:speed_grader_url]).to be_nil
 
-    expect(@context).to receive(:allows_speed_grader?).and_return true
+    expect(assignment).to receive(:can_view_speed_grader?).with(@user).and_return true
     json = @serializer.as_json[:quiz]
     expect(json[:speed_grader_url]).to eq(
       controller.send(:speed_grader_course_gradebook_url, @quiz.context, assignment_id: @quiz.assignment.id)
@@ -624,5 +624,9 @@ describe Quizzes::QuizSerializer do
     quiz.update_attributes(:quiz_type => "survey", :anonymous_submissions => true)
     new_json = quiz_serializer.as_json[:quiz]
     expect(new_json[:anonymous_submissions]).to eq true
+  end
+
+  it "does not include question_types" do
+    expect(json.keys).not_to include(:question_types)
   end
 end

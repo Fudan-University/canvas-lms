@@ -28,13 +28,13 @@ module Outcomes
       title
       vendor_guid
       object_type
-      parent_guids
     ].freeze
 
     OPTIONAL_FIELDS = %i[
       canvas_id
       description
       display_name
+      parent_guids
       calculation_method
       calculation_int
       mastery_points
@@ -58,9 +58,9 @@ module Outcomes
       begin
         parse_file(&update)
       rescue CSV::MalformedCSVError
-        file_errors << [1, I18n.t("Invalid CSV File")]
+        raise DataFormatError, I18n.t("Invalid CSV File")
       rescue ParseError => e
-        file_errors << [1, e.message]
+        raise DataFormatError, e.message
       end
       status = {
         errors: file_errors,

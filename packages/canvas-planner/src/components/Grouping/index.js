@@ -92,7 +92,7 @@ export class Grouping extends Component {
     this.groupingLink = link;
   }
 
-  getFocusable () { return this.groupingLink; }
+  getFocusable = () => { return this.groupingLink; }
   getScrollable () { return this.groupingLink || this.plannerNoteHero; }
 
   handleFacadeClick = (e) => {
@@ -116,7 +116,7 @@ export class Grouping extends Component {
     }
 
     const componentsToRender = this.renderItems(itemsToRender);
-    componentsToRender.push(this.renderFacade(completedItems, itemsToRender.length));
+    componentsToRender.push(this.renderFacade(completedItems, this.props.animatableIndex * 100 + itemsToRender.length + 1));
     return componentsToRender;
   }
 
@@ -136,7 +136,7 @@ export class Grouping extends Component {
           overrideId={item.overrideId}
           id={item.id}
           uniqueId={item.uniqueId}
-          animatableIndex={itemIndex}
+          animatableIndex={this.props.animatableIndex * 100 + itemIndex + 1}
           courseName={this.props.title}
           context={item.context || {}}
           date={moment(item.date).tz(this.props.timeZone)}
@@ -151,8 +151,10 @@ export class Grouping extends Component {
           toggleAPIPending={item.toggleAPIPending}
           status={item.status}
           newActivity={item.newActivity}
+          allDay={item.allDay}
           showNotificationBadge={showNotificationBadgeOnItem}
           currentUser={this.props.currentUser}
+          feedback={item.feedback}
         />
       </li>
     ));
@@ -189,6 +191,9 @@ export class Grouping extends Component {
             animatableIndex={animatableIndex}
             animatableItemIds={completedItemIds}
             notificationBadge={notificationBadge}
+            theme={{
+              labelColor: this.props.color
+            }}
           />
         </li>
       );
@@ -214,12 +219,17 @@ export class Grouping extends Component {
     if (newItem || missing) {
       const IndicatorComponent = newItem ? NewActivityIndicator : MissingIndicator;
       const badgeMessage = this.props.title ? this.props.title : this.renderToDoText();
-      return <IndicatorComponent
-        title={badgeMessage}
-        itemIds={this.itemUniqueIds()}
-        animatableIndex={this.props.animatableIndex} />;
+      return (
+        <NotificationBadge>
+          <IndicatorComponent
+          title={badgeMessage}
+          itemIds={this.itemUniqueIds()}
+          animatableIndex={this.props.animatableIndex}
+          getFocusable={this.getFocusable} />
+        </NotificationBadge>
+      );
     } else {
-      return null;
+      return <NotificationBadge/>;
     }
   }
 
@@ -259,11 +269,9 @@ export class Grouping extends Component {
   }
 
   render () {
-    const badge = this.renderNotificationBadge();
-
     return (
-      <div className={classnames(styles.root, styles[this.getLayout()])}>
-        <NotificationBadge>{badge}</NotificationBadge>
+      <div className={classnames(styles.root, styles[this.getLayout()], 'planner-grouping')} >
+        {this.renderNotificationBadge()}
         {this.renderGroupLink()}
         <ol className={styles.items} style={{ borderColor: this.props.color }}>
           { this.renderItemsAndFacade(this.props.items)}

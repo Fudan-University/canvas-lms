@@ -213,6 +213,10 @@ class RubricAssociation < ActiveRecord::Base
     raise "association required" unless association || association_object
     # Update/create the association -- this is what ties the rubric to an entity
     update_if_existing = params.delete(:update_if_existing)
+    if params[:hide_points] == '1'
+      params.delete(:use_for_grading)
+      params.delete(:hide_score_total)
+    end
     association ||= rubric.associate_with(association_object, context, :use_for_grading => params[:use_for_grading] == "1", :purpose => params[:purpose], :update_if_existing => update_if_existing)
     association.rubric = rubric
     association.context = context
@@ -327,6 +331,7 @@ class RubricAssociation < ActiveRecord::Base
       assessment.data = ratings if replace_ratings
 
       assessment.set_graded_anonymously if opts[:graded_anonymously]
+      assessment.hide_points = association.hide_points
       assessment.save
       if artifact.is_a?(ModeratedGrading::ProvisionalGrade)
         artifact.submission.touch

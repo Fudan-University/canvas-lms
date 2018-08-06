@@ -45,7 +45,7 @@ class ModeratedGrading::ProvisionalGrade < ActiveRecord::Base
   scope :not_final, -> { where(:final => false)}
 
   def must_be_final_or_student_in_need_of_provisional_grade
-    if !self.final && !self.submission.assignment.student_needs_provisional_grade?(self.submission.user)
+    if !self.final && !self.submission.assignment.can_be_moderated_grader?(self.scorer)
       raise(Assignment::GradeError, "Student already has the maximum number of provisional grades")
     end
   end
@@ -75,9 +75,17 @@ class ModeratedGrading::ProvisionalGrade < ActiveRecord::Base
   end
 
   def grade_attributes
-    self.as_json(:only => [:grade, :score, :graded_at, :scorer_id, :final, :graded_anonymously],
-                 :methods => [:provisional_grade_id, :grade_matches_current_submission],
+    self.as_json(:only => ModeratedGrading::GRADE_ATTRIBUTES_ONLY,
+                 :methods => [:provisional_grade_id, :grade_matches_current_submission, :entered_score, :entered_grade],
                  :include_root => false)
+  end
+
+  def entered_score
+    score
+  end
+
+  def entered_grade
+    grade
   end
 
   def grade_matches_current_submission
@@ -101,6 +109,7 @@ class ModeratedGrading::ProvisionalGrade < ActiveRecord::Base
   end
 
   def publish!
+    submission.grade_posting_in_progress = true
     previously_graded = submission.grade.present? || submission.excused?
     submission.grade = grade
     submission.score = score
@@ -111,6 +120,8 @@ class ModeratedGrading::ProvisionalGrade < ActiveRecord::Base
     previously_graded ? submission.with_versioning(:explicit => true) { submission.save! } : submission.save!
     publish_submission_comments!
     publish_rubric_assessments!
+  ensure
+    submission.grade_posting_in_progress = false
   end
 
   def copy_to_final_mark!(scorer)

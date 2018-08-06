@@ -142,7 +142,7 @@ module CanvasRails
             connection_parameters[:host] = host
             @connection = PG::Connection.connect(connection_parameters)
 
-            raise "Canvas requires PostgreSQL 9.3 or newer" unless postgresql_version >= 90300
+            raise "Canvas requires PostgreSQL 9.5 or newer" unless postgresql_version >= 90500
 
             configure_connection
 
@@ -160,12 +160,22 @@ module CanvasRails
     end
 
     module TypeMapInitializerExtensions
-      def query_conditions_for_initial_load(type_map)
-        known_type_names = type_map.keys.map { |n| "'#{n}'" } + type_map.keys.map { |n| "'_#{n}'" }
-        <<-SQL % [known_type_names.join(", "),]
-          WHERE
-            t.typname IN (%s)
-        SQL
+      if CANVAS_RAILS5_1
+        def query_conditions_for_initial_load(type_map)
+          known_type_names = type_map.keys.map { |n| "'#{n}'" } + type_map.keys.map { |n| "'_#{n}'" }
+          <<-SQL % [known_type_names.join(", "),]
+            WHERE
+              t.typname IN (%s)
+          SQL
+        end
+      else
+        def query_conditions_for_initial_load
+          known_type_names = @store.keys.map { |n| "'#{n}'" } + @store.keys.map { |n| "'_#{n}'" }
+          <<-SQL % [known_type_names.join(", "),]
+            WHERE
+              t.typname IN (%s)
+          SQL
+        end
       end
     end
 

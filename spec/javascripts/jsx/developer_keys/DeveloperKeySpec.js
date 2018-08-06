@@ -19,6 +19,9 @@
 import React from 'react'
 import TestUtils from 'react-addons-test-utils'
 import ReactDOM from 'react-dom'
+import Image from '@instructure/ui-elements/lib/components/Img'
+import Link from '@instructure/ui-elements/lib/components/Link'
+
 import DeveloperKey from 'jsx/developer_keys/DeveloperKey';
 
 class TestTable extends React.Component {
@@ -31,8 +34,12 @@ function makeTable (keyProps) {
   return (<TestTable><DeveloperKey {...keyProps} /></TestTable>)
 }
 
+function renderComponent (props) {
+  return TestUtils.renderIntoDocument(makeTable(props));
+}
+
 function testWrapperOk (keyProps, expectedString) {
-  const component = TestUtils.renderIntoDocument(makeTable(keyProps));
+  const component = renderComponent(keyProps)
   const renderedText = ReactDOM.findDOMNode(TestUtils.findRenderedDOMComponentWithTag(component, 'tr')).innerHTML;
   ok(renderedText.includes(expectedString))
 }
@@ -71,7 +78,7 @@ const defaultProps = {
     activateDeveloperKey: () => {},
     deactivateDeveloperKey: () => {},
     deleteDeveloperKey: () => {},
-    setEditingDeveloperKey: () => {},
+    editDeveloperKey: () => {},
     developerKeysModalOpen: () => {},
   },
   ctx: { params: { contextId: 'context' } }
@@ -106,33 +113,27 @@ test('includes Unnamed Tool when developerName empty string case', () => {
   testWrapperOk(updateDefaultProps({ developerKey: { name: '' } }), "Unnamed Tool")
 });
 
-test('includes userName', () => {
-  testWrapperOk(defaultProps, "billy bob")
+test('includes email', () => {
+  testWrapperOk(defaultProps, "bob@myemail.com")
 });
 
-test('includes No User when userName is null and email missing', () => {
-  testWrapperOk(updateDefaultProps({ developerKey: { user_name: null, email: null } }), "No User")
+test('includes No Email when userName is null and email missing', () => {
+  testWrapperOk(updateDefaultProps({ developerKey: { user_name: null, email: null } }), "No Email")
 });
 
-test('includes No User when userName is empty string and email is missing', () => {
-  testWrapperOk(updateDefaultProps({ developerKey: { user_name: '', email: null } }), "No User")
+test('includes No Email when userName is empty string and email is missing', () => {
+  testWrapperOk(updateDefaultProps({ developerKey: { user_name: '', email: null } }), "No Email")
 });
 
 test('includes an image when name is present', () => {
-  testWrapperOk(defaultProps, '<img class="icon" src="http://my_image.com" alt="Atomic fireball Logo"')
+  const component = renderComponent(defaultProps)
+  ok(TestUtils.findRenderedComponentWithType(component, Image))
 });
 
-test('includes an image when name is not present', () => {
+test('includes an img box when name is null', () => {
   const propsModified = updateDefaultProps({ developerKey: { name: null } })
-  testWrapperOk(propsModified, '<img class="icon" src="http://my_image.com" alt="Unnamed Tool Logo"')
-});
-
-test('includes a blank image when icon_url is null', () => {
-  testWrapperOk(updateDefaultProps({ developerKey: { icon_url: null } }), '<img class="icon" src="#" alt=""')
-});
-
-test('includes a blank image when icon_url is empty string', () => {
-  testWrapperOk(updateDefaultProps({ developerKey: { icon_url: '' } }), '<img class="icon" src="#" alt=""')
+  const component = renderComponent(propsModified)
+  ok(TestUtils.findRenderedComponentWithType(component, Image))
 });
 
 test('does not inactive when workflow_state is active', () => {
@@ -140,15 +141,14 @@ test('does not inactive when workflow_state is active', () => {
 });
 
 test('includes a user link', () => {
-  testWrapperOk(defaultProps, '<a href="/users/53532"')
-  testWrapperOk(defaultProps, '>billy bob</a>')
+  const component = renderComponent(defaultProps)
+  ok(TestUtils.findRenderedComponentWithType(component, Link))
 });
 
 test('does not include a user link when user_id is null', () => {
   const propsModified = updateDefaultProps({ developerKey: { user_id: null } })
-  testWrapperNotOk(propsModified, '<a href="/users/53532"')
-  testWrapperNotOk(propsModified, '>billy bob</a>')
-  testWrapperOk(propsModified, 'billy bob')
+  const component = renderComponent(propsModified)
+  equal(TestUtils.scryRenderedComponentsWithType(component, Link).length, 0)
 });
 
 test('includes a redirect_uri', () => {
@@ -172,8 +172,8 @@ test('it renders the developer key state control', () => {
   testWrapperOk(defaultProps, 'Key state for the current account')
 })
 
-test('renders Name Missing when email present but user_name missing', () => {
-  testWrapperOk(updateDefaultProps({ developerKey: { user_name: null } }), 'Name Missing')
+test('renders No Email when email is missing', () => {
+  testWrapperOk(updateDefaultProps({ developerKey: { email: null } }), 'No Email')
 })
 
 const inheritedProps = updateDefaultProps({ inherited: true })

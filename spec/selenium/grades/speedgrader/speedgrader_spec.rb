@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015 - present Instructure, Inc.
+# Copyright (C) 2018 - present Instructure, Inc.
 #
 # This file is part of Canvas.
 #
@@ -60,15 +60,13 @@ describe 'Speedgrader' do
     ]
   end
 
-  def let_speedgrader_load
+  def wait_for_grade_input
     wait = Selenium::WebDriver::Wait.new(timeout: 5)
     wait.until { Speedgrader.grade_input.attribute('value') != "" }
   end
 
   context 'grading' do
-
-    context 'should display grades correctly' do
-
+    describe 'displays grades correctly' do
       before(:each) do
         init_course_with_students 2
         user_session(@teacher)
@@ -79,8 +77,8 @@ describe 'Speedgrader' do
           title: 'Complete?',
           grading_type: 'pass_fail'
         )
-        @assignment.grade_student @students[0], grade: 'complete', grader: @teacher
-        @assignment.grade_student @students[1], grade: 'incomplete', grader: @teacher
+        @assignment.grade_student @students.first, grade: 'complete', grader: @teacher
+        @assignment.grade_student @students.second, grade: 'incomplete', grader: @teacher
 
         grader_speedgrader_assignment('complete', 'incomplete', false)
       end
@@ -116,7 +114,7 @@ describe 'Speedgrader' do
       it "page should load in acceptable time ", priority:"1" do
         page_load_time = Benchmark.measure do
           Speedgrader.visit(@course.id,@quiz.assignment_id)
-          let_speedgrader_load
+          wait_for_grade_input
         end
         Rails.logger.debug "SpeedGrader for course #{@course.id} and assignment"\
                              " #{@quiz.assignment_id} loaded in #{page_load_time.real} seconds"
@@ -126,21 +124,26 @@ describe 'Speedgrader' do
       before(:each) do
         user_session(@teacher)
         get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@quiz.assignment_id}"
-        driver.switch_to.frame f('#speedgrader_iframe')
       end
 
       it 'should display needs review alert on non-autograde questions', priority: "1", test_id: 441360 do
-        expect(ff('#update_history_form .alert')[0]).to include_text('The following questions need review:')
+        in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+          expect(ff('#update_history_form .alert')[0]).to include_text('The following questions need review:')
+        end
       end
 
       it 'should only display needs review for file_upload and essay questions', priority: "2", test_id: 452539 do
-        questions_to_grade = ff('#questions_needing_review li a')
-        expect(questions_to_grade[0]).to include_text('Question 2')
-        expect(questions_to_grade[1]).to include_text('Question 3')
+        in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+          questions_to_grade = ff('#questions_needing_review li a')
+          expect(questions_to_grade[0]).to include_text('Question 2')
+          expect(questions_to_grade[1]).to include_text('Question 3')
+        end
       end
 
       it 'should not display review warning on text only quiz questions', priority: "1", test_id: 377664 do
-        expect(ff('#update_history_form .alert')[0]).not_to include_text('Question 4')
+        in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+          expect(ff('#update_history_form .alert')[0]).not_to include_text('Question 4')
+        end
       end
     end
 
@@ -160,7 +163,7 @@ describe 'Speedgrader' do
 
       it 'should allow pass grade on assignments worth 0 points', priority: "1", test_id: 400127 do
         get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}#"
-        let_speedgrader_load
+        wait_for_grade_input
         expect(Speedgrader.grade_input['value']).to eq('complete')
         expect(f('#grade_container label')).to include_text('(0 / 0)')
       end
@@ -168,7 +171,7 @@ describe 'Speedgrader' do
       it 'should display pass/fail correctly when total points possible is changed', priority: "1", test_id: 419289 do
         @assignment.update_attributes(points_possible: 1)
         get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}#"
-        let_speedgrader_load
+        wait_for_grade_input
         expect(Speedgrader.grade_input['value']).to eq('complete')
         expect(f('#grade_container label')).to include_text('(1 / 1)')
       end
@@ -284,11 +287,11 @@ describe 'Speedgrader' do
     end
 
     context 'Using a rubric to grade' do
-      it 'should display correct grades for student', priority: "1", test_id: 164205 do
+      it 'should display correct grades for student with proper selected ratings', priority: "1", test_id: 164205 do
         course_with_student_logged_in(active_all: true)
-        rubric_model
+        rubric = outcome_with_rubric
         @assignment = @course.assignments.create!(name: 'assignment with rubric', points_possible: 10)
-        @association = @rubric.associate_with(
+        @association = rubric.associate_with(
           @assignment,
           @course,
           purpose: 'grading',
@@ -299,20 +302,24 @@ describe 'Speedgrader' do
           submission_type: "online_text_entry",
           has_rubric_assessment: true
         )
+        criterion1 = rubric.criteria.first
+        criterion2 = rubric.criteria.last
         @assessment = @association.assess(
           user: @student,
           assessor: @teacher,
           artifact: @submission,
           assessment: {
             assessment_type: 'grading',
-            criterion_crit1: { points: 5 }
+            "criterion_#{criterion1[:id]}": { points: 3 },
+            "criterion_#{criterion2[:id]}": { points: 0 }
           }
         )
         get "/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student.id}"
         f('a.assess_submission_link').click
-
-        expect(f('#rating_rat2')).to have_class('selected')
-        expect(f('#rating_rat2 .points')).to include_text('5')
+        expect(ff("#criterion_#{criterion1[:id]} .selected").length).to eq 1
+        expect(f("#criterion_#{criterion1[:id]} .selected")).to include_text('3')
+        expect(ff("#criterion_#{criterion2[:id]} .selected").length).to eq 1
+        expect(f("#criterion_#{criterion2[:id]} .selected")).to include_text('0')
       end
     end
   end
@@ -380,44 +387,47 @@ describe 'Speedgrader' do
     end
 
     it 'displays question navigation bar when setting is enabled', priority: "1", test_id: 164019 do
-      driver.switch_to.frame f('#speedgrader_iframe')
-      expect(f('header.quiz-header')).to include_text quiz.title
-      expect(f('#quiz-nav-inner-wrapper')).to be_displayed
-      nav = ff('.quiz-nav-li')
-      expect(nav).to have_size 24
+      in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+        expect(f('header.quiz-header')).to include_text quiz.title
+        expect(f('#quiz-nav-inner-wrapper')).to be_displayed
+        nav = ff('.quiz-nav-li')
+        expect(nav).to have_size 24
+      end
     end
 
     it 'scrolls nav bar and to questions', priority: "1", test_id: 164020 do
       skip_if_chrome('broken')
 
-      driver.switch_to.frame f('#speedgrader_iframe')
-      wrapper = f('#quiz-nav-inner-wrapper')
+      in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+        wrapper = f('#quiz-nav-inner-wrapper')
 
-      # check scrolling
-      first_left = wrapper.css_value('left').to_f
+        # check scrolling
+        first_left = wrapper.css_value('left').to_f
 
-      f('#nav-link-next').click
-      second_left = wrapper.css_value('left').to_f
-      expect(first_left).to be > second_left
+        f('#nav-link-next').click
+        second_left = wrapper.css_value('left').to_f
+        expect(first_left).to be > second_left
 
-      # check anchors
-      anchors = ff('#quiz-nav-inner-wrapper li a')
-      data_id = anchors[1].attribute 'data-id'
-      anchors[1].click
-      expect(f("#question_#{data_id}")).to have_class 'selected_single_question'
+        # check anchors
+        anchors = ff('#quiz-nav-inner-wrapper li a')
+        data_id = anchors[1].attribute 'data-id'
+        anchors[1].click
+        expect(f("#question_#{data_id}")).to have_class 'selected_single_question'
+      end
     end
 
     it 'updates scores', priority: "1", test_id: 164021 do
-      driver.switch_to.frame f('#speedgrader_iframe')
-      list = ff('#questions .user_points input')
-      replace_content list[1], "1", :tab_out => true
-      replace_content f('#fudge_points_entry'), "7", :tab_out => true
+      in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+        list = ff('#questions .user_points input')
+        replace_content list[1], "1", :tab_out => true
+        replace_content f('#fudge_points_entry'), "7", :tab_out => true
 
-      # after_fudge_points_total is updated, even before update button is clicked
-      expect(f('#after_fudge_points_total')).to include_text '8'
+        # after_fudge_points_total is updated, even before update button is clicked
+        expect(f('#after_fudge_points_total')).to include_text '8'
 
-      expect_new_page_load {f('button.update-scores').click}
-      expect(f('#after_fudge_points_total')).to include_text '8'
+        expect_new_page_load {f('button.update-scores').click}
+        expect(f('#after_fudge_points_total')).to include_text '8'
+      end
     end
   end
 
@@ -467,16 +477,16 @@ describe 'Speedgrader' do
     end
 
     it 'list all students', priority: "1", test_id: 164206 do
-      validate_speedgrader_student_list
+      validate_speedgrader_student_list(false)
     end
 
     it 'list alias when hide student name is selected', priority: "2", test_id: 164208 do
       Speedgrader.click_settings_link
+      Speedgrader.click_options_link
       Speedgrader.select_hide_student_names
 
       expect_new_page_load { fj('.ui-dialog-buttonset .ui-button:visible:last').click }
-
-      validate_speedgrader_student_list
+      validate_speedgrader_student_list(true)
     end
 
     # speedgrader student dropdown shows assignment submission status symbols next to student names
@@ -592,12 +602,12 @@ describe 'Speedgrader' do
     it 'opens and closes keyboard shortcut modal via blue info icon', priority: "2", test_id: 759319 do
       user_session(teacher)
       get "/courses/#{test_course.id}/gradebook/speed_grader?assignment_id=#{assignment.id}"
-      keyboard_shortcut_icon = f('#keyboard-shortcut-info-icon')
-      keyboard_modal = f('#keyboard_navigation')
-      expect(keyboard_shortcut_icon).to be_displayed
+      Speedgrader.click_settings_link
+      expect(Speedgrader.keyboard_shortcuts_link).to be_displayed
 
       # Open shortcut modal
-      keyboard_shortcut_icon.click
+      Speedgrader.click_keyboard_shortcuts_link
+      keyboard_modal = f('#keyboard_navigation')
       expect(keyboard_modal).to be_displayed
 
       # Close shortcut modal
@@ -680,7 +690,7 @@ describe 'Speedgrader' do
   def grader_speedgrader_assignment(grade1, grade2, clear_grade=true)
     get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}#"
 
-    let_speedgrader_load
+    wait_for_grade_input
     expect(Speedgrader.grade_input).to have_value grade1
     Speedgrader.click_next_student_btn
     expect(Speedgrader.grade_input).to have_value grade2
@@ -694,8 +704,12 @@ describe 'Speedgrader' do
     @assignment.grade_student @students[1], grade: grade2, grader: @teacher
   end
 
-  def validate_speedgrader_student_list
+  def validate_speedgrader_student_list(hide)
     Speedgrader.click_students_dropdown
-    (0..2).each{|num| expect(Speedgrader.student_dropdown_menu).to include_text(@students[num].name)}
+    if hide
+      (1..3).each{|num| expect(Speedgrader.student_dropdown_menu).to include_text("Student #{num}")}
+    else
+      (0..2).each{|num| expect(Speedgrader.student_dropdown_menu).to include_text(@students[num].name)}
+    end
   end
 end

@@ -63,78 +63,6 @@ describe Submission do
     end
   end
 
-  describe '.generate_unique_anonymous_id' do
-    let(:assignment) { @assignment }
-    let(:short_id) { 'aB123' }
-
-    context 'given no existing_anonymous_ids' do
-      subject(:generate_unique_anonymous_id) do
-        -> { Submission.generate_unique_anonymous_id(assignment: assignment) }
-      end
-
-      it 'creates an anonymous_id' do
-        allow(Submission).to receive(:generate_short_id).and_return(short_id)
-        expect(generate_unique_anonymous_id.call).to eql short_id
-      end
-
-      it 'fetches existing_anonymous_ids' do
-        expect(Submission).to receive(:anonymous_ids_for).with(assignment).and_call_original
-        generate_unique_anonymous_id.call
-      end
-
-      it 'creates a unique anonymous_id when collisions happen' do
-        first_student = @student
-        second_student = student_in_course(course: @course, active_all: true).user
-        first_submission = submission_model(assignment: assignment, user: first_student)
-        second_submission = submission_model(assignment: assignment, user: second_student)
-        Submission.update_all(anonymous_id: nil)
-
-        first_anonymous_id = short_id
-        colliding_anonymous_id = first_anonymous_id
-        unused_anonymous_id = 'eeeee'
-
-        allow(Submission).to receive(:generate_short_id).exactly(3).times.and_return(
-          first_anonymous_id, colliding_anonymous_id, unused_anonymous_id
-        )
-
-        anonymous_ids = [first_submission, second_submission].map do |submission|
-          submission.update!(anonymous_id: generate_unique_anonymous_id.call)
-          submission.anonymous_id
-        end
-
-        expect(anonymous_ids).to contain_exactly(first_anonymous_id, unused_anonymous_id)
-      end
-    end
-
-    context 'given a list of existing_anonymous_ids' do
-      subject do
-        Submission.generate_unique_anonymous_id(
-          assignment: assignment,
-          existing_anonymous_ids: existing_anonymous_ids_fake
-        )
-      end
-
-      let(:existing_anonymous_ids_fake) { double('Array') }
-
-      before do
-        student_in_course(course: @course, active_all: true)
-      end
-
-      it 'queries the passed in existing_anonymous_ids' do
-        allow(Submission).to receive(:generate_short_id).and_return(short_id)
-        expect(existing_anonymous_ids_fake).to receive(:include?).with(short_id).and_return(false)
-        is_expected.to eql short_id
-      end
-    end
-  end
-
-  describe '.generate_short_id' do
-    it 'generates a short id' do
-      expect(SecureRandom).to receive(:base58).with(5)
-      Submission.generate_short_id
-    end
-  end
-
   describe '.anonymous_ids_for' do
     subject { Submission.anonymous_ids_for(@first_assignment) }
 
@@ -248,6 +176,35 @@ describe Submission do
             @student = user_factory(active_all: true)
             @context.enroll_student(@student)
             expect(@submission.grants_right?(@student, :grade)).to eq(false)
+          end
+        end
+
+        context 'when part of a moderated assignment' do
+          before(:once) do
+            @assignment.update!(
+              moderated_grading: true,
+              grader_count: 2
+            )
+            submission_spec_model(assignment: @assignment)
+          end
+
+          it 'may not be graded if grades are not published' do
+            expect(@submission.grants_right?(@teacher, :grade)).to eq false
+          end
+
+          it 'sets an error message indicating moderation is in progress if grades are not published' do
+            @submission.grants_right?(@teacher, :grade)
+            expect(@submission.grading_error_message).to eq 'This assignment is currently being moderated'
+          end
+
+          it 'may be graded if grades are not published but grade_posting_in_progress is true' do
+            @submission.grade_posting_in_progress = true
+            expect(@submission.grants_right?(@teacher, :grade)).to eq true
+          end
+
+          it 'may be graded when grades for the assignment are published' do
+            @submission.assignment.update!(grades_published_at: Time.zone.now)
+            expect(@submission.grants_right?(@teacher, :grade)).to eq true
           end
         end
       end
@@ -899,6 +856,22 @@ describe Submission do
         @assignment.grade_student(@student, grade: 1000, grader: @teacher)
         submission.apply_late_policy(@late_policy, @assignment)
         expect(submission.score).to be 1000.0
+      end
+    end
+
+    context "with regraded" do
+      it "does not apply the deduction multiple times if submission saved multiple times" do
+        @late_policy.update!(course_id: @course)
+        Timecop.freeze(@date) do
+          @assignment.submit_homework(@student, body: 'a body')
+          # The submission is saved once in grade_student.  Using sub
+          # here to avoid masking/using the submission in the let
+          # above. I want to make sure I'm using the exact same object
+          # as returned by grade_student.
+          sub = @assignment.grade_student(@student, grade: 1000, grader: @teacher).first
+          sub.save!
+          expect(sub.score).to be 700.0
+        end
       end
     end
 
@@ -3639,9 +3612,10 @@ describe Submission do
 
   describe 'find_or_create_provisional_grade!' do
     before(:once) do
-      submission_spec_model
+      @assignment.grader_count = 1
       @assignment.moderated_grading = true
       @assignment.save!
+      submission_spec_model
 
       @teacher2 = User.create(name: "some teacher 2")
       @context.enroll_teacher(@teacher2)
@@ -3710,7 +3684,7 @@ describe Submission do
     end
 
     it "raises an exception if grade is not final and student does not need a provisional grade" do
-      @submission.find_or_create_provisional_grade!(@teacher)
+      @assignment.grade_student(@student, grade: 2, grader: @teacher, provisional: true)
 
       expect{ @submission.find_or_create_provisional_grade!(@teacher2, final: false) }
         .to raise_error(Assignment::GradeError, "Student already has the maximum number of provisional grades")
@@ -3736,6 +3710,7 @@ describe Submission do
 
     context "moderated" do
       before(:once) do
+        @assignment.grader_count = 1
         @assignment.moderated_grading = true
         @assignment.save!
         @submission.reload
@@ -3751,7 +3726,6 @@ describe Submission do
 
         context "student in moderation set" do
           it "returns the student alone" do
-            @assignment.moderated_grading_selections.create!(student: @student)
             expect(@submission.moderated_grading_whitelist).to eq([@student.moderated_grading_ids])
           end
         end
@@ -3772,7 +3746,7 @@ describe Submission do
 
         context "student in moderation set" do
           before(:once) do
-            @sel = @assignment.moderated_grading_selections.create!(student: @student)
+            @sel = @assignment.moderated_grading_selections.find_by(student: @student)
           end
 
           it "returns nil if no provisional grade was published" do
@@ -3845,6 +3819,26 @@ describe Submission do
 
       it 'returns rubric_assessments for teacher' do
         expect(subject).to include(@teacher_assessment)
+      end
+
+      it 'does not return rubric assessments if assignment has no rubric' do
+        @assignment.rubric_association.destroy!
+
+        expect(subject).not_to include(@teacher_assessment)
+      end
+
+      it 'only returns rubric assessments from associated rubrics' do
+        other = @rubric_association.dup
+        other.save!
+        other_assessment = other.rubric_assessments.create!({
+          artifact: @submission,
+          assessment_type: 'grading',
+          assessor: @teacher,
+          rubric: @rubric,
+          user: @assessed_user
+        })
+
+        expect(subject).to eq([other_assessment])
       end
 
       it 'returns only student rubric assessment' do
@@ -4076,6 +4070,39 @@ describe Submission do
         sub = @assignment.submit_homework(@user, attachments: [@attachment])
         expect(sub.attachments).to eq [@attachment]
       end
+    end
+  end
+
+  describe "#can_view_details?" do
+    before :each do
+      @assignment.update!(anonymous_grading: true, muted: true)
+      @submission = @assignment.submit_homework(@student, submission_type: 'online_text_entry', body: 'a body')
+    end
+
+    it "returns false if user isn't present" do
+      expect(@submission).not_to be_can_view_details(nil)
+    end
+
+    it "returns true for submitting student if assignment anonymous grading and muted" do
+      expect(@submission.can_view_details?(@student)).to be true
+    end
+
+    it "returns false for non-submitting student if assignment anonymous grading and muted" do
+      new_student = User.create!
+      @context.enroll_student(new_student, enrollment_state: 'active')
+      expect(@submission.can_view_details?(@new_student)).to be false
+    end
+
+    it "returns false for teacher if assignment anonymous grading and muted" do
+      expect(@submission.can_view_details?(@teacher)).to be false
+    end
+
+    it "returns false for admin if assignment anonymous grading and muted" do
+      expect(@submission.can_view_details?(account_admin_user)).to be false
+    end
+
+    it "returns true for site admin if assignment anonymous grading and muted" do
+      expect(@submission.can_view_details?(site_admin_user)).to be true
     end
   end
 
@@ -4674,6 +4701,9 @@ describe Submission do
                   else
                     assignment.submissions.find_by!(user: user)
                   end
+    unless assignment.grades_published? || @submission.grade_posting_in_progress || assignment.permits_moderation?(user)
+      opts.delete(:grade)
+    end
     @submission.update!(opts)
     @submission
   end

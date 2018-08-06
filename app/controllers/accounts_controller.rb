@@ -155,7 +155,7 @@ class AccountsController < ApplicationController
     if @current_user
       account_ids = Rails.cache.fetch(['admin_enrollment_course_account_ids', @current_user].cache_key) do
         Account.joins(:courses => :enrollments).merge(
-          @current_user.enrollments.admin.shard(@current_user).except(:select)
+          @current_user.enrollments.admin.shard(@current_user).except(:select, :joins)
         ).select("accounts.id").distinct.pluck(:id).map{|id| Shard.global_id_for(id)}
       end
       course_accounts = BookmarkedCollection.wrap(Account::Bookmarker, Account.where(:id => account_ids))
@@ -176,7 +176,10 @@ class AccountsController < ApplicationController
     return unless authorized_action(@account, @current_user, :read)
     respond_to do |format|
       format.html do
-        return course_user_search if @account.feature_enabled?(:course_user_search)
+        if @account.feature_enabled?(:course_user_search)
+          @redirect_on_unauth = true
+          return course_user_search
+        end
         if value_to_boolean(params[:theme_applied])
           flash[:notice] = t("Your custom theme has been successfully applied.")
         end
@@ -556,6 +559,7 @@ class AccountsController < ApplicationController
 
         if success
           # Successfully completed
+          update_user_dashboards
           render :json => account_json(@account, @current_user, session, includes)
         else
           # Failed (hopefully with errors)
@@ -736,6 +740,7 @@ class AccountsController < ApplicationController
         set_default_dashboard_view(params.dig(:account, :settings)&.delete(:default_dashboard_view))
 
         if @account.update_attributes(strong_account_params)
+          update_user_dashboards
           format.html { redirect_to account_settings_url(@account) }
           format.json { render :json => @account }
         else
@@ -1162,6 +1167,11 @@ class AccountsController < ApplicationController
     end
   end
 
+  def update_user_dashboards
+    return unless value_to_boolean(params.dig(:account, :settings, :force_default_dashboard_view))
+    @account.update_user_dashboards
+  end
+
   def format_avatar_count(count = 0)
     count > 99 ? "99+" : count
   end
@@ -1218,7 +1228,7 @@ class AccountsController < ApplicationController
                                    :strict_sis_check, :storage_quota, :students_can_create_courses,
                                    :sub_account_includes, :teachers_can_create_courses, :trusted_referers,
                                    :turnitin_host, :turnitin_account_id, :users_can_edit_name,
-                                   :app_center_access_token, :default_dashboard_view].freeze
+                                   :app_center_access_token, :default_dashboard_view, :force_default_dashboard_view].freeze
 
   def permitted_account_attributes
     [:name, :turnitin_account_id, :turnitin_shared_secret, :include_crosslisted_courses,

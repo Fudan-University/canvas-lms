@@ -350,17 +350,18 @@ class DiscussionTopicsController < ApplicationController
       scope = scope.active.where('delayed_post_at IS NULL OR delayed_post_at<?', Time.now.utc)
     end
 
-    @topics = Api.paginate(scope, self, topic_pagination_url)
+    if !@context.account.feature_enabled?(:section_specific_discussions) || request.format.json?
+      @topics = Api.paginate(scope, self, topic_pagination_url)
+      if params[:exclude_context_module_locked_topics]
+        @topics = DiscussionTopic.reject_context_module_locked_topics(@topics, @current_user)
+      end
 
-    if params[:exclude_context_module_locked_topics]
-      @topics = DiscussionTopic.reject_context_module_locked_topics(@topics, @current_user)
+      if states.present?
+        @topics.reject! { |t| t.locked_for?(@current_user) } if states.include?('unlocked')
+        @topics.select! { |t| t.locked_for?(@current_user) } if states.include?('locked')
+      end
+      @topics.each { |topic| topic.current_user = @current_user }
     end
-
-    if states.present?
-      @topics.reject! { |t| t.locked_for?(@current_user) } if states.include?('unlocked')
-      @topics.select! { |t| t.locked_for?(@current_user) } if states.include?('locked')
-    end
-    @topics.each { |topic| topic.current_user = @current_user }
 
     respond_to do |format|
       format.html do
@@ -370,16 +371,17 @@ class DiscussionTopicsController < ApplicationController
         add_crumb(t('#crumbs.discussions', 'Discussions'),
                   named_context_url(@context, :context_discussion_topics_url))
 
-        locked_topics, open_topics = @topics.partition do |topic|
-          locked = topic.locked? || topic.locked_for?(@current_user)
-          locked.is_a?(Hash) ? locked[:can_view] : locked
+        if !@context.account.feature_enabled?(:section_specific_discussions)
+          locked_topics, open_topics = @topics.partition do |topic|
+            locked = topic.locked? || topic.locked_for?(@current_user)
+            locked.is_a?(Hash) ? locked[:can_view] : locked
+          end
+          js_env openTopics: open_topics, lockedTopics: locked_topics, newTopicURL: named_context_url(@context, :new_context_discussion_topic_url)
         end
 
         hash = {
           USER_SETTINGS_URL: api_v1_user_settings_url(@current_user),
-          openTopics: open_topics,
-          lockedTopics: locked_topics,
-          newTopicURL: named_context_url(@context, :new_context_discussion_topic_url),
+          totalDiscussions: scope.count,
           permissions: {
             create: @context.discussion_topics.temp_record.grants_right?(@current_user, session, :create),
             moderate: user_can_moderate,
@@ -638,7 +640,9 @@ class DiscussionTopicsController < ApplicationController
       log_asset_access(@topic, 'topics', 'topics')
       respond_to do |format|
         if topics && topics.length == 1 && !@topic.grants_right?(@current_user, session, :update)
-          format.html { redirect_to named_context_url(topics[0].context, :context_discussion_topics_url, :root_discussion_topic_id => @topic.id) }
+          redirect_params = { :root_discussion_topic_id => @topic.id }
+          redirect_params[:module_item_id] = params[:module_item_id] if params[:module_item_id].present?
+          format.html { redirect_to named_context_url(topics[0].context, :context_discussion_topics_url, redirect_params) }
         else
           format.html do
 
@@ -715,8 +719,8 @@ class DiscussionTopicsController < ApplicationController
                 :COURSE_ID => @sequence_asset.context.id,
               }
             end
-            if @topic.for_assignment? &&
-               @topic.assignment.grants_right?(@current_user, session, :grade) && @presenter.allows_speed_grader?
+            if @topic.for_assignment? && @presenter.allows_speed_grader? &&
+              @topic.assignment.can_view_speed_grader?(@current_user)
               env_hash[:SPEEDGRADER_URL_TEMPLATE] = named_context_url(@topic.assignment.context,
                                                                       :speed_grader_context_gradebook_url,
                                                                       :assignment_id => @topic.assignment.id,
@@ -1363,7 +1367,9 @@ class DiscussionTopicsController < ApplicationController
       end
 
       if attachment
-        @attachment = @context.attachments.create!(:uploaded_data => attachment)
+        @attachment = @context.attachments.new
+        Attachments::Storage.store_for_attachment(@attachment, attachment)
+        @attachment.save!
         @attachment.handle_duplicates(:rename)
         @topic.attachment = @attachment
         @topic.save
@@ -1372,13 +1378,15 @@ class DiscussionTopicsController < ApplicationController
   end
 
   def child_topic
+    extra_params = {}
     if params[:headless]
-      extra_params = {
+      extra_params.merge(
         :headless => 1,
         :hide_student_names => params[:hide_student_names],
         :student_id => params[:student_id]
-      }
+      )
     end
+    extra_params[:module_item_id] = params[:module_item_id] if params[:module_item_id].present?
 
     @root_topic = @context.context.discussion_topics.find(params[:root_discussion_topic_id])
     @topic = @root_topic.ensure_child_topic_for(@context)

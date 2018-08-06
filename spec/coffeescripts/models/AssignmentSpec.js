@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import $ from 'jquery'
 import Assignment from 'compiled/models/Assignment'
 import Submission from 'compiled/models/Submission'
 import DateGroup from 'compiled/models/DateGroup'
@@ -157,6 +158,23 @@ test("when value 'assignment', sets record value to 'none'", () => {
   assignment.assignmentType('assignment')
   equal(assignment.assignmentType(), 'assignment')
   deepEqual(assignment.get('submission_types'), ['none'])
+})
+
+QUnit.module('Assignment#moderatedGrading', () => {
+  test('returns false if the moderated_grading attribute is undefined', () => {
+    const assignment = new Assignment()
+    strictEqual(assignment.moderatedGrading(), false)
+  })
+
+  test('returns false if the moderated_grading attribute is set to false', () => {
+    const assignment = new Assignment({ moderated_grading: false })
+    strictEqual(assignment.moderatedGrading(), false)
+  })
+
+  test('returns true if the moderated_grading attribute is set to true', () => {
+    const assignment = new Assignment({ moderated_grading: true })
+    strictEqual(assignment.moderatedGrading(), true)
+  })
 })
 
 QUnit.module('Assignment#assignmentType as a getter')
@@ -1113,4 +1131,135 @@ test('returns false if submission types are not in frozenAttributes', () => {
 test('returns true if submission_types are in frozenAttributes', () => {
   const assignment = new Assignment({frozen_attributes: ['submission_types']})
   equal(assignment.submissionTypesFrozen(), true)
+})
+
+
+QUnit.module('Assignment#pollUntilFinishedDuplicating', {
+  setup() {
+    this.clock = sinon.useFakeTimers()
+    this.assignment = new Assignment({ workflow_state: 'duplicating' })
+    this.stub(this.assignment, 'fetch').returns($.Deferred().resolve())
+  },
+  teardown() {
+    this.clock.restore()
+  }
+})
+
+test('polls for updates', function() {
+  this.assignment.pollUntilFinishedDuplicating()
+  this.clock.tick(2000)
+  notOk(this.assignment.fetch.called)
+  this.clock.tick(2000)
+  ok(this.assignment.fetch.called)
+})
+
+test('stops polling when the assignment has finished duplicating', function () {
+  this.assignment.pollUntilFinishedDuplicating()
+  this.assignment.set({ workflow_state: 'unpublished' })
+  this.clock.tick(3000)
+  ok(this.assignment.fetch.calledOnce)
+  this.clock.tick(3000)
+  ok(this.assignment.fetch.calledOnce)
+})
+
+QUnit.module('Assignment#pollUntilFinishedImporting', {
+  setup() {
+    this.clock = sinon.useFakeTimers()
+    this.assignment = new Assignment({ workflow_state: 'importing' })
+    this.stub(this.assignment, 'fetch').returns($.Deferred().resolve())
+  },
+  teardown() {
+    this.clock.restore()
+  }
+})
+
+test('polls for updates', function() {
+  this.assignment.pollUntilFinishedImporting()
+  this.clock.tick(2000)
+  notOk(this.assignment.fetch.called)
+  this.clock.tick(2000)
+  ok(this.assignment.fetch.called)
+})
+
+test('stops polling when the assignment has finished importing', function () {
+  this.assignment.pollUntilFinishedImporting()
+  this.assignment.set({ workflow_state: 'unpublished' })
+  this.clock.tick(3000)
+  ok(this.assignment.fetch.calledOnce)
+  this.clock.tick(3000)
+  ok(this.assignment.fetch.calledOnce)
+})
+
+QUnit.module('Assignment#gradersAnonymousToGraders', (hooks) => {
+  let assignment
+
+  hooks.beforeEach(() => {
+    assignment = new Assignment()
+  })
+
+  test('returns graders_anonymous_to_graders on the record if no arguments are passed', () => {
+    assignment.set('graders_anonymous_to_graders', true)
+    equal(assignment.gradersAnonymousToGraders(), true)
+  })
+
+  test('sets the graders_anonymous_to_graders value if an argument is passed', () => {
+    assignment.set('graders_anonymous_to_graders', true)
+    assignment.gradersAnonymousToGraders(false)
+    equal(assignment.gradersAnonymousToGraders(), false)
+  })
+})
+
+QUnit.module('Assignment#graderCommentsVisibleToGraders', (hooks) => {
+  let assignment
+
+  hooks.beforeEach(() => {
+    assignment = new Assignment()
+  })
+
+  test('returns grader_comments_visible_to_graders on the record if no arguments are passed', () => {
+    assignment.set('grader_comments_visible_to_graders', true)
+    equal(assignment.graderCommentsVisibleToGraders(), true)
+  })
+
+  test('sets the grader_comments_visible_to_graders value if an argument is passed', () => {
+    assignment.set('grader_comments_visible_to_graders', true)
+    assignment.graderCommentsVisibleToGraders(false)
+    equal(assignment.graderCommentsVisibleToGraders(), false)
+  })
+})
+
+QUnit.module('Assignment#showGradersAnonymousToGradersCheckbox', (hooks) => {
+  let assignment
+
+  hooks.beforeEach(() => {
+    assignment = new Assignment()
+  })
+
+  test('returns false if grader_comments_visible_to_graders is false', () => {
+    assignment.set('grader_comments_visible_to_graders', false)
+    equal(assignment.showGradersAnonymousToGradersCheckbox(), false)
+  })
+
+  test('returns false if moderated_grading is false', () => {
+    assignment.set('moderated_grading', false)
+    equal(assignment.showGradersAnonymousToGradersCheckbox(), false)
+  })
+
+  test('returns false if grader_comments_visible_to_graders is false and moderated_grading is true', () => {
+    assignment.set('grader_comments_visible_to_graders', false)
+    assignment.set('moderated_grading', true)
+    equal(assignment.showGradersAnonymousToGradersCheckbox(), false)
+  })
+
+  test('returns false if grader_comments_visible_to_graders is true and moderated_grading is false', () => {
+    assignment.set('grader_comments_visible_to_graders', true)
+    assignment.set('moderated_grading', false)
+    equal(assignment.showGradersAnonymousToGradersCheckbox(), false)
+  })
+
+  test('returns true if grader_comments_visible_to_graders is true and moderated_grading is true', () => {
+    assignment.set('grader_comments_visible_to_graders', true)
+    assignment.set('moderated_grading', true)
+    equal(assignment.showGradersAnonymousToGradersCheckbox(), true)
+  })
 })

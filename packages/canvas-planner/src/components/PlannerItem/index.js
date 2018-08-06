@@ -18,29 +18,31 @@
 import React, { Component } from 'react';
 import classnames from 'classnames';
 import themeable from '@instructure/ui-themeable/lib';
-import Text from '@instructure/ui-core/lib/components/Text';
-import Checkbox from '@instructure/ui-core/lib/components/Checkbox';
-import Link from '@instructure/ui-core/lib/components/Link';
-import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent';
-import Pill from '@instructure/ui-core/lib/components/Pill';
-import Avatar from '@instructure/ui-core/lib/components/Avatar';
-import Assignment from 'instructure-icons/lib/Line/IconAssignmentLine';
-import Quiz from 'instructure-icons/lib/Line/IconQuizLine';
-import Announcement from 'instructure-icons/lib/Line/IconAnnouncementLine';
-import Discussion from 'instructure-icons/lib/Line/IconDiscussionLine';
-import Calendar from 'instructure-icons/lib/Line/IconCalendarMonthLine';
-import Page from 'instructure-icons/lib/Line/IconMsWordLine';
+import Text from '@instructure/ui-elements/lib/components/Text';
+import Checkbox, {CheckboxFacade} from '@instructure/ui-forms/lib/components/Checkbox';
+import Link from '@instructure/ui-elements/lib/components/Link';
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent';
+import PresentationContent from '@instructure/ui-a11y/lib/components/PresentationContent';
+import Pill from '@instructure/ui-elements/lib/components/Pill';
+import Avatar from '@instructure/ui-elements/lib/components/Avatar';
+import Assignment from '@instructure/ui-icons/lib/Line/IconAssignment';
+import Quiz from '@instructure/ui-icons/lib/Line/IconQuiz';
+import Announcement from '@instructure/ui-icons/lib/Line/IconAnnouncement';
+import Discussion from '@instructure/ui-icons/lib/Line/IconDiscussion';
+import Calendar from '@instructure/ui-icons/lib/Line/IconCalendarMonth';
+import Page from '@instructure/ui-icons/lib/Line/IconMsWord';
 import NotificationBadge, { MissingIndicator, NewActivityIndicator } from '../NotificationBadge';
 import BadgeList from '../BadgeList';
 import responsiviser from '../responsiviser';
 import styles from './styles.css';
 import theme from './theme.js';
 import { arrayOf, bool, number, string, func, shape, object } from 'prop-types';
-import { badgeShape, userShape, statusShape, sizeShape } from '../plannerPropTypes';
+import { badgeShape, userShape, statusShape, sizeShape, feedbackShape } from '../plannerPropTypes';
 import { showPillForOverdueStatus } from '../../utilities/statusUtils';
 import { momentObj } from 'react-moment-proptypes';
 import formatMessage from '../../format-message';
 import {animatable} from '../../dynamic-ui';
+import ApplyTheme from '@instructure/ui-themeable/lib/components/ApplyTheme';
 
 export class PlannerItem extends Component {
   static propTypes = {
@@ -69,11 +71,14 @@ export class PlannerItem extends Component {
     showNotificationBadge: bool,
     currentUser: shape(userShape),
     responsiveSize: sizeShape,
+    allDay: bool,
+    feedback: shape(feedbackShape),
   };
 
   static defaultProps = {
     badges: [],
     responsiveSize: 'large',
+    allDay: false,
   };
 
   constructor (props) {
@@ -112,7 +117,7 @@ export class PlannerItem extends Component {
     this.checkboxRef = elt;
   }
 
-  getFocusable (which) {
+  getFocusable = (which) => {
     return (which === 'update' || which === 'delete') ? this.itemLink : this.checkboxRef;
   }
 
@@ -124,16 +129,48 @@ export class PlannerItem extends Component {
     return this.props.responsiveSize;
   }
 
-  renderDateField = () => {
-    if (this.props.date &&
-        this.props.associated_item !== "To Do") {
+  hasDueTime () {
+    return this.props.date &&
+      !(
+        this.props.associated_item === "Announcement" ||
+        this.props.associated_item === "Calendar Event"
+      );
+  }
 
-      if (this.props.associated_item === "Announcement") {
-        return this.props.date.format("LT");
+  assignmentType () {
+    return this.props.associated_item ?
+      this.props.associated_item : formatMessage('Task');
+  }
+
+  renderDateField = () => {
+    if (this.props.date) {
+      if (this.hasDueTime()) {
+        return formatMessage(`DUE: {date}`, {date: this.props.date.format("LT")});
       }
-      return formatMessage(`DUE: {date}`, {date: this.props.date.format("LT")});
+      return this.props.allDay === true ? formatMessage('All Day') : this.props.date.format("LT");
     }
     return null;
+  }
+
+  linkLabel () {
+    const assignmentType = this.assignmentType();
+    const datetimeformat = this.props.allDay === true ? 'LL' : 'LLLL';
+    const params = {
+      assignmentType,
+      title: this.props.title,
+      datetime: this.props.date ? this.props.date.format(datetimeformat) : null
+    };
+
+    if (this.props.date) {
+      if (this.hasDueTime()) {
+        return formatMessage('{assignmentType} {title}, due {datetime}.', params);
+      }
+      if (this.props.allDay === true) {
+        return formatMessage('{assignmentType} {title}, on {datetime}.', params);
+      }
+      return formatMessage('{assignmentType} {title}, at {datetime}.', params);
+    }
+    return formatMessage('{assignmentType} {title}.', params);
   }
 
   renderIcon = () => {
@@ -196,7 +233,7 @@ export class PlannerItem extends Component {
           }
           <div className={styles.due}>
             <Text color="secondary" size="x-small">
-              {this.renderDateField()}
+              <PresentationContent>{this.renderDateField()}</PresentationContent>
             </Text>
           </div>
         </div>
@@ -220,12 +257,13 @@ export class PlannerItem extends Component {
             {this.renderType()}
           </Text>
         </div>
-        <div className={styles.title}>
+        <div className={styles.title} style={{position: 'relative'}}>
           <Link
             linkRef={(link) => {this.itemLink = link;}}
             {...this.props.associated_item === "To Do" ? {onClick: this.toDoLinkClick} : {}}
             href={this.props.html_url || "#" }>
-            {this.props.title}
+            <ScreenReaderContent>{this.linkLabel()}</ScreenReaderContent>
+            <PresentationContent><Text color="primary">{this.props.title}</Text></PresentationContent>
           </Link>
         </div>
       </div>
@@ -246,30 +284,60 @@ export class PlannerItem extends Component {
     if (newItem || missing) {
       const IndicatorComponent = newItem ? NewActivityIndicator : MissingIndicator;
       return (
-        <div className={styles.activityIndicator}>
-          <IndicatorComponent
-          title={this.props.title}
-          itemIds={[this.props.uniqueId]}
-          animatableIndex={this.props.animatableIndex} />
-        </div>
+        <NotificationBadge>
+          <div className={styles.activityIndicator}>
+            <IndicatorComponent
+            title={this.props.title}
+            itemIds={[this.props.uniqueId]}
+            animatableIndex={this.props.animatableIndex}
+            getFocusable={this.getFocusable} />
+          </div>
+        </NotificationBadge>
       );
     } else {
-      return null;
+      return <NotificationBadge/>;
     }
   }
 
+  getCheckboxTheme = () => {
+    return {
+      checkedBackground: this.props.color,
+      checkedBorderColor: this.props.color,
+      borderColor: this.props.color,
+      hoverBorderColor: this.props.color
+    };
+  }
+
+  renderFeedback () {
+    const feedback = this.props.feedback;
+    if (feedback) {
+      return (
+        <div className={styles.feedback}>
+          <span className={styles.feedbackAvatar}>
+            <Avatar name={feedback.author_name || '?'} src={feedback.author_avatar_url} size="small"/>
+          </span>
+          <span className={styles.feedbackComment}><Text fontStyle="italic">{feedback.comment}</Text></span>
+        </div>
+      );
+    }
+    return null;
+  }
+
   render () {
-    const assignmentType = this.props.associated_item ?
-      this.props.associated_item : formatMessage('Task');
+    const assignmentType = this.assignmentType();
     const checkboxLabel = this.state.completed ?
-      formatMessage('{assignmentType} {title} is complete',
+      formatMessage('{assignmentType} {title} is marked as done.',
         { assignmentType: assignmentType, title: this.props.title }) :
-      formatMessage('{assignmentType} {title} is incomplete',
+      formatMessage('{assignmentType} {title} is not marked as done.',
         { assignmentType: assignmentType, title: this.props.title });
+
     return (
-      <div className={classnames(styles.root, styles[this.getLayout()])} ref={this.registerRootDivRef}>
-        <NotificationBadge>{this.renderNotificationBadge()}</NotificationBadge>
+      <div className={classnames(styles.root, styles[this.getLayout()], 'planner-item')} ref={this.registerRootDivRef}>
+        {this.renderNotificationBadge()}
         <div className={styles.completed}>
+          <ApplyTheme theme={{
+            [CheckboxFacade.theme]: this.getCheckboxTheme()
+          }}>
           <Checkbox
             ref={this.registerFocusElementRef}
             label={<ScreenReaderContent>{checkboxLabel}</ScreenReaderContent>}
@@ -277,17 +345,21 @@ export class PlannerItem extends Component {
             onChange={this.props.toggleCompletion}
             disabled={this.props.toggleAPIPending}
           />
+          </ApplyTheme>
         </div>
         <div
-          className={assignmentType === 'To Do' ? styles.avatar : styles.icon}
+          className={this.props.associated_item === 'To Do' ? styles.avatar : styles.icon}
           style={{ color: this.props.color }}
           aria-hidden="true"
         >
           {this.renderIcon()}
         </div>
         <div className={styles.layout}>
-          {this.renderItemDetails()}
-          {this.renderItemMetrics()}
+          <div className={styles.innerLayout}>
+            {this.renderItemDetails()}
+            {this.renderItemMetrics()}
+          </div>
+          {this.renderFeedback()}
         </div>
       </div>
     );

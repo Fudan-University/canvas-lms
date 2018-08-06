@@ -47,11 +47,12 @@ class Account < ActiveRecord::Base
   has_many :sub_accounts, -> { where("workflow_state<>'deleted'") }, class_name: 'Account', foreign_key: 'parent_account_id'
   has_many :all_accounts, -> { order(:name) }, class_name: 'Account', foreign_key: 'root_account_id'
   has_many :account_users, :dependent => :destroy
+  has_many :active_account_users, -> { active }, class_name: 'AccountUser'
   has_many :course_sections, :foreign_key => 'root_account_id'
   has_many :sis_batches
   has_many :abstract_courses, :class_name => 'AbstractCourse', :foreign_key => 'account_id'
   has_many :root_abstract_courses, :class_name => 'AbstractCourse', :foreign_key => 'root_account_id'
-  has_many :users, :through => :account_users
+  has_many :users, :through => :active_account_users
   has_many :pseudonyms, -> { preload(:user) }, inverse_of: :account
   has_many :role_overrides, :as => :context, :inverse_of => :context
   has_many :course_account_associations
@@ -64,8 +65,8 @@ class Account < ActiveRecord::Base
   has_many :developer_key_account_bindings, inverse_of: :account, dependent: :destroy
   has_many :authentication_providers,
            -> { order(:position) },
-           extend: AccountAuthorizationConfig::FindWithType,
-           class_name: "AccountAuthorizationConfig"
+           inverse_of: :account,
+           extend: AuthenticationProvider::FindWithType
 
   has_many :account_reports
   has_many :grading_standards, -> { where("workflow_state<>'deleted'") }, as: :context, inverse_of: :context
@@ -76,6 +77,7 @@ class Account < ActiveRecord::Base
   has_many :progresses, :as => :context, :inverse_of => :context
   has_many :content_migrations, :as => :context, :inverse_of => :context
   has_many :sis_batch_errors, foreign_key: :root_account_id, inverse_of: :root_account
+  has_one :outcome_proficiency, dependent: :destroy
 
   def inherited_assessment_question_banks(include_self = false, *additional_contexts)
     sql, conds = [], []
@@ -104,6 +106,7 @@ class Account < ActiveRecord::Base
 
   before_validation :verify_unique_sis_source_id
   before_save :ensure_defaults
+  before_create :enable_sis_imports, if: :root_account?
   after_save :update_account_associations_if_changed
 
   before_save :setup_cache_invalidation
@@ -152,6 +155,10 @@ class Account < ActiveRecord::Base
     end
     result = nil unless I18n.locale_available?(result)
     result
+  end
+
+  def resolved_outcome_proficiency
+    outcome_proficiency || parent_account&.resolved_outcome_proficiency
   end
 
   include ::Account::Settings
@@ -234,7 +241,7 @@ class Account < ActiveRecord::Base
 
   add_setting :enable_gravatar, :boolean => true, :root_only => true, :default => true
 
-  # For Student Planner/List View
+  # For setting the default dashboard (e.g. Student Planner/List View, Activity Stream, Dashboard Cards)
   add_setting :default_dashboard_view, :inheritable => true
 
   def settings=(hash)
@@ -303,7 +310,7 @@ class Account < ActiveRecord::Base
   def enable_canvas_authentication
     return unless root_account?
     # for migrations creating a new db
-    return unless AccountAuthorizationConfig::Canvas.columns_hash.key?('workflow_state')
+    return unless AuthenticationProvider::Canvas.columns_hash.key?('workflow_state')
     return if authentication_providers.active.where(auth_type: 'canvas').exists?
     authentication_providers.create!(auth_type: 'canvas')
   end
@@ -367,6 +374,10 @@ class Account < ActiveRecord::Base
       filters[key] = ips.join(',') unless ips.empty?
     end
     settings[:ip_filters] = filters
+  end
+
+  def enable_sis_imports
+    self.allow_sis_import = true
   end
 
   def ensure_defaults
@@ -487,7 +498,7 @@ class Account < ActiveRecord::Base
   end
 
   def fast_course_base(opts = {})
-    opts[:order] ||= "#{Course.best_unicode_collation_key("courses.name")} ASC"
+    opts[:order] ||= Course.best_unicode_collation_key("courses.name").asc
     columns = "courses.id, courses.name, courses.workflow_state, courses.course_code, courses.sis_source_id, courses.enrollment_term_id"
     associated_courses = self.associated_courses(
       :include_crosslisted_courses => opts[:include_crosslisted_courses]
@@ -959,12 +970,12 @@ class Account < ActiveRecord::Base
     if login_handle_name_is_customized?
       self.login_handle_name
     elsif self.delegated_authentication?
-      AccountAuthorizationConfig.default_delegated_login_handle_name
+      AuthenticationProvider.default_delegated_login_handle_name
     end
   end
 
   def login_handle_name_with_inference
-    customized_login_handle_name || AccountAuthorizationConfig.default_login_handle_name
+    customized_login_handle_name || AuthenticationProvider.default_login_handle_name
   end
 
   def self_and_all_sub_accounts
@@ -1059,7 +1070,7 @@ class Account < ActiveRecord::Base
     can :read_outcomes
 
     # any user with an admin enrollment in one of the courses can read
-    given { |user| user && self.courses.where(:id => user.enrollments.admin.pluck(:course_id)).exists? }
+    given { |user| user && self.courses.where(:id => user.enrollments.active.admin.pluck(:course_id)).exists? }
     can :read
 
     given { |user| self.grants_right?(user, :lti_add_edit)}
@@ -1106,7 +1117,7 @@ class Account < ActiveRecord::Base
   end
 
   def delegated_authentication?
-    authentication_providers.active.first.is_a?(AccountAuthorizationConfig::Delegated)
+    authentication_providers.active.first.is_a?(AuthenticationProvider::Delegated)
   end
 
   def forgot_password_external_url
@@ -1445,12 +1456,9 @@ class Account < ActiveRecord::Base
 
     tabs << { :id => TAB_BRAND_CONFIGS, :label => t('#account.tab_brand_configs', "Themes"), :css_class => 'brand_configs', :href => :account_brand_configs_path } if manage_settings && branding_allowed?
 
-    if self.root_account.feature_enabled?(:developer_key_management)
-      tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: self.id } if self.grants_right?(user, :manage_developer_keys)
-    else
-      tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: root_account.id } if root_account? && self.grants_right?(user, :manage_developer_keys)
+    if root_account? && self.grants_right?(user, :manage_developer_keys)
+      tabs << { :id => TAB_DEVELOPER_KEYS, :label => t("#account.tab_developer_keys", "Developer Keys"), :css_class => "developer_keys", :href => :account_developer_keys_path, account_id: root_account.id }
     end
-
 
     tabs += external_tool_tabs(opts)
     tabs += Lti::MessageHandler.lti_apps_tabs(self, [Lti::ResourcePlacement::ACCOUNT_NAVIGATION], opts)
@@ -1724,16 +1732,32 @@ class Account < ActiveRecord::Base
 
   # Different views are available depending on feature flags
   def dashboard_views
-    ['activity', 'cards'].tap {|views| views << 'planner' if feature_enabled?(:student_planner)}
+    ['activity', 'cards'].tap {|views| views << 'planner' if root_account.feature_enabled?(:student_planner)}
   end
 
   # Getter/Setter for default_dashboard_view account setting
-  def default_dashboard_view=(default_dashboard_view)
-    return unless dashboard_views.include?(default_dashboard_view)
-    self.settings[:default_dashboard_view] = default_dashboard_view
+  def default_dashboard_view=(view)
+    return unless dashboard_views.include?(view)
+    self.settings[:default_dashboard_view] = view
   end
 
   def default_dashboard_view
-    self.settings[:default_dashboard_view]
+    @default_dashboard_view ||= self.settings[:default_dashboard_view]
   end
+
+  # Forces the default setting to overwrite each user's preference
+  def update_user_dashboards
+    User.where(id: self.user_account_associations.select(:user_id))
+        .where("#{User.table_name}.preferences LIKE ?", "%:dashboard_view:%")
+        .find_in_batches do |batch|
+      users = batch.reject { |user| user.preferences[:dashboard_view].nil? ||
+                                    user.dashboard_view(self) == default_dashboard_view }
+      users.each do |user|
+        user.preferences.delete(:dashboard_view)
+        user.save!
+      end
+    end
+  end
+  handle_asynchronously :update_user_dashboards, :priority => Delayed::LOW_PRIORITY, :max_attempts => 1
+
 end

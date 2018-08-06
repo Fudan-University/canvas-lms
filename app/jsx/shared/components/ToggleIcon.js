@@ -19,7 +19,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 
-import Button from '@instructure/ui-core/lib/components/Button'
+import Button from '@instructure/ui-buttons/lib/components/Button'
 
 export default function ToggleIcon ({ toggled, OnIcon, OffIcon, onToggleOn,
                                       onToggleOff, disabled, className }) {
@@ -28,7 +28,7 @@ export default function ToggleIcon ({ toggled, OnIcon, OffIcon, onToggleOn,
       <Button
         variant="icon"
         size="small"
-        theme={{borderWidth: "0"}}
+        theme={{borderWidth: "0", smallHeight: "1.375rem"}}
         disabled={disabled}
         onClick={toggled ? onToggleOff : onToggleOn}
       >

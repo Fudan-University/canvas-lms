@@ -15,14 +15,16 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
-require File.expand_path(File.dirname(__FILE__) + '/../common')
+require_relative '../common'
+require_relative './new_user_search_page'
+require_relative './new_user_edit_modal_page.rb'
+require_relative './masquerade_page.rb'
 
 describe "new account user search" do
   include_context "in-process server selenium tests"
 
   before :once do
     @account = Account.default
-    @account.enable_feature!(:course_user_search)
     account_admin_user(:account => @account, :active_all => true)
   end
 
@@ -73,21 +75,21 @@ describe "new account user search" do
 
     get "/accounts/#{sub_account.id}/users"
 
-    expect(f("#content")).not_to contain_jqcss('button:has([name="IconPlusLine"]):contains("People")')
+    expect(f("#content")).not_to contain_jqcss('button:has([name="IconPlus"]):contains("People")')
   end
 
   it "should show the create users button user has permission on the root_account" do
     sub_account = Account.create!(name: "sub", parent_account: @account)
     get "/accounts/#{sub_account.id}/users"
 
-    expect(f("#content")).to contain_jqcss('button:has([name="IconPlusLine"]):contains("People")')
+    expect(f("#content")).to contain_jqcss('button:has([name="IconPlus"]):contains("People")')
   end
 
   it "should be able to create users" do
     get "/accounts/#{@account.id}/users"
 
-    fj('button:has([name="IconPlusLine"]):contains("People")').click
-    modal = f('[aria-label="Add a new user"]')
+    fj('button:has([name="IconPlus"]):contains("People")').click
+    modal = f('[aria-label="Add a New User"]')
     expect(modal).to be_displayed
 
     name = 'Test User'
@@ -110,16 +112,16 @@ describe "new account user search" do
     expect(new_row).to include_text(email)
 
     # should clear out the inputs
-    fj('button:has([name="IconPlusLine"]):contains("People")').click
-    expect(fj('[aria-label="Add a new user"] label:contains("Full Name") input').attribute('value')).to eq('')
+    fj('button:has([name="IconPlus"]):contains("People")').click
+    expect(fj('[aria-label="Add a New User"] label:contains("Full Name") input').attribute('value')).to eq('')
   end
 
   it "should be able to create users with confirmation disabled", priority: "1", test_id: 3399311 do
     name = 'Confirmation Disabled'
     get "/accounts/#{@account.id}/users"
 
-    fj('button:has([name="IconPlusLine"]):contains("People")').click
-    modal = f('[aria-label="Add a new user"]')
+    fj('button:has([name="IconPlus"]):contains("People")').click
+    modal = f('[aria-label="Add a New User"]')
 
     set_value(fj('label:contains("Full Name") input', modal), name)
 
@@ -135,16 +137,6 @@ describe "new account user search" do
     expect(new_pseudonym.user.name).to eq name
   end
 
-  it "should bring up user page when clicking name", priority: "1", test_id: 3399648 do
-    page_user = user_with_pseudonym(:account => @account, :name => "User Page")
-    get "/accounts/#{@account.id}/users"
-
-    fj("[data-automation='users list'] tr a:contains('#{page_user.name}')").click
-
-    wait_for_ajax_requests
-    expect(f("#content h2")).to include_text page_user.name
-  end
-
   it "should paginate" do
     ('A'..'Z').each do |letter|
       user_with_pseudonym(:account => @account, :name => "Test User #{letter}")
@@ -157,15 +149,13 @@ describe "new account user search" do
     expect(f("[data-automation='users list']")).to_not include_text("Test User O")
     expect(f("#content")).not_to contain_css('button[title="Previous Page"]')
 
-    f('button[title="Next Page"]').click
+    fj('nav button:contains("2")').click
     wait_for_ajaximations
 
     expect(get_rows.count).to eq 12
     expect(get_rows.first).to include_text("Test User O")
     expect(get_rows.last).to include_text("Test User Z")
     expect(f("[data-automation='users list']")).not_to include_text("Test User A")
-    expect(f("#content")).to contain_css('button[title="Previous Page"]')
-    expect(f("#content")).not_to contain_css('button[title="Next Page"]')
   end
 
   it "should search by name" do
@@ -216,34 +206,40 @@ describe "new account user search" do
     expect(driver.current_url).to include("/accounts/#{@account.id}/groups")
   end
 
-  it "should open the act as page when clicking the masquerade button", priority: "1", test_id: 3453424 do
-    mask_user = user_with_pseudonym(:account => @account, :name => "Mask User", :active_user => true)
-
-    get "/accounts/#{@account.id}/users"
-
-    fj("[data-automation='users list'] tr:contains('#{mask_user.name}') [role=button]:has([name='IconMasqueradeLine'])")
-      .click
-    expect(f('.ActAs__text')).to include_text mask_user.name
-  end
-
   it "should open the conversation page when clicking the send message button", priority: "1", test_id: 3453435 do
     conv_user = user_with_pseudonym(:account => @account, :name => "Conversation User")
 
     get "/accounts/#{@account.id}/users"
 
-    fj("[data-automation='users list'] tr:contains('#{conv_user.name}') [role=button]:has([name='IconMessageLine'])")
+    fj("[data-automation='users list'] tr:contains('#{conv_user.name}') [role=button]:has([name='IconMessage'])")
       .click
     expect(f('.message-header-input .ac-token')).to include_text conv_user.name
   end
 
-  it "should open the edit user modal when clicking the edit user button", priority: "1", test_id: 3453436 do
-    edit_user = user_with_pseudonym(:account => @account, :name => "Edit User")
+  # This describe block will be removed once all tests are converted
+  describe 'Page Object Converted Tests' do
+    include NewUserSearchPage
+    include NewUserEditModalPage
+    include MasqueradePage
 
-    get "/accounts/#{@account.id}/users"
+    before do
+      @user.update_attribute(:name, "Test User")
+      visit(@account)
+    end
 
-    fj("[data-automation='users list'] tr:contains('#{edit_user.name}') [role=button]:has([name='IconEditLine'])").click
+    it "should bring up user page when clicking name", priority: "1", test_id: 3399648 do
+      click_user_link(@user.name)
+      expect(f("#content h2")).to include_text @user.name
+    end
 
-    expect(fj('label:contains("Full Name") input').attribute('value')).to eq("Edit User")
+    it "should open the edit user modal when clicking the edit user icon" do
+      click_edit_button(@user.name)
+      expect(full_name_input.attribute('value')).to eq(@user.name)
+    end
+
+    it "should open the act as page when clicking the masquerade button", priority: "1", test_id: 3453424 do
+      click_masquerade_button(@user.name)
+      expect(act_as_label).to include_text @user.name
+    end
   end
-
 end

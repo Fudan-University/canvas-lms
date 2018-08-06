@@ -560,6 +560,11 @@
 #           "description": "(Optional) If true, the assignment will be omitted from the student's final grade",
 #           "example": true,
 #           "type": "boolean"
+#         },
+#         "moderated_grading": {
+#           "description": "Boolean indicating if the assignment is moderated.",
+#           "example": true,
+#           "type": "boolean"
 #         }
 #       }
 #     }
@@ -927,13 +932,17 @@ class AssignmentsApiController < ApplicationController
   #   attributes to use the Quizzes 2 LTI tool configured for this course.
   #   Has no effect if no Quizzes 2 LTI tool is configured.
   #
+  # @argument assignment[moderated_grading] [Boolean]
+  #   Whether this assignment is moderated.
+  #
   # @returns Assignment
   def create
     @assignment = @context.assignments.build
     @assignment.workflow_state = 'unpublished'
     if authorized_action(@assignment, @current_user, :create)
       @assignment.content_being_saved_by(@current_user)
-      result = create_api_assignment(@assignment, params.require(:assignment), @current_user, @context)
+      result = create_api_assignment(@assignment, params.require(:assignment), @current_user, @context,
+        calculate_grades: params.delete(:calculate_grades))
       render_create_or_update_result(result)
     end
   end
@@ -1078,6 +1087,9 @@ class AssignmentsApiController < ApplicationController
   #
   # @argument assignment[omit_from_final_grade] [Boolean]
   #   Whether this assignment is counted towards a student's final grade.
+  #
+  # @argument assignment[moderated_grading] [Boolean]
+  #   Whether this assignment is moderated.
   #
   # @returns Assignment
   def update

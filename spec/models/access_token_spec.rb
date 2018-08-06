@@ -23,7 +23,7 @@ describe AccessToken do
   context "Authenticate" do
     shared_examples "#authenticate" do
 
-      it "new access tokens shouldnt have an expiratione" do
+      it "new access tokens shouldnt have an expiration" do
         at = AccessToken.create!(:user => user_model, :developer_key => DeveloperKey.default)
         expect(at.expires_at).to eq nil
       end
@@ -197,6 +197,15 @@ describe AccessToken do
       token = AccessToken.create!(developer_key: dk, scopes: ['/auth/userinfo'])
       expect(token.expires_at).to eq nil
     end
+
+    it "does not validate scopes if the workflow state is deleted" do
+      dk_scopes = ["url:POST|/api/v1/accounts/:account_id/admins", "url:DELETE|/api/v1/accounts/:account_id/admins/:user_id",  "url:GET|/api/v1/accounts/:account_id/admins"]
+      dk = DeveloperKey.create!(scopes: dk_scopes, require_scopes: true)
+      token = AccessToken.new(developer_key: dk, scopes: dk_scopes)
+      dk.update!(scopes: [])
+      allow(dk.owner_account).to receive(:feature_enabled?).with(:developer_key_management_and_scoping).and_return(true)
+      expect { token.destroy! }.not_to raise_error
+    end
   end
 
   context "url scopes" do
@@ -273,6 +282,131 @@ describe AccessToken do
 
     it "foreign account should be authorized if there is no account" do
       expect(@at_without_account.authorized_for_account?(@foreign_ac)).to be true
+    end
+
+    context 'when the developer key new feature flags are on' do
+      let(:root_account) { account_model }
+      let(:root_account_key) { DeveloperKey.create!(account: root_account) }
+      let(:site_admin_key) { DeveloperKey.create! }
+      let(:sub_account) do
+        account = account_model
+        account.update!(root_account: root_account)
+        account
+      end
+
+      before do
+        allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
+        allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management_and_scoping) { true }
+        Setting.set(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, 'true')
+      end
+
+      shared_examples_for 'an access token that honors developer key bindings' do
+        let(:access_token) { raise 'set in example' }
+        let(:binding) { raise 'set in example' }
+        let(:account) { raise 'set in example' }
+
+        it 'authorizes if the binding state is on' do
+          binding.update!(workflow_state: 'on')
+          expect(access_token.authorized_for_account?(account)).to eq true
+        end
+
+        it 'does not authorize if the binding state is off' do
+          binding.update!(workflow_state: 'off')
+          expect(access_token.authorized_for_account?(account)).to eq false
+        end
+
+        it 'does not authorize if the binding state is allow' do
+          binding.update!(workflow_state: 'allow')
+          expect(access_token.authorized_for_account?(account)).to eq false
+        end
+      end
+
+      describe 'site admin key' do
+        context 'when target account is site admin' do
+          it_behaves_like 'an access token that honors developer key bindings' do
+            let(:access_token) { AccessToken.create!(user: user_model, developer_key: site_admin_key) }
+            let(:binding) { site_admin_key.developer_key_account_bindings.find_by(account: Account.site_admin) }
+            let(:account) { Account.site_admin }
+          end
+        end
+
+        context 'when target account is root account' do
+          let(:access_token) { AccessToken.create!(user: user_model, developer_key: site_admin_key) }
+          let(:binding) { site_admin_key.developer_key_account_bindings.create!(account: root_account) }
+
+          before do
+            site_admin_key.developer_key_account_bindings.find_by(account: Account.site_admin).update!(
+              workflow_state: 'allow'
+            )
+          end
+
+          it_behaves_like 'an access token that honors developer key bindings' do
+            let(:access_token) { AccessToken.create!(user: user_model, developer_key: site_admin_key) }
+            let(:binding) { site_admin_key.developer_key_account_bindings.create!(account: root_account) }
+            let(:account) { root_account }
+          end
+
+          it 'does not authorize if the root account binding state is on but site admin off' do
+            binding.update!(workflow_state: 'on')
+            site_admin_key.developer_key_account_bindings.find_by(account: Account.site_admin).update!(
+              workflow_state: 'off'
+            )
+            expect(access_token.authorized_for_account?(root_account)).to eq false
+          end
+        end
+
+        context 'when target is a sub account' do
+          let(:access_token) { AccessToken.create!(user: user_model, developer_key: site_admin_key) }
+          let(:binding) { site_admin_key.developer_key_account_bindings.create!(account: root_account) }
+
+          before do
+            site_admin_key.developer_key_account_bindings.find_by(account: Account.site_admin).update!(
+              workflow_state: 'allow'
+            )
+          end
+
+          it_behaves_like 'an access token that honors developer key bindings' do
+            let(:access_token) { AccessToken.create!(user: user_model, developer_key: site_admin_key) }
+            let(:binding) { site_admin_key.developer_key_account_bindings.create!(account: root_account) }
+            let(:account) { sub_account }
+          end
+
+          it 'does not authorize if the root account binding state is on but site admin off' do
+            binding.update!(workflow_state: 'on')
+            site_admin_key.developer_key_account_bindings.find_by(account: Account.site_admin).update!(
+              workflow_state: 'off'
+            )
+            expect(access_token.authorized_for_account?(sub_account)).to eq false
+          end
+        end
+      end
+
+      describe 'root acount key' do
+        it_behaves_like 'an access token that honors developer key bindings' do
+          let(:access_token) { AccessToken.create!(user: user_model, developer_key: root_account_key) }
+          let(:binding) { root_account_key.developer_key_account_bindings.find_by!(account: root_account) }
+          let(:account) { root_account }
+        end
+      end
+    end
+
+    describe 'adding scopes' do
+      let(:dev_key) { DeveloperKey.create! require_scopes: true, scopes: TokenScopes.all_scopes.slice(0,10)}
+
+      before do
+        allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
+        allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management_and_scoping) { true }
+      end
+
+      it 'is invalid when scopes requested are not included on dev key' do
+        access_token = AccessToken.new(user: user_model, developer_key: dev_key, scopes: [TokenScopes.all_scopes[12]])
+        expect(access_token).not_to be_valid
+      end
+
+      it 'is valid when scopes requested are included on dev key' do
+        access_token = AccessToken.new(user: user_model, developer_key: dev_key, scopes: [TokenScopes.all_scopes[8], TokenScopes.all_scopes[7]])
+        expect(access_token).to be_valid
+      end
     end
   end
 

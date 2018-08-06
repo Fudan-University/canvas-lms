@@ -1,7 +1,9 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`renders empty page 1`] = `
-<div>
+<div
+  className="planner-empty-state"
+>
   <DesertSvg
     aria-hidden="true"
   />
@@ -22,6 +24,7 @@ exports[`renders empty page 1`] = `
     <Link
       as="button"
       ellipsis={false}
+      iconPlacement="start"
       linkRef={[Function]}
       onClick={[Function]}
       variant="default"

@@ -19,6 +19,7 @@
 @import "base/environment";
 @import "components/ui.selectmenu";
 @import "vendor/_xflex.scss";
+@import "components/rubric";
 
 
 .ic-Layout-contentMain {
@@ -937,4 +938,19 @@ body .ui-selectmenu-dropdown:hover .ui-selectmenu-icon, body .ui-state-active .u
 
 .gradebook-icon-link:hover {
   text-decoration: none;
+}
+
+#grading-box-selected-grader {
+  margin-left: 10px;
+  font-style: italic;
+}
+
+#grading-box-points-possible {
+  margin-bottom: 1em;
+}
+
+#grading_details_container {
+  button {
+    padding: 0;
+  }
 }

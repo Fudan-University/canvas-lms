@@ -70,6 +70,89 @@ describe DeveloperKey do
   end
 
   describe 'callbacks' do
+    it 'does not validate scopes' do
+      expect do
+        DeveloperKey.create!(
+          scopes: ['not_a_valid_scope']
+        )
+      end.not_to raise_exception
+    end
+
+    context 'when api token scoping FF is enabled' do
+      let(:valid_scopes) do
+        %w(url:POST|/api/v1/courses/:course_id/quizzes/:id/validate_access_code
+          url:GET|/api/v1/audit/grade_change/courses/:course_id/assignments/:assignment_id/graders/:grader_id)
+      end
+
+      before { Account.site_admin.enable_feature!(:developer_key_management_and_scoping) }
+
+      describe 'after_update' do
+        let(:user) { user_model }
+        let(:developer_key_with_scopes) { DeveloperKey.create!(scopes: valid_scopes) }
+        let(:access_token) { user.access_tokens.create!(developer_key: developer_key_with_scopes) }
+        let(:valid_scopes) do
+          [
+            "url:GET|/api/v1/courses/:course_id/quizzes",
+            "url:GET|/api/v1/courses/:course_id/quizzes/:id",
+            "url:GET|/api/v1/courses/:course_id/users",
+            "url:GET|/api/v1/courses/:id",
+            "url:GET|/api/v1/users/:user_id/profile",
+            "url:POST|/api/v1/courses/:course_id/assignments",
+            "url:POST|/api/v1/courses/:course_id/quizzes",
+          ]
+        end
+
+        before { access_token }
+
+        it 'deletes its associated access tokens if scopes are removed' do
+          developer_key_with_scopes.update!(scopes: [valid_scopes.first])
+          expect(developer_key_with_scopes.access_tokens).to be_empty
+        end
+
+        it 'does not delete its associated access tokens if scopes are not changed' do
+          developer_key_with_scopes.update!(email: 'test@test.com')
+          expect(developer_key_with_scopes.access_tokens).to match_array [access_token]
+        end
+
+        it 'does not delete its associated access tokens if a new scope was added' do
+          developer_key_with_scopes.update!(scopes: valid_scopes.push("url:PUT|/api/v1/courses/:course_id/quizzes/:id"))
+          expect(developer_key_with_scopes.access_tokens).to match_array [access_token]
+        end
+
+        it 'does not delete the associated access tokens if feature flags are off' do
+          Account.site_admin.disable_feature!(:developer_key_management_and_scoping)
+          developer_key_with_scopes.update!(scopes: [valid_scopes.first])
+          expect(developer_key_with_scopes.access_tokens).to match_array [access_token]
+        end
+      end
+
+      it 'raises an error if scopes contain invalid scopes' do
+        expect do
+          DeveloperKey.create!(
+            scopes: ['not_a_valid_scope']
+          )
+        end.to raise_exception('Validation failed: Scopes cannot contain not_a_valid_scope')
+      end
+
+      it 'does not raise an error if all scopes are valid scopes' do
+        expect do
+          DeveloperKey.create!(
+            scopes: valid_scopes
+          )
+        end.not_to raise_exception
+      end
+
+      it 'does not set "require_scopes" to true if scopes are present and require_scopes is false' do
+        key = DeveloperKey.create!(scopes: valid_scopes, require_scopes: false)
+        expect(key.require_scopes).to eq false
+      end
+
+      it 'does not set "require_scopes" to false if scopes are blank and require_scopes is true' do
+        key = DeveloperKey.create!(require_scopes: true)
+        expect(key.require_scopes).to eq true
+      end
+    end
+
     context 'when site admin' do
       it 'it creates a binding on save' do
         key = DeveloperKey.create!(account: nil)
@@ -166,9 +249,49 @@ describe DeveloperKey do
           expect(binding.account).to eq Account.site_admin
         end
 
-        it 'finds the site admin binding when requesting root account' do
+        it 'finds the root account binding when requesting root account' do
           binding = root_account_key.account_binding_for(root_account)
+          expect(binding.account).to eq root_account
+        end
+      end
+    end
+
+    context 'sharding' do
+      specs_require_sharding
+
+      let(:root_account_shard) { Shard.create! }
+      let(:root_account) { root_account_shard.activate { account_model } }
+      let(:sa_developer_key) { Account.site_admin.shard.activate { DeveloperKey.create!(name: 'SA Key') } }
+      let(:root_account_binding) do
+        root_account_shard.activate do
+          DeveloperKeyAccountBinding.create!(
+            account_id: root_account.id,
+            developer_key_id: sa_developer_key.global_id
+          )
+        end
+      end
+      let(:sa_account_binding) { sa_developer_key.developer_key_account_bindings.find_by(account: Account.site_admin) }
+
+      context 'when developer key binding is on the site admin shard' do
+        it 'finds the site admin binding if it is set to "on"' do
+          root_account_binding.update!(workflow_state: 'on')
+          sa_account_binding.update!(workflow_state: 'off')
+          binding = root_account_shard.activate { sa_developer_key.account_binding_for(root_account) }
           expect(binding.account).to eq Account.site_admin
+        end
+
+        it 'finds the site admin binding if it is set to "off"' do
+          root_account_binding.update!(workflow_state: 'off')
+          sa_account_binding.update!(workflow_state: 'on')
+          binding = root_account_shard.activate { sa_developer_key.account_binding_for(root_account) }
+          expect(binding.account).to eq Account.site_admin
+        end
+
+        it 'finds the root account binding if site admin binding is set to "allow"' do
+          root_account_binding.update!(workflow_state: 'on')
+          sa_account_binding.update!(workflow_state: 'allow')
+          binding = root_account_shard.activate { sa_developer_key.account_binding_for(root_account) }
+          expect(binding.account).to eq root_account
         end
       end
     end

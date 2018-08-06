@@ -1466,10 +1466,32 @@ describe Quizzes::QuizzesController do
       expect(overrides.length).to eq 1
     end
 
+    it "can change a graded quiz with overrides into an ungraded quiz" do
+      user_session(@teacher)
+      quiz = @course.quizzes.create!(:title => 'blah', :quiz_type => 'assignment')
+      override = create_adhoc_override_for_assignment(quiz, @student)
+      post 'update', :params => {
+        :course_id => @course.id,
+        :id => quiz.id,
+        :quiz => {
+          :quiz_type => 'survey',
+          :assignment_overrides => [{
+            :id => override.id,
+            :assignment_id => quiz.assignment.id,
+            :title => '1 student',
+            :student_ids => [@student.id]
+          }]
+        }
+      }
+      expect(quiz.reload.assignment_id).to be_nil
+      expect(override.reload.assignment_id).to be_nil
+      expect(override.quiz_id).to eq quiz.id
+    end
+
     describe "DueDateCacher" do
       before :each do
         user_session(@teacher)
-        @quiz = @course.quizzes.build( :title => "Update Overrides Quiz")
+        @quiz = @course.quizzes.build( :title => "Update Overrides Quiz", :workflow_state => 'edited')
         @quiz.save!
         section = @course.course_sections.build
         section.save!
@@ -1557,14 +1579,42 @@ describe Quizzes::QuizzesController do
         post 'update', params: @quiz_and_overrides
       end
 
-      it "does not runs DueDateCacher when nothing is updated" do
+      it "runs DueDateCacher when transitioning a 'created' quiz to 'edited'" do
         due_date_cacher = instance_double(DueDateCacher)
         allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
 
         expect(due_date_cacher).to receive(:recompute).once
 
-        post 'update', params: @quiz_and_overrides
+        @quiz.update_attribute(:workflow_state, 'created')
+        post 'update', params: @no_changes
+        expect(@quiz.reload).to be_edited
       end
+
+      it "runs DueDateCacher when transitioning from ungraded quiz to graded" do
+        @quiz.update!(quiz_type: 'practice_quiz')
+        due_date_cacher = instance_double(DueDateCacher)
+        allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+        expect(due_date_cacher).to receive(:recompute).once
+
+        post 'update', params: {
+          course_id: @course.id,
+          id: @quiz.id,
+          quiz: {
+            quiz_type: 'assignment'
+          }
+        }
+      end
+
+      it "does not runs DueDateCacher when nothing is updated" do
+        due_date_cacher = instance_double(DueDateCacher)
+        allow(DueDateCacher).to receive(:new).and_return(due_date_cacher)
+
+        expect(due_date_cacher).to receive(:recompute).never
+
+        post 'update', params: @no_changes
+      end
+
     end
 
     it "deletes overrides for a quiz if assignment_overrides params is 'false'" do

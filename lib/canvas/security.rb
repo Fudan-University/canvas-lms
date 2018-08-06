@@ -111,16 +111,18 @@ module Canvas::Security
   # body (Hash) - The contents of the JWT token
   # expires (Time) - When the token should expire. `nil` for no expiration
   # key (String) - The key to sign with. `nil` will use the currently configured key
+  # alg (Symbol) - The algorithm used to generate the signature. Should be `:HS512` or `:ES512`!
+  #                To keep backwards compatibility, `nil` will default to `:HS256` for now.
   #
   # Returns the token as a string.
-  def self.create_jwt(body, expires = nil, key = nil)
+  def self.create_jwt(body, expires = nil, key = nil, alg = nil)
     jwt_body = body
     if expires
       jwt_body = jwt_body.merge({ exp: expires.to_i })
     end
     raw_jwt = JSON::JWT.new(jwt_body)
     return raw_jwt.to_s if key == :unsigned
-    raw_jwt.sign(key || encryption_key, :HS256).to_s
+    raw_jwt.sign(key || encryption_key, alg || :HS256).to_s
   end
 
   # Creates an encrypted JWT token string
@@ -131,11 +133,13 @@ module Canvas::Security
   # payload (hash) - The data you want in the token
   # signing_secret (big string) - The shared secret for signing
   # encryption_secret (big string) - The shared key for symmetric key encryption.
+  # alg (Symbol) - The algorithm used to generate the signature. Should be `:HS512` or `:ES512`!
+  #                To keep backwards compatibility, `nil` will default to `:HS256` for now.
   #
   # Returns the token as a string.
-  def self.create_encrypted_jwt(payload, signing_secret, encryption_secret)
+  def self.create_encrypted_jwt(payload, signing_secret, encryption_secret, alg = nil)
     jwt = JSON::JWT.new(payload)
-    jws = jwt.sign(signing_secret, :HS256)
+    jws = jwt.sign(signing_secret, alg || :HS256)
     jwe = jws.encrypt(encryption_secret, 'dir', :A256GCM)
     jwe.to_s
   end
@@ -211,26 +215,29 @@ module Canvas::Security
   def self.re_encrypt_data(encryption_key)
     {
         Account =>  {
-            :encrypted_column => :turnitin_crypted_secret,
-            :salt_column => :turnitin_salt,
-            :key => 'instructure_turnitin_secret_shared' },
-        AccountAuthorizationConfig => {
-            :encrypted_column => :auth_crypted_password,
-            :salt_column => :auth_password_salt,
-            :key => 'instructure_auth' },
+          :encrypted_column => :turnitin_crypted_secret,
+          :salt_column => :turnitin_salt,
+          :key => 'instructure_turnitin_secret_shared'
+        },
+        AuthenticationProvider => {
+          :encrypted_column => :auth_crypted_password,
+          :salt_column => :auth_password_salt,
+          :key => 'instructure_auth'
+        },
         UserService => {
-            :encrypted_column => :crypted_password,
-            :salt_column => :password_salt,
-            :key => 'instructure_user_service' },
+          :encrypted_column => :crypted_password,
+          :salt_column => :password_salt,
+          :key => 'instructure_user_service'
+        },
         User => {
-            :encrypted_column => :otp_secret_key_enc,
-            :salt_column => :otp_secret_key_salt,
-            :key => 'otp_secret_key'
+          :encrypted_column => :otp_secret_key_enc,
+          :salt_column => :otp_secret_key_salt,
+          :key => 'otp_secret_key'
         }
     }.each do |(model, definition)|
       model.where("#{definition[:encrypted_column]} IS NOT NULL").
-          select([:id, definition[:encrypted_column], definition[:salt_column]]).
-          find_each do |instance|
+        select([:id, definition[:encrypted_column], definition[:salt_column]]).
+        find_each do |instance|
         cleartext = Canvas::Security.decrypt_password(instance.read_attribute(definition[:encrypted_column]),
                                                       instance.read_attribute(definition[:salt_column]),
                                                       definition[:key],
@@ -322,27 +329,29 @@ module Canvas::Security
   class << self
     private
     def verify_jwt(body, ignore_expiration: false)
+      verification_time = Time.now.utc
+      if body[:iat].present?
+        iat = timestamp_as_integer(body[:iat])
+        if iat > verification_time.to_i && iat < verification_time.to_i + 300
+          verification_time = iat
+        end
+      end
+
       if body[:exp].present? && !ignore_expiration
-        if timestamp_is_expired?(body[:exp])
+        if timestamp_as_integer(body[:exp]) < verification_time.to_i
           raise Canvas::Security::TokenExpired
         end
       end
 
       if body[:nbf].present?
-        if timestamp_is_future?(body[:nbf])
+        if timestamp_as_integer(body[:nbf]) > verification_time.to_i
           raise Canvas::Security::InvalidToken
         end
       end
     end
 
-    def timestamp_is_expired?(exp_val)
-      now = Time.zone.now
-      (exp_val.is_a?(Time) && exp_val <= now) || exp_val <= now.to_i
-    end
-
-    def timestamp_is_future?(nbf_val)
-      now = Time.zone.now
-      (nbf_val.is_a?(Time) && nbf_val > now) || nbf_val > now.to_i
+    def timestamp_as_integer(timestamp)
+      timestamp.is_a?(Time) ? timestamp.to_i : timestamp
     end
 
     def services_encryption_secret

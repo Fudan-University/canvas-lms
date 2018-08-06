@@ -20,9 +20,9 @@ import I18n from 'i18n!roster'
 import React from 'react'
 import PropTypes from 'prop-types'
 import {personReadyToEnrollShape} from './shapes'
-import Alert from '@instructure/ui-core/lib/components/Alert'
-import Table from '@instructure/ui-core/lib/components/Table'
-import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent'
+import Alert from '@instructure/ui-alerts/lib/components/Alert'
+import Table from '@instructure/ui-elements/lib/components/Table'
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
 
   class PeopleReadyList extends React.Component {
     static propTypes = {
@@ -60,7 +60,7 @@ import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReade
             <tbody>
               {this.props.nameList.map((n, i) => (
                 <tr key={`${n.address}_${i}`}>
-                  <td>{n.user_name}</td>
+                  <th scope="row">{n.user_name}</th>
                   <td>{n.email}</td>
                   <td>{n.login_id || ''}</td>
                   {this.props.canReadSIS ? <td>{n.sis_user_id || ''}</td> : null}

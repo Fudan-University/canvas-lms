@@ -16,18 +16,48 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 class TokenScopes
-  def self.generate_scopes
-    api_routes = Rails.application.routes.routes.select { |route| /^\/api\/v1/ =~ route.path.spec.to_s }
-    api_route_hashes = api_routes.map { |route| { verb: route.verb, path: route.path.spec.to_s.gsub(/\(\.:format\)$/, '') } }
-    api_route_hashes += [
-      { verb: 'GET', path: '/api/sis/accounts/:account_id/assignments' }.freeze,
-      { verb: 'GET', path: '/api/sis/courses/:course_id/assignments' }.freeze,
-      { verb: 'PUT', path: '/api/sis/courses/:course_id/disable_post_to_sis' }.freeze,
-      { verb: 'GET', path: '/api/lti/courses/:course_id/membership_service' }.freeze,
-      { verb: 'GET', path: '/api/lti/groups/:group_id/membership_service' }.freeze,
-    ]
-    api_route_hashes.uniq.map { |route| "url:#{route[:verb]}|#{route[:path]}".freeze }
+  OAUTH2_SCOPE_NAMESPACE = '/auth/'.freeze
+  USER_INFO_SCOPE = {
+    resource: :oauth2,
+    verb: "GET",
+    scope: "#{OAUTH2_SCOPE_NAMESPACE}userinfo"
+  }.freeze
+
+  def self.named_scopes
+    return @_named_scopes if @_named_scopes
+    named_scopes = detailed_scopes.each_with_object([]) do |frozen_scope, arr|
+      scope = frozen_scope.dup
+      api_scope_mapper_class = ApiScopeMapperLoader.load
+      scope[:resource] ||= api_scope_mapper_class.lookup_resource(scope[:controller], scope[:action])
+      scope[:resource_name] = api_scope_mapper_class.name_for_resource(scope[:resource])
+      arr << scope if scope[:resource_name]
+      scope
+    end
+    @_named_scopes = Canvas::ICU.collate_by(named_scopes) {|s| s[:resource_name]}.freeze
   end
 
-  SCOPES = self.generate_scopes.freeze
+  def self.all_scopes
+    @_all_scopes ||= [USER_INFO_SCOPE[:scope], *api_routes.map {|route| route[:scope]}].freeze
+  end
+
+  def self.detailed_scopes
+    @_detailed_scopes ||= [USER_INFO_SCOPE, *api_routes].freeze
+  end
+  private_class_method :detailed_scopes
+
+  def self.api_routes
+    return @_api_routes if @_api_routes
+    routes = Rails.application.routes.routes.select {|route| /^\/api\/(v1|sis)/ =~ route.path.spec.to_s}.map do |route|
+      {
+        controller: route.defaults[:controller]&.to_sym,
+        action: route.defaults[:action]&.to_sym,
+        verb: route.verb,
+        path: route.path.spec.to_s.gsub(/\(\.:format\)$/, ''),
+        scope: TokenScopesHelper.scope_from_route(route).freeze,
+      }
+    end
+    @_api_routes = routes.uniq {|route| route[:scope]}.freeze
+  end
+  private_class_method :api_routes
+
 end

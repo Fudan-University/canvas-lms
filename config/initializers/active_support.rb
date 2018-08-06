@@ -39,7 +39,26 @@ module ActiveSupport::Cache
     end
   end
   Store.prepend(RailsCacheShim)
+
+  unless CANVAS_RAILS5_1
+    module AllowMocksInStore
+      def should_compress?(*args)
+        if @value && Rails.env.test?
+          begin
+            marshaled_value
+            true
+          rescue TypeError => e
+            false
+          end
+        else
+          super
+        end
+      end
+    end
+    Entry.prepend(AllowMocksInStore)
+  end
 end
+
 
 module IgnoreMonkeyPatchesInDeprecations
   def extract_callstack(callstack)
@@ -86,3 +105,13 @@ module RaiseErrorOnDurationCoercion
   end
 end
 ActiveSupport::Duration.prepend(RaiseErrorOnDurationCoercion)
+
+module Enumerable
+  def pluck(*keys)
+    if keys.many?
+      map { |o| keys.map { |key| o.is_a?(ActiveRecord::Base) ? o.send(key) : o[key] } }
+    else
+      map { |o| o.is_a?(ActiveRecord::Base) ? o.send(keys.first) : o[keys.first] }
+    end
+  end
+end

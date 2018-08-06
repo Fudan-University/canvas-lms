@@ -20,13 +20,14 @@ import React from 'react'
 import {shape, arrayOf, string, func} from 'prop-types'
 import {debounce} from 'underscore'
 import I18n from 'i18n!account_course_user_search'
-import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent'
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
 import CoursesStore from '../store/CoursesStore'
 import TermsStore from '../store/TermsStore'
 import AccountsTreeStore from '../store/AccountsTreeStore'
 import CoursesList from './CoursesList'
 import CoursesToolbar from './CoursesToolbar'
 import SearchMessage from './SearchMessage'
+import { SEARCH_DEBOUNCE_TIME } from './UsersPane'
 
 const MIN_SEARCH_LENGTH = 3
 const stores = [CoursesStore, TermsStore, AccountsTreeStore]
@@ -62,7 +63,7 @@ class CoursesPane extends React.Component {
     }
 
     // Doing this here because the class property version didn't work :(
-    this.debouncedApplyFilters = debounce(this.onApplyFilters, 250)
+    this.debouncedApplyFilters = debounce(this.onApplyFilters, SEARCH_DEBOUNCE_TIME)
   }
 
   componentWillMount () {

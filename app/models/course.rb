@@ -81,7 +81,7 @@ class Course < ActiveRecord::Base
   has_many :all_students, :through => :all_student_enrollments, :source => :user
   has_many :all_students_including_deleted, :through => :all_student_enrollments_including_deleted, source: :user
   has_many :all_accepted_student_enrollments, -> { where("enrollments.workflow_state NOT IN ('rejected', 'deleted') AND enrollments.type IN ('StudentEnrollment', 'StudentViewEnrollment')").preload(:user) }, class_name: 'Enrollment'
-  has_many :all_accepted_students, :through => :all_accepted_student_enrollments, :source => :user
+  has_many :all_accepted_students, -> { distinct }, :through => :all_accepted_student_enrollments, :source => :user
   has_many :all_real_enrollments, -> { where("enrollments.workflow_state<>'deleted' AND enrollments.type<>'StudentViewEnrollment'").preload(:user) }, class_name: 'Enrollment'
   has_many :all_real_users, :through => :all_real_enrollments, :source => :user
   has_many :all_real_student_enrollments, -> { where("enrollments.type = 'StudentEnrollment' AND enrollments.workflow_state <> 'deleted'").preload(:user) }, class_name: 'StudentEnrollment'
@@ -218,6 +218,7 @@ class Course < ActiveRecord::Base
   validate :validate_course_dates
   validate :validate_course_image
   validate :validate_default_view
+  validates :sis_source_id, uniqueness: {scope: :root_account}, allow_nil: true
   validates_presence_of :account_id, :root_account_id, :enrollment_term_id, :workflow_state
   validates_length_of :syllabus_body, :maximum => maximum_long_text_length, :allow_nil => true, :allow_blank => true
   validates_length_of :name, :maximum => maximum_string_length, :allow_nil => true, :allow_blank => true
@@ -244,6 +245,10 @@ class Course < ActiveRecord::Base
     end
 
   has_a_broadcast_policy
+
+  # A hard limit on the number of graders (excluding the moderator) a moderated
+  # assignment can have.
+  MODERATED_GRADING_GRADER_LIMIT = 10.freeze
 
   def [](attr)
     attr.to_s == 'asset_string' ? self.asset_string : super
@@ -732,6 +737,8 @@ class Course < ActiveRecord::Base
     participating_instructors.restrict_to_sections(section_ids)
   end
 
+  # Tread carefully — this method returns true for Teachers, TAs, and Designers
+  # in the course.
   def user_is_admin?(user)
     return unless user
     RequestCache.cache('user_is_admin', self, user) do
@@ -958,15 +965,17 @@ class Course < ActiveRecord::Base
     true
   end
 
-  def update_enrolled_users
+  def update_enrolled_users(sis_batch: nil)
     self.shard.activate do
-      if self.workflow_state_changed?
+      if self.workflow_state_changed? || sis_batch && self.saved_change_to_workflow_state?
         if self.completed?
-          enrollment_ids = Enrollment.where(:course_id => self, :workflow_state => ['active', 'invited']).pluck(:id)
-          if enrollment_ids.any?
-            Enrollment.where(:id => enrollment_ids).update_all(:workflow_state => 'completed', :completed_at => Time.now.utc)
-            EnrollmentState.where(:enrollment_id => enrollment_ids).update_all(["state = ?, state_is_current = ?, access_is_current = ?, lock_version = lock_version + 1", 'completed', true, false])
-            EnrollmentState.send_later_if_production(:process_states_for_ids, enrollment_ids) # recalculate access
+          enrollment_info = Enrollment.where(:course_id => self, :workflow_state => ['active', 'invited']).select(:id, :workflow_state).to_a
+          if enrollment_info.any?
+            data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch, contexts: enrollment_info, updated_state: 'completed')
+            Enrollment.where(:id => enrollment_info.map(&:id)).update_all(:workflow_state => 'completed', :completed_at => Time.now.utc)
+            EnrollmentState.where(:enrollment_id => enrollment_info.map(&:id)).
+              update_all(["state = ?, state_is_current = ?, access_is_current = ?, lock_version = lock_version + 1", 'completed', true, false])
+            EnrollmentState.send_later_if_production(:process_states_for_ids, enrollment_info.map(&:id)) # recalculate access
           end
 
           appointment_participants.active.current.update_all(:workflow_state => 'deleted')
@@ -976,10 +985,12 @@ class Course < ActiveRecord::Base
 
           user_ids = enroll_scope.group(:user_id).pluck(:user_id).uniq
           if user_ids.any?
-            enrollment_ids = enroll_scope.pluck(:id)
-            if enrollment_ids.any?
-              Enrollment.where(:id => enrollment_ids).update_all(:workflow_state => 'deleted')
-              EnrollmentState.where(:enrollment_id => enrollment_ids).update_all(["state = ?, state_is_current = ?, lock_version = lock_version + 1", 'deleted', true])
+            enrollment_info = enroll_scope.select(:id, :workflow_state).to_a
+            if enrollment_info.any?
+              data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch, contexts: enrollment_info, updated_state: 'deleted')
+              Enrollment.where(:id => enrollment_info.map(&:id)).update_all(:workflow_state => 'deleted')
+              EnrollmentState.where(:enrollment_id => enrollment_info.map(&:id)).
+                update_all(["state = ?, state_is_current = ?, lock_version = lock_version + 1", 'deleted', true])
             end
             User.send_later_if_production(:update_account_associations, user_ids)
           end
@@ -993,6 +1004,7 @@ class Course < ActiveRecord::Base
 
       Enrollment.where(:course_id => self).touch_all
       User.where(id: Enrollment.where(course_id: self).select(:user_id)).touch_all
+      data
     end
   end
 
@@ -1231,6 +1243,27 @@ class Course < ActiveRecord::Base
   def destroy
     self.workflow_state = 'deleted'
     save!
+  end
+
+  def self.destroy_batch(courses, sis_batch: nil, batch_mode: false)
+    enroll_scope = Enrollment.where(course_id: courses, workflow_state: 'deleted')
+    enroll_scope.find_in_batches do |e_batch|
+      user_ids = e_batch.map(&:user_id).uniq.sort
+      data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch,
+                                                       contexts: e_batch,
+                                                       updated_state: 'deleted',
+                                                       batch_mode_delete: batch_mode)
+      SisBatchRollBackData.bulk_insert_roll_back_data(data) if data
+      Enrollment.where(id: e_batch.map(&:id)).update_all(workflow_state: 'deleted', updated_at: Time.zone.now)
+      EnrollmentState.where(:enrollment_id => e_batch.map(&:id)).
+        update_all(["state = ?, state_is_current = ?, lock_version = lock_version + 1", 'deleted', true])
+      User.where(id: user_ids).touch_all
+      User.send_later_if_production(:update_account_associations, user_ids) if user_ids.any?
+    end
+    c_data = SisBatchRollBackData.build_dependent_data(sis_batch: sis_batch, contexts: courses, updated_state: 'deleted', batch_mode_delete: batch_mode)
+    SisBatchRollBackData.bulk_insert_roll_back_data(c_data) if c_data
+    Course.where(id: courses).update_all(workflow_state: 'deleted', updated_at: Time.zone.now)
+    courses.count
   end
 
   def call_event(event)
@@ -1873,7 +1906,7 @@ class Course < ActiveRecord::Base
         # order by course_section_id<>section.id so that if there *is* an existing enrollment for this section, we get it (false orders before true)
         e = self.all_enrollments.
           where(user_id: user, type: type, role_id: role.id, associated_user_id: associated_user_id).
-          order("course_section_id<>#{section.id}").
+          order(Arel.sql("course_section_id<>#{section.id}")).
           first
       end
       if e && (!e.active? || opts[:force_update])
@@ -3145,6 +3178,22 @@ class Course < ActiveRecord::Base
 
   def grading_standard_or_default
     default_grading_standard || GradingStandard.default_instance
+  end
+
+  def moderators
+    active_instructors = users.merge(Enrollment.active_or_pending.of_instructor_type)
+    active_instructors.select { |user| grants_right?(user, :select_final_grade) }
+  end
+
+  def moderated_grading_max_grader_count
+    count = participating_instructors.distinct.count
+    # A moderated assignment must have at least 1 (non-moderator) grader.
+    return 1 if count < 2
+    # grader count cannot exceed the hard limit
+    return MODERATED_GRADING_GRADER_LIMIT if count > MODERATED_GRADING_GRADER_LIMIT + 1
+    # for any given assignment: 1 assigned moderator + N max graders = all participating instructors
+    # so N max graders = all participating instructors - 1 assigned moderator
+    count - 1
   end
 
   private

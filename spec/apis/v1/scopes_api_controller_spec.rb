@@ -19,49 +19,91 @@
 require File.expand_path(File.dirname(__FILE__) + '/../api_spec_helper')
 
 describe ScopesApiController, type: :request do
+
+  before { enable_default_developer_key! }
+
+  # We want to force the usage of the fallback scope mapper here, not the generated version
+  Object.const_set("ApiScopeMapper", ApiScopeMapperLoader.api_scope_mapper_fallback)
+
   describe "index" do
-    before :each do
-      allow_any_instance_of(Account).to receive(:feature_enabled?).with(:api_token_scoping)
+    before do
+      allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
+      allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management_and_scoping).and_return(true)
+    end
+
+    let(:account) { account_model }
+    let(:api_url) { "/api/v1/accounts/#{account.id}/scopes" }
+
+    let(:scope_params) do
+      {
+        controller: 'scopes_api',
+        action: 'index',
+        format: 'json',
+        account_id: account.id.to_s
+      }
     end
 
     context "with admin" do
-      before :once do
-        @account = account_model
-        account_admin_user(:account => @account)
+      before do
+        account_admin_user(:account => account)
         user_with_pseudonym(:user => @admin)
       end
 
       it "returns expected scopes" do
-        allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
-        allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management).and_return(true)
-        allow_any_instance_of(Account).to receive(:feature_allowed?).and_return(false)
-        allow_any_instance_of(Account).to receive(:feature_allowed?).with(:developer_key_management).and_return(true)
-        json = api_call(:get, "/api/v1/accounts/#{@account.id}/scopes", { controller: 'scopes_api', action: 'index', format: 'json', account_id: @account.id.to_s })
-        [
-          'manage_assignments',
-          'manage_files',
-          'manage_groups'
-        ].each do |scope|
-          expect(json.one? { |s| s['name'] == "#{RoleOverride::ACCESS_TOKEN_SCOPE_PREFIX}.#{scope}" }).to eq true
-        end
+        json = api_call(:get, "/api/v1/accounts/#{@account.id}/scopes", scope_params)
+        expect(json).to include({
+                                  "resource"=>"oauth2",
+                                  "verb"=>"GET",
+                                  "scope"=>"/auth/userinfo",
+                                  "resource_name"=>"oauth2"
+                                })
+      end
+
+      it "groups scopes when group_by is passed in" do
+        scope_params[:group_by] = "resource_name"
+
+        json = api_call(:get, "/api/v1/accounts/#{@account.id}/scopes", scope_params)
+        expect(json["oauth2"]).to eq [{
+                                        "resource"=>"oauth2",
+                                        "verb"=>"GET",
+                                        "scope"=>"/auth/userinfo",
+                                        "resource_name"=>"oauth2"
+                                      }]
       end
 
       it "returns 403 when feature flag is disabled" do
-        json = api_call(:get, "/api/v1/accounts/#{@account.id}/scopes", { controller: 'scopes_api', action: 'index', format: 'json', account_id: @account.id.to_s })
+        allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
+        api_call(:get, api_url, scope_params)
         expect(response.code).to eql '403'
+      end
+
+      it "returns expected scopes when flag is disabled and Setting is set" do
+        Setting.set(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, 'true')
+        account_admin_user(:account => Account.site_admin)
+        allow_any_instance_of(Account).to receive(:feature_enabled?).and_return(false)
+        DeveloperKey.default.developer_key_account_bindings.first.update!(workflow_state: 'on')
+        json = api_call(
+          :get,
+          "/api/v1/accounts/#{Account.site_admin.id}/scopes",
+          scope_params.merge(account_id: Account.site_admin.id)
+        )
+
+        expect(json).to include({
+                                  "resource"=>"oauth2",
+                                  "verb"=>"GET",
+                                  "scope"=>"/auth/userinfo",
+                                  "resource_name"=>"oauth2"
+                                })
       end
     end
 
     context "with nonadmin" do
-      before :once do
-        @account = account_model
-        user_with_pseudonym(account: @account)
+      before do
+        user_with_pseudonym(account: account)
       end
 
       it "returns a 401" do
-        allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management).and_return(true)
-        allow_any_instance_of(Account).to receive(:feature_allowed?).with(:developer_key_management).and_return(true)
-        json = api_call(:get, "/api/v1/accounts/#{@account.id}/scopes", { controller: 'scopes_api', action: 'index', format: 'json', account_id: @account.id.to_s })
+        api_call(:get, api_url, scope_params)
         expect(response.code).to eql '401'
       end
     end

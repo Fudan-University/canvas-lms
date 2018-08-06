@@ -67,6 +67,8 @@ class LearningOutcomeResult < ActiveRecord::Base
       self.association_object
     elsif self.artifact.is_a?(RubricAssessment)
       self.artifact.rubric_association.association_object
+    elsif self.association_object.is_a? Quizzes::Quiz
+      self.association_object.assignment
     else
       nil
     end
@@ -109,10 +111,10 @@ class LearningOutcomeResult < ActiveRecord::Base
   scope :for_user, lambda { |user| where(:user_id => user) }
   scope :custom_ordering, lambda { |param|
     orders = {
-      'recent' => "assessed_at DESC",
-      'highest' => "score DESC",
-      'oldest' => "score ASC",
-      'default' => "assessed_at DESC"
+      'recent' => {:assessed_at => :desc},
+      'highest' => {:score => :desc},
+      'oldest' => {:score => :asc},
+      'default' => {:assessed_at => :desc}
     }
     order_clause = orders[param] || orders['default']
     order(order_clause)

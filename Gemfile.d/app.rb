@@ -16,9 +16,9 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
 if CANVAS_RAILS5_1
-  gem 'rails', '5.1.5'
+  gem 'rails', '5.1.6'
 else
-  gem 'rails', '5.2.0.rc2'
+  gem 'rails', '5.2.0'
 end
 
 gem 'rack', '2.0.4'
@@ -32,13 +32,13 @@ gem 'rails-observers', '0.1.5'
 gem 'builder', '3.2.3'
 gem 'tzinfo', '1.2.5'
 
-gem 'encrypted_cookie_store-instructure', '1.2.7', require: 'encrypted_cookie_store'
+gem 'encrypted_cookie_store-instructure', '1.2.8', require: 'encrypted_cookie_store'
 gem 'active_model_serializers',   '0.9.0alpha1',
   github: 'rails-api/active_model_serializers', ref: '61882e1e4127facfe92e49057aec71edbe981829'
-gem 'authlogic', '3.6.1'
+gem 'authlogic', '4.0.1'
   gem 'scrypt', '3.0.5'
 gem 'active_model-better_errors', '1.6.7', require: 'active_model/better_errors'
-gem 'switchman', '1.11.7'
+gem 'switchman', '1.12.2'
   gem 'open4', '1.3.4', require: false
 gem 'folio-pagination', '0.0.12', require: 'folio/rails'
   # for folio, see the folio README
@@ -50,6 +50,9 @@ gem "aws-sdk-kinesis", '1.2.0', require: false
 gem "aws-sdk-s3", '1.8.2', require: false
 gem "aws-sdk-sns", '1.1.0', require: false
 gem "aws-sdk-sqs", '1.3.0', require: false
+gem "aws-sdk-core", "3.22.0", require: false
+gem "aws-sigv4", "1.0.2", require: false
+
 gem 'barby', '0.6.5', require: false
   gem 'rqrcode', '0.10.1', require: false
   gem 'chunky_png', '1.3.10', require: false
@@ -57,12 +60,15 @@ gem 'bcrypt', '3.1.11'
 gem 'canvas_connect', '0.3.11'
   gem 'adobe_connect', '1.0.6', require: false
 gem 'canvas_webex', '0.17'
-gem 'inst-jobs', '0.14.5'
+gem 'inst-jobs', '0.14.8'
   gem 'rufus-scheduler', '3.4.2', require: false
     gem 'et-orbi', '1.0.8', require: false
-gem 'inst-jobs-autoscaling', '1.0.2'
+gem 'switchman-inst-jobs', '1.1.7'
+gem 'inst-jobs-autoscaling', '1.0.4'
   gem 'aws-sdk-autoscaling', '1.5.0', require: false
-gem 'ffi', '1.9.23', require: false
+# ffi 1.9.2x seem to have issues on RHEL & CentOS causing segfaults
+# check https://github.com/ffi/ffi/issues/621 for resolution prior to bumping version
+gem 'ffi', '1.9.18', require: false
 gem 'hashery', '2.1.2', require: false
 gem 'highline', '1.7.10', require: false
 gem 'httparty', '0.16.1'
@@ -104,13 +110,13 @@ gem 'rotp', '3.3.1', require: false
 gem 'net-ldap', '0.16.1', require: false
 gem 'ruby-duration', '3.2.3', require: false
 gem 'ruby-saml-mod', '0.3.8'
-gem 'saml2', '2.1.0'
+gem 'saml2', '3.0.0'
   gem 'nokogiri-xmlsec-instructure', '0.9.6', require: false
 gem 'rubycas-client', '2.3.9', require: false
 gem 'rubyzip', '1.2.1', require: 'zip'
 gem 'safe_yaml', '1.0.4', require: false
 gem 'sanitize', '2.1.0', require: false
-gem 'shackles', '1.4.0'
+gem 'shackles', '1.4.1'
 
 gem 'useragent', '0.16.10', require: false
 
@@ -118,12 +124,12 @@ gem 'crocodoc-ruby', '0.0.1', require: false
 gem 'sentry-raven', '2.7.2', require: false
 gem 'canvas_statsd', '2.0.4'
   gem 'statsd-ruby', '1.4.0', require: false
-  gem 'aroi', '0.0.5', require: false
+  gem 'aroi', '0.0.6', require: false
 gem 'gepub', '0.7.0beta4'
 gem 'imperium', '0.3.0', require: false
 gem 'academic_benchmarks', '0.0.10', require: false
 
-gem 'graphql', '1.7.12'
+gem 'graphql', '1.8.0'
 gem 'graphql-batch', '0.3.9'
 
 gem 'activesupport-suspend_callbacks', path: 'gems/activesupport-suspend_callbacks'

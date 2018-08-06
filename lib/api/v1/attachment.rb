@@ -116,7 +116,9 @@ module Api::V1::Attachment
 
       url_opts = {
         moderated_grading_whitelist: options[:moderated_grading_whitelist],
-        enable_annotations: options[:enable_annotations]
+        enable_annotations: options[:enable_annotations],
+        enrollment_type: options[:enrollment_type],
+        anonymous_instructor_annotations: options[:anonymous_instructor_annotations]
       }
       hash['preview_url'] = attachment.crocodoc_url(user, url_opts) ||
                             attachment.canvadoc_url(user, url_opts)
@@ -233,8 +235,10 @@ module Api::V1::Attachment
 
       json = InstFS.upload_preflight_json(
         context: context,
+        root_account: context.try(:root_account) || @domain_root_account,
         user: logged_in_user,
         acting_as: @current_user,
+        access_token: @access_token,
         folder: folder,
         filename: infer_upload_filename(params),
         content_type: infer_upload_content_type(params),
@@ -266,7 +270,11 @@ module Api::V1::Attachment
         progress.process_job(
           @attachment,
           :clone_url,
-          { n_strand: 'file_download', preserve_method_args: true },
+          {
+            n_strand: 'file_download',
+            preserve_method_args: true,
+            priority: Delayed::HIGH_PRIORITY
+          },
           params[:url],
           on_duplicate,
           opts[:check_quota],

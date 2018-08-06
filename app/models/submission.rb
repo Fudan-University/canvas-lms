@@ -17,6 +17,7 @@
 #
 
 require 'atom'
+require 'anonymity'
 
 class Submission < ActiveRecord::Base
   include Canvas::GradeValidations
@@ -50,14 +51,25 @@ class Submission < ActiveRecord::Base
     not_applicable: {
       status: false,
       message: I18n.t('This assignment is not applicable to this student')
+    }.freeze,
+    moderation_in_progress: {
+      status: false,
+      message: I18n.t('This assignment is currently being moderated')
     }.freeze
   }.freeze
 
   attr_readonly :assignment_id
   attr_accessor :visible_to_user,
-                :skip_grade_calc
+                :skip_grade_calc,
+                :grade_posting_in_progress
   attr_writer :versioned_originality_reports,
               :text_entry_originality_reports
+  # This can be set to true to force late policy behaviour that would
+  # be skipped otherwise. See #late_policy_relevant_changes? and
+  # #score_late_or_none. It is reset to false in an after save so late
+  # policy deductions don't happen again if the submission object is
+  # saved again.
+  attr_writer :regraded
 
   belongs_to :attachment # this refers to the screenshot of the submission if it is a url submission
   belongs_to :assignment
@@ -205,6 +217,9 @@ class Submission < ActiveRecord::Base
     ")
   end
 
+  GradedAtBookmarker = BookmarkedCollection::SimpleBookmarker.new(Submission, :graded_at)
+  IdBookmarker = BookmarkedCollection::SimpleBookmarker.new(Submission, :id)
+
   scope :anonymized, -> { where.not(anonymous_id: nil) }
 
   workflow do
@@ -220,29 +235,6 @@ class Submission < ActiveRecord::Base
 
   def self.anonymous_ids_for(assignment)
     anonymized.for_assignment(assignment).pluck(:anonymous_id)
-  end
-
-  # Returns a unique short id to be used for anonymous_id. If the
-  # generated short id is already in use, loop until an available
-  # one is generated. `anonymous_ids` are unique per assignment.
-  # This method will throw a unique constraint error from the
-  # database if it has used all unique ids.
-  # An optional argument of existing_anonymous_ids can be supplied
-  # to customize the handling of existing anonymous_ids. E.g. bulk
-  # generation of anonymous ids where you wouldn't want to
-  # continuously query the database
-  def self.generate_unique_anonymous_id(assignment:, existing_anonymous_ids: anonymous_ids_for(assignment))
-    loop do
-      short_id = Submission.generate_short_id
-      break short_id unless existing_anonymous_ids.include?(short_id)
-    end
-  end
-
-  # base58 to avoid literal problems with prefixed 0 (i.e. when 0x123
-  # is interpreted as a hex value `0x123 == 291`), and similar looking
-  # characters: 0/O, I/l
-  def self.generate_short_id
-    SecureRandom.base58(5)
   end
 
   # see #needs_grading?
@@ -327,6 +319,12 @@ class Submission < ActiveRecord::Base
   after_save :update_participation
   after_save :update_line_item_result
   after_save :delete_ignores
+  after_save :create_alert
+  after_save :reset_regraded
+
+  def reset_regraded
+    @regraded = false
+  end
 
   def autograded?
     # AutoGrader == (quiz_id * -1)
@@ -463,6 +461,12 @@ class Submission < ActiveRecord::Base
     can :view_vericite_report
   end
 
+  def can_view_details?(user)
+    return false unless grants_right?(user, :read)
+    return true unless self.assignment.anonymous_grading && self.assignment.muted
+    user == self.user || Account.site_admin.grants_right?(user, :update)
+  end
+
   def can_view_plagiarism_report(type, user, session)
     if(type == "vericite")
       plagData = self.vericite_data_hash
@@ -541,6 +545,31 @@ class Submission < ActiveRecord::Base
       self.assignment&.send_later_if_production(:multiple_module_actions, [self.user_id], :scored, self.score)
     end
     true
+  end
+
+  def create_alert
+    return unless saved_change_to_score? && self.grader_id && !self.autograded? &&
+      self.assignment.points_possible && self.assignment.points_possible > 0
+
+    thresholds = ObserverAlertThreshold.active.where(student: self.user,
+      alert_type: ['assignment_grade_high', 'assignment_grade_low'])
+
+    thresholds.each do |threshold|
+      prev_score = saved_changes['score'][0]
+      prev_percentage = prev_score.present? ? prev_score.to_f / self.assignment.points_possible * 100 : nil
+      percentage = self.score.present? ? self.score.to_f / self.assignment.points_possible * 100 : nil
+      next unless threshold.did_pass_threshold(prev_percentage, percentage)
+      next unless threshold.observer.enrollments.where(course_id: self.assignment.context_id).first.present?
+
+      ObserverAlert.create!(observer: threshold.observer, student: self.user,
+                            observer_alert_threshold: threshold,
+                            context: self.assignment, alert_type: threshold.alert_type, action_date: self.graded_at,
+                            title: I18n.t("Assignment graded: %{grade} on %{assignment_name} in %{course_code}", {
+                              grade: self.grade,
+                              assignment_name: self.assignment.title,
+                              course_code: self.assignment.course.course_code
+                            }))
+    end
   end
 
   def update_quiz_submission
@@ -1221,7 +1250,9 @@ class Submission < ActiveRecord::Base
         if submit_to_canvadocs
           opts = {
             preferred_plugins: [Canvadocs::RENDER_PDFJS, Canvadocs::RENDER_BOX, Canvadocs::RENDER_CROCODOC],
-            wants_annotation: true
+            wants_annotation: true,
+            # TODO: Remove the next line after the DocViewer Data Migration project RD-4702
+            region: a.shard.database_server.config[:region] || "none"
           }
 
           if context.root_account.settings[:canvadocs_prefer_office_online]
@@ -1482,6 +1513,8 @@ class Submission < ActiveRecord::Base
 
   def can_grade_symbolic_status(user = nil)
     user ||= grader
+
+    return :moderation_in_progress unless assignment.grades_published? || grade_posting_in_progress || assignment.permits_moderation?(user)
 
     return :not_applicable if deleted?
     return :unpublished unless assignment.published?
@@ -2313,15 +2346,17 @@ class Submission < ActiveRecord::Base
 
   def visible_rubric_assessments_for(viewing_user)
     return [] if self.assignment.muted? && !grants_right?(viewing_user, :read_grade)
+    return [] unless self.assignment.rubric_association
+
     filtered_assessments = self.rubric_assessments.select do |a|
-      a.grants_right?(viewing_user, :read)
+      a.grants_right?(viewing_user, :read) &&
+        a.rubric_association == self.assignment.rubric_association
     end
     filtered_assessments.sort_by do |a|
-      if a.assessment_type == 'grading'
-        [CanvasSort::First]
-      else
-        [CanvasSort::Last, Canvas::ICU.collation_key(a.assessor_name)]
-      end
+      [
+        a.assessment_type == 'grading' ? CanvasSort::First : CanvasSort::Last,
+        Canvas::ICU.collation_key(a.assessor_name)
+      ]
     end
   end
 
@@ -2349,7 +2384,7 @@ class Submission < ActiveRecord::Base
       preloaded_users = scope.where(:id => user_ids)
       preloaded_submissions = assignment.submissions.where(user_id: user_ids).group_by(&:user_id)
 
-      Delayed::Batch.serial_batch(:priority => Delayed::LOW_PRIORITY) do
+      Delayed::Batch.serial_batch(priority: Delayed::LOW_PRIORITY, n_strand: ["bulk_update_submissions", context.root_account.global_id]) do
         user_grades.each do |user_id, user_data|
 
           user = preloaded_users.detect{|u| u.global_id == Shard.global_id_for(user_id)}
@@ -2450,6 +2485,6 @@ class Submission < ActiveRecord::Base
   private
 
   def set_anonymous_id
-    self.anonymous_id = Submission.generate_unique_anonymous_id(assignment: anonymous_id)
+    self.anonymous_id = Anonymity.generate_id(existing_ids: Submission.anonymous_ids_for(assignment))
   end
 end

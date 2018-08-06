@@ -64,23 +64,23 @@ module Api::V1::Quiz
     end
   end
 
-  def quiz_json(quiz, context, user, session, options={})
+  def quiz_json(quiz, context, user, session, options={}, serializer = nil)
     options.merge!(description_formatter: description_formatter(context, user)) unless options[:description_formatter]
     if accepts_jsonapi?
       Canvas::APIArraySerializer.new([quiz],
                          scope: user,
                          session: session,
                          root: :quizzes,
-                         each_serializer: Quizzes::QuizSerializer,
+                         each_serializer: Quizzes::QuizApiSerializer,
                          controller: self,
                          serializer_options: options).as_json
     else
-      Quizzes::QuizSerializer.new(quiz,
-                         scope: user,
-                         session: session,
-                         root: false,
-                         controller: self,
-                         serializer_options: options).as_json
+      (serializer || Quizzes::QuizSerializer).new(quiz,
+                                                  scope: user,
+                                                  session: session,
+                                                  root: false,
+                                                  controller: self,
+                                                  serializer_options: options).as_json
     end
   end
 

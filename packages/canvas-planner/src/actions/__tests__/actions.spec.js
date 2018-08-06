@@ -28,6 +28,8 @@ jest.mock('../../utilities/apiUtils', () => ({
   transformPlannerNoteApiToInternalItem: jest.fn(response => ({...response, transformedToInternal: true}))
 }));
 
+const simpleItem = opts => Object.assign({some: 'data', date: moment('2018-03-28T13:14:00-04:00')}, opts);
+
 const getBasicState = () => ({
   courses: [],
   groups: [],
@@ -41,7 +43,8 @@ const getBasicState = () => ({
     pastNextUrl: null,
     allOpportunitiesLoaded: true,
   },
-  currentUser: {id: '1', displayName: 'Jane', avatarUrl: '/avatar/is/here'},
+  currentUser: {id: '1', displayName: 'Jane',
+    avatarUrl: '/avatar/is/here', color: "#00AC18"},
   opportunities: {
     items: [
       { id: 1, firstName: 'Fred', lastName: 'Flintstone', dismissed: false},
@@ -219,6 +222,24 @@ describe('api actions', () => {
     });
   });
 
+  it('calls the alert function when dismissing an opportunity fails', (done) => {
+    const mockDispatch = jest.fn();
+    const fakeAlert = jest.fn();
+    alertInitialize({
+      visualErrorCallback: fakeAlert
+    });
+    Actions.dismissOpportunity("6", {id: "6"})(() => {});
+    moxios.wait(() => {
+      let request = moxios.requests.mostRecent();
+      request.respondWith({
+        status: 400,
+      }).then(() => {
+        expect(fakeAlert).toHaveBeenCalled();
+        done();
+      });
+    })
+  });
+
   it('calls the alert function when a failure occurs', (done) => {
     const mockDispatch = jest.fn();
     const fakeAlert = jest.fn();
@@ -239,27 +260,29 @@ describe('api actions', () => {
 });
 
   describe('savePlannerItem', () => {
-    it('dispatches saving and saved actions', () => {
+    it('dispatches saving, clearUpdateTodo, and saved actions', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const savePromise = Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       expect(isPromise(savePromise)).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVING_PLANNER_ITEM', payload: {item: plannerItem, isNewItem: true}});
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'CLEAR_UPDATE_TODO'});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVED_PLANNER_ITEM', payload: savePromise});
     });
 
     it('sets isNewItem to false if the item id exists', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data', id: '42'};
+      const plannerItem = simpleItem({id: '42'});
       const savePromise = Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       expect(isPromise(savePromise)).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVING_PLANNER_ITEM', payload: {item: plannerItem, isNewItem: false}});
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'CLEAR_UPDATE_TODO'});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVED_PLANNER_ITEM', payload: savePromise});
     });
 
     it('sends transformed data in the request', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait(request => {
         expect(JSON.parse(request.config.data)).toMatchObject({some: 'data', transformedToApi: true});
@@ -268,7 +291,7 @@ describe('api actions', () => {
 
     it('resolves the promise with transformed response data', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const savePromise = Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         { some: 'response data' },
@@ -282,8 +305,8 @@ describe('api actions', () => {
     });
 
     it('does a post if the planner item is new (no id)', () => {
-      const plannerItem = {some: 'data'};
-      Actions.savePlannerItem(plannerItem)(() => {});
+      const plannerItem = simpleItem();
+      Actions.savePlannerItem(plannerItem)(() => {}, () => {return {timeZone: 'America/Halifax'};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
         expect(request.url).toBe('api/v1/planner_notes');
@@ -291,20 +314,24 @@ describe('api actions', () => {
       });
     });
 
-    it('does set default time of 11:59 pm for planner date', () => {
-      const plannerItem = {date: moment('2017-06-22T10:05:54').tz("Atlantic/Azores").toISOString()};
-      Actions.savePlannerItem(plannerItem)(() => {});
+    it('does set default time of 11:59 pm for planner date at midnight', () => {
+      const TZ = "Atlantic/Azores";
+      const plannerItem = simpleItem({date: moment.tz(TZ).startOf('day').toISOString()});
+      Actions.savePlannerItem(plannerItem)(() => {}, () => {return {timeZone: TZ};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
         expect(request.url).toBe('api/v1/planner_notes');
         expect(JSON.parse(request.config.data).transformedToApi).toBeTruthy();
-        expect(moment(JSON.parse(request.config.data).date).tz("Atlantic/Azores").toISOString()).toBe(moment('2017-06-22T23:59:59').tz("Atlantic/Azores").toISOString());
+        const result = moment(JSON.parse(request.config.data).date).tz(TZ);
+        expect(result.hours()).toEqual(23);
+        expect(result.minutes()).toEqual(59);
+        expect(result.seconds()).toEqual(59);
       });
     });
 
     it('does a put if the planner item exists (has id)', () => {
-      const plannerItem = {id: '42', some: 'data'};
-      Actions.savePlannerItem(plannerItem, )(() => {});
+      const plannerItem = simpleItem({id: '42'});
+      Actions.savePlannerItem(plannerItem, )(() => {}, () => {return {timeZone: 'America/Halifax'};});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('put');
         expect(request.url).toBe('api/v1/planner_notes/42');
@@ -319,7 +346,7 @@ describe('api actions', () => {
         visualErrorCallback: fakeAlert
       });
 
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const savePromise = Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         { some: 'response data' },
@@ -333,7 +360,7 @@ describe('api actions', () => {
     it('saves and restores the override data', () => {
       const mockDispatch = jest.fn();
       // a planner item with override data
-      const plannerItem = {some: 'data', id: '42', overrideId: '17', completed: true};
+      const plannerItem = simpleItem({id: '42', overrideId: '17', completed: true});
       const savePromise = Actions.savePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         {some: 'data', id: '42'}, // notice the response has no override data
@@ -356,17 +383,18 @@ describe('api actions', () => {
   });
 
   describe('deletePlannerItem', () => {
-    it('dispatches deleting and deleted actions', () => {
+    it('dispatches deleting, clearUpdateTodo, and deleted actions', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const deletePromise = Actions.deletePlannerItem(plannerItem)(mockDispatch, getBasicState);
       expect(isPromise(deletePromise)).toBe(true);
       expect(mockDispatch).toHaveBeenCalledWith({type: 'DELETING_PLANNER_ITEM', payload: plannerItem});
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'CLEAR_UPDATE_TODO'});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'DELETED_PLANNER_ITEM', payload: deletePromise});
     });
 
     it('sends a delete request for the item id', () => {
-      const plannerItem = {id: '42', some: 'data'};
+      const plannerItem = simpleItem({id: '42'});
       Actions.deletePlannerItem(plannerItem, )(() => {});
       return moxiosWait((request) => {
         expect(request.config.method).toBe('delete');
@@ -376,7 +404,7 @@ describe('api actions', () => {
 
     it('resolves the promise with transformed response data', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const deletePromise = Actions.deletePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         { some: 'response data' },
@@ -393,7 +421,7 @@ describe('api actions', () => {
         visualErrorCallback: fakeAlert
       });
 
-      const plannerItem = { some: 'data' };
+      const plannerItem = simpleItem();
       const deletePromise = Actions.deletePlannerItem(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         { some: 'response data' },
@@ -408,17 +436,17 @@ describe('api actions', () => {
   describe('togglePlannerItemCompletion', () => {
     it('dispatches saving and saved actions', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data'};
+      const plannerItem = simpleItem();
       const savingItem = {...plannerItem, show: true, toggleAPIPending: true};
       const savePromise = Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       expect(isPromise(savePromise)).toBe(true);
-      expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVED_PLANNER_ITEM', payload: {item: savingItem, isNewItem: false}});
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVING_PLANNER_ITEM', payload: {item: savingItem, isNewItem: false, wasToggled: true}});
       expect(mockDispatch).toHaveBeenCalledWith({type: 'SAVED_PLANNER_ITEM', payload: savePromise});
     });
 
     it ('updates marked_complete and sends override data in the request', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data', marked_complete: null};
+      const plannerItem = simpleItem({marked_complete: null});
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait(request => {
         expect(JSON.parse(request.config.data)).toMatchObject({marked_complete: true, transformedToApiOverride: true});
@@ -427,7 +455,7 @@ describe('api actions', () => {
 
     it('does a post if the planner override is new (no id)', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {id: '42', some: 'data'};
+      const plannerItem = simpleItem({id: '42'});
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait((request) => {
         expect(request.config.method).toBe('post');
@@ -438,7 +466,7 @@ describe('api actions', () => {
 
     it('does a put if the planner override exists (has id)', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {id: '42', some: 'data', planner_override: {id: '5', marked_complete: true}};
+      const plannerItem = simpleItem({id: '42', planner_override: {id: '5', marked_complete: true}});
       Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosWait((request) => {
         expect(request.config.method).toBe('put');
@@ -449,13 +477,14 @@ describe('api actions', () => {
 
     it ('resolves the promise with override response data in the item', () => {
       const mockDispatch = jest.fn();
-      const plannerItem = {some: 'data', planner_override: {id: 'override_id', marked_complete: true}};
+      const plannerItem = simpleItem({planner_override: {id: 'override_id', marked_complete: true}});
       const togglePromise = Actions.togglePlannerItemCompletion(plannerItem)(mockDispatch, getBasicState);
       return moxiosRespond(
         {some: 'response data', id: 'override_id', marked_complete: false },
         togglePromise
       ).then((result) => {
         expect(result).toMatchObject({
+          wasToggled: true,
           item: {
             ...plannerItem,
             completed: false,
@@ -482,9 +511,19 @@ describe('api actions', () => {
       ).then((result) => {
         expect(fakeAlert).toHaveBeenCalled();
         expect(result).toMatchObject({
-          item: { ...plannerItem}
+          item: { ...plannerItem},
+          wasToggled: true,
         });
       });
+    });
+  });
+
+  describe('cancelEditingPlannerItem', () => {
+    it('dispatches clearUpdateTodo and canceledEditingPlannerItem actions', () => {
+      const mockDispatch = jest.fn();
+      Actions.cancelEditingPlannerItem()(mockDispatch, getBasicState);
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'CLEAR_UPDATE_TODO'});
+      expect(mockDispatch).toHaveBeenCalledWith({type: 'CANCELED_EDITING_PLANNER_ITEM'});
     });
   });
 });

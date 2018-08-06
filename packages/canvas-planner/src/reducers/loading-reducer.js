@@ -63,7 +63,7 @@ function getNextUrls (state, action) {
 }
 
 function gotDaysSuccess (state, action) {
-  const newState = {seekingNewActivity: false};
+  const newState = {seekingNewActivity: false, plannerLoaded: true};
   newState.partialPastDays = purgeDuplicateDays(state.partialPastDays, action.payload.internalDays);
   newState.partialFutureDays = purgeDuplicateDays(state.partialFutureDays, action.payload.internalDays);
   return loadingState(state, newState);
@@ -128,7 +128,16 @@ export default handleActions({
   ADD_OPPORTUNITIES: (state, action) => {
     return {...state, loadingOpportunities: false};
   },
+  START_LOADING_GRADES_SAGA: (state, action) => ({
+    ...state, loadingGrades: true, gradesLoadingError: null}),
+  GOT_GRADES_SUCCESS: (state, action) => ({
+    ...state, loadingGrades: false, gradesLoaded: true, gradesLoadingError: null}),
+  GOT_GRADES_ERROR: (state, action) => ({
+     ...state, loadingGrades: false, gradesLoaded: false,
+     gradesLoadingError: action.payload.message}),
+
 }, loadingState({}, {
+  plannerLoaded: false,
   allPastItemsLoaded: false,
   allFutureItemsLoaded: false,
   allOpportunitiesLoaded: false,
@@ -138,4 +147,7 @@ export default handleActions({
   seekingNewActivity: false,
   partialPastDays: [],
   partialFutureDays: [],
+  loadingGrades: false,
+  gradesLoaded: false,
+  gradesLoadingError: null,
 }));

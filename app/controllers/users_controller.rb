@@ -509,7 +509,8 @@ class UsersController < ApplicationController
   end
 
   def user_dashboard
-    if planner_enabled?
+    # Use the legacy to do list for non-students until it is ready for other roles
+    if planner_enabled? && !@current_user.non_student_enrollment?
       js_bundle :react_todo_sidebar
       css_bundle :react_todo_sidebar
     end
@@ -531,14 +532,14 @@ class UsersController < ApplicationController
     js_env({
       :DASHBOARD_SIDEBAR_URL => dashboard_sidebar_url,
       :PREFERENCES => {
-        :dashboard_view => @current_user.dashboard_view,
+        :dashboard_view => @current_user.dashboard_view(@domain_root_account),
         :hide_dashcard_color_overlays => @current_user.preferences[:hide_dashcard_color_overlays],
         :custom_colors => @current_user.custom_colors,
       },
       :STUDENT_PLANNER_ENABLED => planner_enabled?,
       :STUDENT_PLANNER_COURSES => planner_enabled? && map_courses_for_menu(@current_user.courses_with_primary_enrollment,
                                                                            :include_section_tabs => true),
-      :STUDENT_PLANNER_GROUPS => planner_enabled? && map_groups_for_planner(@current_user.current_groups.where(context_type: 'Account'))
+      :STUDENT_PLANNER_GROUPS => planner_enabled? && map_groups_for_planner(@current_user.current_groups)
     })
 
     @announcements = AccountNotification.for_user_and_account(@current_user, @domain_root_account)
@@ -598,7 +599,7 @@ class UsersController < ApplicationController
   def dashboard_view
     if request.get?
       render json: {
-        dashboard_view: @current_user.dashboard_view
+        dashboard_view: @current_user.dashboard_view(@context)
       }
     elsif request.put?
       valid_options = ['activity', 'cards', 'planner']
@@ -839,9 +840,7 @@ class UsersController < ApplicationController
       assignments_needing_submitting(
         include_ungraded: true,
         limit: ToDoListPresenter::ASSIGNMENT_LIMIT,
-        scope_only: true
-      ).
-      where('assignments.due_at IS NULL OR assignments.due_at > ?', Time.zone.now).
+        scope_only: true).
       reorder(:due_at, :id)
 
     grading_collection = BookmarkedCollection.wrap(bookmark, grading_scope)
@@ -864,7 +863,6 @@ class UsersController < ApplicationController
           :needing_submitting => true,
           :scope_only => true
         ).
-        where('quizzes.due_at IS NULL OR quizzes.due_at >= ?', Time.zone.now).
         reorder(:due_at, :id)
       quizzes_collection = BookmarkedCollection.wrap(quizzes_bookmark, quizzes_scope)
       quizzes_collection = BookmarkedCollection.transform(quizzes_collection) do |a|
@@ -898,17 +896,12 @@ class UsersController < ApplicationController
   #   }
   def todo_item_count
     return render_unauthorized_action unless @current_user
-    limit = ToDoListPresenter::ASSIGNMENT_LIMIT
-    grading = @current_user.assignments_needing_grading(limit: limit).map { |a| todo_item_json(a, @current_user, session, 'grading') }
-    submitting = @current_user.assignments_needing_submitting(include_ungraded: true, limit: limit).map do |a|
-      todo_item_json(a, @current_user, session, 'submitting')
-    end
+    grading = @current_user.assignments_needing_grading_count
+    submitting = @current_user.assignments_needing_submitting(include_ungraded: true, scope_only: true, limit: nil).size
     if Array(params[:include]).include? 'ungraded_quizzes'
-      submitting += @current_user.ungraded_quizzes(:needing_submitting => true, limit: limit).map { |q| todo_item_json(q, @current_user, session, 'submitting') }
-      submitting.sort_by! { |j| (j[:assignment] || j[:quiz])[:due_at] || CanvasSort::Last }
+      submitting += @current_user.ungraded_quizzes(:needing_submitting => true, scope_only: true, limit: nil).size
     end
-    count = grading.inject(0) {|sum, asg| sum += asg['needs_grading_count'] || 0}
-    render json: {needs_grading_count: count, assignments_needing_submitting: submitting.count}
+    render json: {needs_grading_count: grading, assignments_needing_submitting: submitting}
   end
 
   include Api::V1::Assignment
@@ -995,7 +988,7 @@ class UsersController < ApplicationController
 
   # @API List Missing Submissions
   # A paginated list of past-due assignments for which the student does not have a submission.
-  # The user sending the request must either be an admin or a parent observer using the parent app
+  # The user sending the request must either be the student, an admin or a parent observer using the parent app
   #
   # @argument user_id
   #   the student's ID
@@ -1005,21 +998,29 @@ class UsersController < ApplicationController
   #                         These will be returned under a +planner_override+ key
   #   "course":: Optionally include the assignments' courses
   #
+  # @argument filter[] [String, "submittable"]
+  #   "submittable":: Only return assignments that the current user can submit (i.e. filter out locked assignments)
+  #
   # @returns [Assignment]
   def missing_submissions
     user = api_find(User, params[:user_id])
     return render_unauthorized_action unless @current_user && user.grants_right?(@current_user, :read)
 
     submissions = []
+
+    filter = Array(params[:filter])
+    only_submittable = filter.include?('submittable')
+
     Shackles.activate(:slave) do
       course_ids = user.participating_student_course_ids
       Shard.partition_by_shard(course_ids) do |shard_course_ids|
-        submissions = Submission.active.preload(:assignment).
-                      missing.
-                      where(user_id: user.id,
-                            assignments: {context_id: shard_course_ids}).
-                      merge(Assignment.published).
-                      order(:cached_due_date)
+        subs = Submission.active.preload(:assignment).
+          missing.
+          where(user_id: user.id,
+          assignments: {context_id: shard_course_ids}).
+          merge(Assignment.published)
+        subs = subs.merge(Assignment.not_locked) if only_submittable
+        submissions = subs.order(:cached_due_date)
       end
     end
     assignments = Api.paginate(submissions, self, api_v1_user_missing_submissions_url).map(&:assignment)
@@ -1194,10 +1195,14 @@ class UsersController < ApplicationController
       @enrollments.each { |e| e.user = @user }
 
       respond_to do |format|
-        format.html
-        format.json {
+        format.html do
+          js_env(CONTEXT_USER_DISPLAY_NAME: @user.short_name,
+                 USER_ID: @user.id)
+        end
+        format.json do
           render :json => user_json(@user, @current_user, session, %w{locale avatar_url},
-                                    @current_user.pseudonym.account) }
+                                    @current_user.pseudonym.account)
+        end
       end
     end
   end
@@ -1223,7 +1228,7 @@ class UsersController < ApplicationController
   def api_show
     @user = api_find(User, params[:id])
     if @user.grants_right?(@current_user, session, :api_show_user)
-      render :json => user_json(@user, @current_user, session, %w{locale avatar_url permissions}, @current_user.pseudonym.account)
+      render :json => user_json(@user, @current_user, session, %w{locale avatar_url permissions email}, @domain_root_account)
     else
       render_unauthorized_action
     end
@@ -2211,48 +2216,74 @@ class UsersController < ApplicationController
     render :json => {:invited_users => invited_users, :errored_users => errored_users}
   end
 
-  # @API Get a Pandata jwt token and its expiration date
+  # @API Get a Pandata Events jwt token and its expiration date
   #
-  # Returns a jwt token that can be used to send events to Pandata
+  # Returns a jwt auth and props token that can be used to send events to
+  # Pandata.
+  #
+  # NOTE: This is currently only available to the mobile developer keys.
   #
   # @argument app_key [String]
-  #   The pandata appKey for this mobile app
+  #   The pandata events appKey for this mobile app
   #
   # @example_request
-  #     curl https://<canvas>/api/v1/users/<user_id>/pandata_token \
+  #     curl https://<canvas>/api/v1/users/self/pandata_events_token \
   #          -X POST \
   #          -H 'Authorization: Bearer <token>'
   #          -F 'app_key=MOBILE_APPS_KEY' \
   #
   # @example_response
   #   {
-  #     "token": "wek23klsdnsoieioeoi3of9deeo8r8eo8fdn",
+  #     "url": "https://example.com/pandata/events"
+  #     "auth_token": "wek23klsdnsoieioeoi3of9deeo8r8eo8fdn",
+  #     "props_token": "paowinefopwienpfiownepfiownepfownef",
   #     "expires_at": 1521667783000,
   #   }
-  def pandata_token
-    user = api_find(User, params[:id])
-    settings = Canvas::DynamicSettings.find(service: 'pandata')
+  def pandata_events_token
+    settings = Canvas::DynamicSettings.find('events', service: 'pandata')
+    dk_ids = Setting.get("pandata_events_token_allowed_developer_key_ids", "").split(",")
 
-    if params[:app_key] == settings["ios-pandata-key"]
-      key = settings["ios-pandata-key"]
-      sekrit = settings["ios-pandata-secret"]
-    elsif params[:app_key] == settings["android-pandata-key"]
-      key = settings["android-pandata-key"]
-      sekrit = settings["android-pandata-secret"]
+    unless @access_token
+      return render json: { :message => "Access token required" }, status: :bad_request
+    end
+
+    unless dk_ids.include?(@access_token.global_developer_key_id.to_s)
+      return render json: { :message => "Developer key not authorized" }, status: :forbidden
+    end
+
+    if params[:app_key] == settings["ios-key"]
+      key = settings["ios-key"]
+      sekrit = settings["ios-secret"]
+    elsif params[:app_key] == settings["android-key"]
+      key = settings["android-key"]
+      sekrit = settings["android-secret"]
     else
-      return render(json: { :message => "Invalid app key" }, status: :bad_request)
+      return render json: { :message => "Invalid app key" }, status: :bad_request
     end
 
     expires_at = Time.zone.now + 1.day.to_i
-    body = {
+    auth_body = {
       iss: key,
       exp: expires_at.to_i,
       aud: 'PANDATA',
-      sub: user.global_id
+      sub: @current_user.global_id,
     }
 
-    token = Canvas::Security.create_jwt(body, expires_at, sekrit)
-    render json: {token: token, expires_at: expires_at.to_f * 1000}
+    props_body = {
+      user_id: @current_user.global_id,
+      shard: @domain_root_account.shard.id,
+      root_account_id: @domain_root_account.local_id,
+      root_account_uuid: @domain_root_account.uuid
+    }
+
+    auth_token = Canvas::Security.create_jwt(auth_body, expires_at, sekrit)
+    props_token = Canvas::Security.create_jwt(props_body, nil, sekrit)
+    render json: {
+      url: settings["url"],
+      auth_token: auth_token,
+      props_token: props_token,
+      expires_at: expires_at.to_f * 1000
+    }
   end
 
   protected
@@ -2445,15 +2476,16 @@ class UsersController < ApplicationController
       @pseudonym = nil if @pseudonym && !['creation_pending', 'pending_approval'].include?(@pseudonym.user.workflow_state)
     end
 
-    @user ||= @pseudonym && @pseudonym.user
+    @user ||= @pseudonym&.user
     @user ||= @context.shard.activate { User.new }
 
+    use_pairing_code = @domain_root_account.feature_enabled?(:observer_pairing_code)
     force_validations = value_to_boolean(params[:force_validations])
     manage_user_logins = @context.grants_right?(@current_user, session, :manage_user_logins)
     self_enrollment = params[:self_enrollment].present?
     allow_non_email_pseudonyms = !force_validations && manage_user_logins || self_enrollment && params[:pseudonym_type] == 'username'
     require_password = self_enrollment && allow_non_email_pseudonyms
-    allow_password = require_password || manage_user_logins
+    allow_password = require_password || manage_user_logins || use_pairing_code
 
     notify_policy = Users::CreationNotifyPolicy.new(manage_user_logins, params[:pseudonym])
 
@@ -2529,8 +2561,17 @@ class UsersController < ApplicationController
     end
 
     @invalid_observee_creds = nil
+    @invalid_observee_code = nil
     if @user.initial_enrollment_type == 'observer'
-      if (observee_pseudonym = authenticate_observee)
+      if use_pairing_code
+        @pairing_code = ObserverPairingCode.active.where(code: params[:pairing_code][:code]).first
+        if !@pairing_code.nil?
+          @observee = @pairing_code.user
+        else
+          @invalid_observee_code = ObserverPairingCode.new
+          @invalid_observee_code.errors.add('code', 'invalid')
+        end
+      elsif (observee_pseudonym = authenticate_observee)
         @observee = observee_pseudonym.user
       else
         @invalid_observee_creds = Pseudonym.new
@@ -2555,6 +2596,9 @@ class UsersController < ApplicationController
       pseudonym_params.delete(:password_confirmation)
     end
     password_provided = @pseudonym.new_record? && pseudonym_params.key?(:password)
+    if password_provided && @user.workflow_state == 'pre_registered'
+      @user.workflow_state = 'registered'
+    end
     if params[:pseudonym][:authentication_provider_id]
       @pseudonym.authentication_provider = @context.
           authentication_providers.active.
@@ -2574,7 +2618,7 @@ class UsersController < ApplicationController
       @cc.workflow_state = skip_confirmation ? 'active' : 'unconfirmed' unless @cc.workflow_state == 'confirmed'
     end
 
-    if @user.valid? && @pseudonym.valid? && @invalid_observee_creds.nil?
+    if @user.valid? && @pseudonym.valid? && @invalid_observee_creds.nil? & @invalid_observee_code.nil?
       # saving the user takes care of the @pseudonym and @cc, so we can't call
       # save_without_session_maintenance directly. we don't want to auto-log-in
       # unless the user is registered/pre_registered (if the latter, he still
@@ -2589,6 +2633,7 @@ class UsersController < ApplicationController
 
       if @observee && !@user.as_observer_observation_links.where(user_id: @observee, root_account: @context).exists?
         UserObservationLink.create_or_restore(student: @observee, observer: @user, root_account: @context)
+        @pairing_code&.destroy
       end
 
       if notify_policy.is_self_registration?
@@ -2597,35 +2642,40 @@ class UsersController < ApplicationController
       end
       message_sent = notify_policy.dispatch!(@user, @pseudonym, @cc) if @cc
 
-      data = { :user => @user, :pseudonym => @pseudonym, :channel => @cc, :message_sent => message_sent, :course => @user.self_enrollment_course }
-      if api_request?
-        result = user_json(@user, @current_user, session, includes)
-        # if they passed a destination, and it matches the current canvas installation,
-        # add a session_token to it for the newly created user and return it
-        if params[:destination] && password_provided &&
-          (_routes.recognize_path(params[:destination]) rescue false) &&
-          (uri = URI.parse(params[:destination]) rescue nil) &&
-          uri.host == request.host &&
-          uri.port == request.port
-
-          # add session_token to the query
-          qs = URI.decode_www_form(uri.query || '')
-          qs.delete_if { |(k, _v)| k == 'session_token' }
-          qs << ['session_token', SessionToken.new(@pseudonym.id, current_user_id: @user.id)]
-          uri.query = URI.encode_www_form(qs)
-
-          result['destination'] = uri.to_s
-        end
-        render(:json => result)
+      data = if api_request?
+        user_json(@user, @current_user, session, includes)
       else
-        render(:json => data)
+        { :user => @user, :pseudonym => @pseudonym, :channel => @cc, :message_sent => message_sent, :course => @user.self_enrollment_course }
       end
+
+      # if they passed a destination, and it matches the current canvas installation,
+      # add a session_token to it for the newly created user and return it
+      if params[:destination] && password_provided &&
+        (_routes.recognize_path(params[:destination]) rescue false) &&
+        (uri = URI.parse(params[:destination]) rescue nil) &&
+        uri.host == request.host &&
+        uri.port == request.port
+
+        # add session_token to the query
+        qs = URI.decode_www_form(uri.query || '')
+        qs.delete_if { |(k, _v)| k == 'session_token' }
+        qs << ['session_token', SessionToken.new(@pseudonym.id)]
+        uri.query = URI.encode_www_form(qs)
+
+        data['destination'] = uri.to_s
+      elsif (oauth = session[:oauth2])
+        provider = Canvas::Oauth::Provider.new(oauth[:client_id], oauth[:redirect_uri], oauth[:scopes], oauth[:purpose])
+        data['destination'] = Canvas::Oauth::Provider.confirmation_redirect(self, provider, @user).to_s
+      end
+
+      render(:json => data)
     else
       errors = {
           :errors => {
               :user => @user.errors.as_json[:errors],
               :pseudonym => @pseudonym ? @pseudonym.errors.as_json[:errors] : {},
-              :observee => @invalid_observee_creds ? @invalid_observee_creds.errors.as_json[:errors] : {}
+              :observee => @invalid_observee_creds ? @invalid_observee_creds.errors.as_json[:errors] : {},
+              :pairing_code => @invalid_observee_code ? @invalid_observee_code.errors.as_json[:errors] : {}
           }
       }
       render :json => errors, :status => :bad_request

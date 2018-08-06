@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import round from 'compiled/util/round'
 import * as GradeInputHelper from 'jsx/grading/helpers/GradeInputHelper'
 
 /* eslint-disable qunit/no-identical-names */
@@ -152,6 +153,40 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(hasGradeChanged(), true)
       })
     })
+
+    QUnit.module('when the pending grade is entered as "passFail"', contextHooks => {
+      contextHooks.beforeEach(() => {
+        options.enterGradesAs = 'passFail'
+        Object.assign(pendingGradeInfo, {enteredAs: 'passFail', grade: 'complete', score: 10})
+        Object.assign(submission, {enteredGrade: 'complete', grade: 'complete'})
+      })
+
+      QUnit.module('when the assignment is out of zero points', nestedContextHooks => {
+        nestedContextHooks.beforeEach(() => {
+          options.pointsPossible = 0
+          pendingGradeInfo.score = 0
+          submission.score = 0
+        })
+
+        test('returns false when the pending grade matches the submission grade', () => {
+          strictEqual(hasGradeChanged(), false)
+        })
+
+        test('returns true when the pending grade differs from the submission grade', () => {
+          pendingGradeInfo.grade = 'incomplete'
+          strictEqual(hasGradeChanged(), true)
+        })
+      })
+
+      test('returns false when the pending score matches the submission score', () => {
+        strictEqual(hasGradeChanged(), false)
+      })
+
+      test('returns true when the pending score differs from the submission score', () => {
+        pendingGradeInfo.score = 0
+        strictEqual(hasGradeChanged(), true)
+      })
+    })
   })
 
   QUnit.module('.parseTextValue()', () => {
@@ -190,8 +225,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.34').grade, '8.34')
       })
 
-      test('does not round points', () => {
-        strictEqual(parseTextValue('8.123456789').grade, '8.123456789')
+      test('rounds points to 15 decimal places', () => {
+        strictEqual(parseTextValue('8.12345678901234567890').grade, '8.123456789012346')
       })
 
       test('converts an integer percentage value to points for the grade', () => {
@@ -202,8 +237,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('83.4%').grade, '8.34')
       })
 
-      test('does not round a converted percentage', () => {
-        strictEqual(parseTextValue('83.123456789%').grade, '8.3123456789')
+      test('rounds a converted percentage grade to 15 decimal places', () => {
+        strictEqual(parseTextValue('83.12345678901234567890%').grade, '8.312345678901234')
       })
 
       test('converts percentages using the "％" symbol', () => {
@@ -295,8 +330,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.34').score, 8.34)
       })
 
-      test('does not round points', () => {
-        strictEqual(parseTextValue('8.123456789').score, 8.123456789)
+      test('rounds points to 15 decimal places', () => {
+        strictEqual(parseTextValue('8.12345678901234567890').score, 8.123456789012346)
       })
 
       test('converts an integer percentage value to points for the score', () => {
@@ -312,8 +347,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('80%').score, 12)
       })
 
-      test('does not round a converted percentage', () => {
-        strictEqual(parseTextValue('83.123456789%').score, 8.3123456789)
+      test('rounds a converted percentage score to 15 decimal places', () => {
+        strictEqual(parseTextValue('83.12345678901234567890%').score, 8.312345678901234)
       })
 
       test('converts percentages using the "％" symbol', () => {
@@ -524,8 +559,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.34').grade, '8.34%')
       })
 
-      test('does not round points', () => {
-        strictEqual(parseTextValue('8.123456789').grade, '8.123456789%')
+      test('rounds points to 15 decimal places', () => {
+        strictEqual(parseTextValue('8.12345678901234567890').grade, '8.123456789012346%')
       })
 
       test('uses the given integer percentage value for the grade', () => {
@@ -536,8 +571,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.34%').grade, '8.34%')
       })
 
-      test('does not round a converted percentage', () => {
-        strictEqual(parseTextValue('8.123456789%').grade, '8.123456789%')
+      test('rounds a converted percentage grade to 15 decimal places', () => {
+        strictEqual(parseTextValue('83.12345678901234567890%').grade, '83.12345678901235%')
       })
 
       test('converts percentages using the "％" symbol', () => {
@@ -625,13 +660,18 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.3').score, 0.83)
       })
 
-      test('does not round points', () => {
-        strictEqual(parseTextValue('8.123456789').score, 0.8123456789)
+      test('rounds points to 15 decimal places', () => {
+        strictEqual(parseTextValue('8.12345678901234567890').score, 0.812345678901235)
       })
 
       test('preserves the precision of a converted point score', () => {
         // 83.543 / 100 * 10 (points possible) === 8.354300000000002 in JavaScript
         strictEqual(parseTextValue(83.543).score, 8.3543)
+      })
+
+      test('preserves a precision arbitrarily longer than the percentage grade precision', () => {
+        options.pointsPossible = 9.5
+        strictEqual(parseTextValue('55').score, 5.225)
       })
 
       test('converts an integer percentage value to points for the score', () => {
@@ -647,8 +687,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('80%').score, 12)
       })
 
-      test('does not round a converted percentage score', () => {
-        strictEqual(parseTextValue('83.123456789%').score, 8.3123456789)
+      test('rounds a converted percentage score to 15 decimal places', () => {
+        strictEqual(parseTextValue('83.12345678901234567890%').score, 8.312345678901234)
       })
 
       test('converts percentages using the "％" symbol', () => {
@@ -954,8 +994,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('8.34').score, 8.34)
       })
 
-      test('does not round points', () => {
-        strictEqual(parseTextValue('8.123456789').score, 8.123456789)
+      test('rounds points to 15 decimal places', () => {
+        strictEqual(parseTextValue('8.12345678901234567890').score, 8.123456789012346)
       })
 
       test('preserves the precision of a given point score', () => {
@@ -971,8 +1011,8 @@ QUnit.module('GradeInputHelper', () => {
         strictEqual(parseTextValue('83.4%').score, 8.34)
       })
 
-      test('does not round a converted percentage', () => {
-        strictEqual(parseTextValue('83.123456789%').score, 8.3123456789)
+      test('rounds a converted percentage score to 15 decimal places', () => {
+        strictEqual(parseTextValue('83.12345678901234567890%').score, 8.312345678901234)
       })
 
       test('converts percentages using the "％" symbol', () => {

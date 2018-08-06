@@ -19,8 +19,8 @@ import React, { Component } from 'react';
 import classnames from 'classnames';
 import themeable from '@instructure/ui-themeable/lib';
 import { bool, func, node, number, string, oneOf } from 'prop-types';
-import IconArrowUpSolid from 'instructure-icons/lib/Solid/IconArrowUpSolid';
-import IconArrowDownLine from 'instructure-icons/lib/Line/IconArrowDownLine';
+import IconArrowUpSolid from '@instructure/ui-icons/lib/Solid/IconArrowUp';
+import IconArrowDownLine from '@instructure/ui-icons/lib/Line/IconArrowDown';
 
 import styles from './styles.css';
 import theme from './theme.js';
@@ -32,14 +32,15 @@ class StickyButton extends Component {
     disabled: bool,
     hidden: bool,
     direction: oneOf(['none', 'up', 'down']),
+    className: string,
     zIndex: number,
-    offset: string,
     buttonRef: func,
   };
 
   static defaultProps = {
     direction: 'none',
     offset: '0',
+    className: ''
   };
 
   handleClick = (e) => {
@@ -75,7 +76,6 @@ class StickyButton extends Component {
       hidden,
       direction,
       zIndex,
-      offset,
     } = this.props;
 
     const classes = {
@@ -85,14 +85,13 @@ class StickyButton extends Component {
 
     const style = {
       zIndex: (zIndex) ? zIndex : null,
-      top: offset,
     };
 
     return (
       <button
         type="button"
         onClick={this.handleClick}
-        className={classnames(classes)}
+        className={classnames(classes, styles.newActivityButton)}
         style={style}
         aria-disabled={(disabled) ? 'true' : null}
         aria-hidden={(hidden) ? 'true' : null}

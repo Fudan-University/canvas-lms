@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 import formatMessage from '../format-message';
+import {isTodayOrBefore} from './dateUtils';
 
 const PILL_MAPPING = {
   'missing': () => ({ id: 'missing', text: formatMessage('Missing'), variant: 'danger' }),
@@ -40,14 +41,15 @@ export function anyNewActivityDays (days) {
   return days.some(day => anyNewActivity(day[1]));
 }
 
+export function didWeFindToday (days) {
+  return days.some(day => isTodayOrBefore(day[0]));
+}
+
 export function showPillForOverdueStatus(status, item) {
   if (!['late', 'missing'].includes(status)) {
     throw new Error(`Expected status to be 'late' or 'missing', but it was ${status}`);
-  } else if (!item.status || !item.status[status] || !item.context) {
-    return false;
-  }
-
-  return item.context.inform_students_of_overdue_submissions;
+  } 
+  return (!!item.context && !!item.status && item.status[status]);
 }
 
 /**

@@ -200,6 +200,14 @@ describe "Common Cartridge exporting" do
       expect(ccc_schema.validate(doc)).to be_empty
     end
 
+    it "should use instfs to host export files if it is enabled" do
+      allow(InstFS).to receive(:enabled?).and_return(true)
+      uuid = "1234-abcd"
+      allow(InstFS).to receive(:direct_upload).and_return(uuid)
+      @ce.export_without_send_later
+      expect(@ce.attachments.first.instfs_uuid).to eq(uuid)
+    end
+
     it "should create a quizzes-only export" do
 
       @q1 = @course.quizzes.create!(:title => 'quiz1')
@@ -358,6 +366,17 @@ describe "Common Cartridge exporting" do
 
       path = @manifest_doc.at_css("resource[identifier=#{mig_id(@att)}]")['href']
       expect(@zip_file.find_entry(path)).not_to be_nil
+    end
+
+    it "does not get confused by attachments with absolute paths" do
+      @att = Attachment.create!(:filename => 'first.png', :uploaded_data => StringIO.new('ohai'), :folder => Folder.unfiled_folder(@course), :context => @course)
+      @q1 = @course.quizzes.create(:title => 'quiz1', :description => %Q{<img src="https://example.com/files/#{@att.id}/download?download_frd=1"})
+      @ce.export_type = ContentExport::COMMON_CARTRIDGE
+      run_export
+      doc = Nokogiri::XML.parse(@zip_file.read("#{mig_id(@q1)}/assessment_meta.xml"))
+      description = doc.at_css('description').to_s
+      expect(description).not_to include 'https://example.com%24IMS-CC-FILEBASE%24'
+      expect(description).to include 'img src="%24IMS-CC-FILEBASE%24/unfiled/first.png'
     end
 
     it "should not fail when answers are missing for FIMB" do

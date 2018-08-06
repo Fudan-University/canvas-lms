@@ -19,16 +19,16 @@ import React, { Component } from 'react';
 import themeable from '@instructure/ui-themeable/lib';
 import {animatable} from '../../dynamic-ui';
 import {specialFallbackFocusId} from '../../dynamic-ui/util';
-import scopeTab from '@instructure/ui-utils/lib/dom/scopeTab';
+import scopeTab from '@instructure/ui-a11y/lib/utils/scopeTab';
 import keycode from 'keycode';
 
 import Opportunity from '../Opportunity';
-import Button from '@instructure/ui-core/lib/components/Button';
+import Button from '@instructure/ui-buttons/lib/components/Button';
 import { findDOMNode } from 'react-dom';
 import { array, string, func, number, oneOfType} from 'prop-types';
 import formatMessage from '../../format-message';
 
-import IconXLine from 'instructure-icons/lib/Line/IconXLine';
+import IconXLine from '@instructure/ui-icons/lib/Line/IconX';
 
 import styles from './styles.css';
 import theme from './theme.js';
@@ -94,7 +94,6 @@ export class Opportunities extends Component {
             id={opportunity.id}
             dueAt={opportunity.due_at}
             points={opportunity.points_possible}
-            showPill={this.courseAttr(opportunity.course_id, 'informStudentsOfOverdueSubmissions')}
             courseName={this.courseAttr(opportunity.course_id, 'shortName')}
             opportunityTitle={opportunity.name}
             timeZone={this.props.timeZone}
@@ -123,11 +122,13 @@ export class Opportunities extends Component {
             title={formatMessage('Close opportunities popover')}
             ref={(btnRef) =>{this.closeButton = btnRef;}}
             onClick={this.props.togglePopover}
-            >
-            <IconXLine className={styles.closeButtonIcon} />
-            <span className={styles.closeButtonText}>
-              {formatMessage('Close')}
-            </span>
+          >
+            <div className={styles.closeButtonContainer}>
+              <span className={styles.closeButtonText}>
+                {formatMessage('Close')}
+              </span>
+              <IconXLine className={styles.closeButtonIcon} />
+            </div>
           </Button>
         </div>
         <ol className={styles.list}>

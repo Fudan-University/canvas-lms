@@ -40,7 +40,7 @@ class Enrollment < ActiveRecord::Base
   belongs_to :role
   include Role::AssociationHelper
 
-  has_one :enrollment_state, :dependent => :destroy
+  has_one :enrollment_state, :dependent => :destroy, inverse_of: :enrollment
 
   has_many :role_overrides, :as => :context, :inverse_of => :context
   has_many :pseudonyms, :primary_key => :user_id, :foreign_key => :user_id
@@ -714,10 +714,13 @@ class Enrollment < ActiveRecord::Base
 
   def enrollment_state
     raise "cannot call enrollment_state on a new record" if new_record?
-    state = self.association(:enrollment_state).target ||=
-      self.shard.activate { EnrollmentState.where(:enrollment_id => self).first }
-    state.association(:enrollment).target ||= self # ensure reverse association
-    state
+    result = super
+    unless result
+      association(:enrollment_state).reload
+      result = super
+    end
+    result.enrollment = self # ensure reverse association
+    result
   end
 
   def create_enrollment_state
@@ -826,7 +829,9 @@ class Enrollment < ActiveRecord::Base
     if result
       self.user.try(:update_account_associations)
       self.user.touch
-      scores.update_all(workflow_state: :deleted)
+      scores.update_all(updated_at: Time.zone.now, workflow_state: :deleted)
+
+      Assignment.remove_user_as_final_grader(user_id, course_id) if remove_user_as_final_grader?
     end
     result
   end
@@ -1425,11 +1430,20 @@ class Enrollment < ActiveRecord::Base
   def other_enrollment_of_same_type
     return @other_enrollment_of_same_type if defined?(@other_enrollment_of_same_type)
 
-    @other_enrollment_of_same_type = Enrollment.where(
+    @other_enrollment_of_same_type = other_enrollments_of_type(type).first
+  end
+
+  def other_enrollments_of_type(types)
+    Enrollment.where(
       course_id: course,
       user_id: user,
-      type: type
-    ).where.not(id: id, workflow_state: :deleted).first
+      type: Array.wrap(types)
+    ).where.not(id: id, workflow_state: :deleted)
+  end
+
+  def remove_user_as_final_grader?
+    instructor? &&
+      !other_enrollments_of_type(['TaEnrollment', 'TeacherEnrollment']).exists?
   end
 
   def being_restored?(to_state: workflow_state)

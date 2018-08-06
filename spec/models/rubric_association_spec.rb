@@ -21,7 +21,7 @@ require File.expand_path(File.dirname(__FILE__) + '/../spec_helper.rb')
 
 describe RubricAssociation do
 
-  def rubric_association_params_for_assignment(assign)
+  def rubric_association_params_for_assignment(assign, override={})
     HashWithIndifferentAccess.new({
       hide_score_total: "0",
       purpose: "grading",
@@ -29,7 +29,7 @@ describe RubricAssociation do
       update_if_existing: true,
       use_for_grading: "1",
       association_object: assign
-    })
+    }.merge(override))
   end
 
   context "assignment rubrics" do
@@ -45,6 +45,26 @@ describe RubricAssociation do
         :peer_reviews => true,
         :submission_types => 'online_text_entry'
       )
+    end
+
+    it 'ignore use_for_grading if hide_points enabled' do
+      # Create the rubric
+      @rubric = @course.rubrics.create! { |r| r.user = @teacher }
+
+      ra_params = rubric_association_params_for_assignment(@assignment, hide_points: '1')
+      rubric_assoc = RubricAssociation.generate(@teacher, @rubric, @course, ra_params)
+
+      expect(rubric_assoc.use_for_grading).to be false
+    end
+
+    it 'ignore hide_score_total if hide_points enabled' do
+      # Create the rubric
+      @rubric = @course.rubrics.create! { |r| r.user = @teacher }
+
+      ra_params = rubric_association_params_for_assignment(@assignment, hide_points: '1', hide_score_total: '1')
+      rubric_assoc = RubricAssociation.generate(@teacher, @rubric, @course, ra_params)
+
+      expect(rubric_assoc.hide_score_total).to be_falsey
     end
 
     context "when a peer-review assignment has been completed AFTER rubric created" do
@@ -257,6 +277,13 @@ describe RubricAssociation do
 
       expect(assessment.assessor).to eq(second_teacher)
       expect(submission.grader).to eq(second_teacher)
+    end
+
+    it "propagated hide_points value" do
+      rubric_association.update!(hide_points: true)
+      assessment = rubric_association.assess(user: student, assessor: first_teacher, artifact: submission,
+                                             assessment: assessment_params)
+      expect(assessment.hide_points).to be true
     end
   end
 end

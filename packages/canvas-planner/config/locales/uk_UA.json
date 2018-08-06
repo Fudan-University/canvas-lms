@@ -1,6 +1,12 @@
 {
-  "no_to_do_s_for_this_day_yet_90c5873d": {
-    "message": "Немає \"Завдань\" на цей день ще."
+  "all_day_fb42c4fc": {
+    "message": "Весь день"
+  },
+  "announcement_fb4cb645": {
+    "message": "Оголошення"
+  },
+  "assignment_976578a8": {
+    "message": "Завдання"
   },
   "count_plural_one_show_completed_item_other_show_co_8d0d0ae5": {
     "message": "{ count, plural,\n    one {Show # completed item}\n  other {Show # completed items}\n}"
@@ -53,6 +59,9 @@
   "yesterday_at_date_1aa6d18e": {
     "message": "Вчора в { date }"
   },
+  "calendar_event_89aadc1c": {
+    "message": "Календарна подія"
+  },
   "load_prior_dates_f2b0f6f0": {
     "message": "Завантажте попередні дати"
   },
@@ -83,9 +92,6 @@
   "title_is_required_6ddcab69": {
     "message": "титул обов''язковий"
   },
-  "assignmenttype_title_is_complete_813e54f8": {
-    "message": "{ assignmentType } { title } завершено"
-  },
   "date_at_time_dbdb1b99": {
     "message": "{ date } в { time }"
   },
@@ -107,11 +113,11 @@
   "no_due_dates_assigned_e8f5bac8": {
     "message": "Дату визначення не призначено "
   },
-  "assignmenttype_title_is_incomplete_a1d5fac0": {
-    "message": "{ assignmentType } { title } є неповним"
-  },
   "save_11a80ec3": {
     "message": "Зберегти"
+  },
+  "time_2b5aac58": {
+    "message": "Час"
   },
   "you_ve_scrolled_back_to_your_very_first_to_do_29374681": {
     "message": "Ви прокрутили назад до самого першого завдання!"
@@ -124,6 +130,9 @@
   },
   "unable_to_mark_as_complete_8141856d": {
     "message": "Неможливо позначити як завершений."
+  },
+  "discussion_6719c51d": {
+    "message": "Обговорення"
   },
   "points_bceb5005": {
     "message": "бали"
@@ -149,6 +158,9 @@
   "graded_25cd3fcd": {
     "message": "Оцінено"
   },
+  "page_50c4823d": {
+    "message": "Сторінка"
+  },
   "to_do_1d554f36": {
     "message": "Зробити"
   },
@@ -164,6 +176,9 @@
   "optional_add_course_ef0d70fc": {
     "message": "Опціонально: Додати курс"
   },
+  "quiz_e0dcce8f": {
+    "message": "Контрольна робота"
+  },
   "failed_to_load_opportunities_52ab6404": {
     "message": "Не вдалося завантажити можливості"
   },
@@ -175,6 +190,9 @@
   },
   "failed_to_delete_to_do_64edff49": {
     "message": "Не вдалося видалити завдання"
+  },
+  "to_do_items_loading_d1cdfcd5": {
+    "message": "Завантажувати елементи"
   },
   "loading_725811ca": {
     "message": "завантаження"

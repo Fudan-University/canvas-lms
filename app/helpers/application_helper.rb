@@ -565,13 +565,12 @@ module ApplicationHelper
     mapped
   end
 
-  # return enough group data for the planner to display items associated with
-  # account-level groups
+  # return enough group data for the planner to display items associated with groups
   def map_groups_for_planner(groups)
-    mapped = groups.select {|g| g.context_type == "Account"}.map do |g|
+    mapped = groups.map do |g|
       {
         id: g.id,
-        assetString: "group_#{g.id}",
+        assetString: g.asset_string,
         name: g.name,
         url: "/groups/#{g.id}"
       }
@@ -911,11 +910,91 @@ module ApplicationHelper
   end
 
   def planner_enabled?
-    @domain_root_account&.feature_enabled?(:student_planner) && @current_user.has_student_enrollment?
+    @domain_root_account&.feature_enabled?(:student_planner) &&
+    @current_user.participating_student_course_ids.present?
+
+  end
+
+  def generate_access_verifier
+    Users::AccessVerifier.generate(
+      user: @current_user,
+      real_user: logged_in_user,
+      developer_key: @access_token&.developer_key,
+      root_account: @domain_root_account,
+      oauth_host: request.host_with_port
+    )
+  end
+
+  def validate_access_verifier
+    Users::AccessVerifier.validate(params)
+  end
+
+  def file_access_user
+    if !@files_domain
+      @current_user
+    elsif session['file_access_user_id'].present?
+      @file_access_user ||= User.where(id: session['file_access_user_id']).first
+    else
+      nil
+    end
+  end
+
+  def file_access_real_user
+    if !@files_domain
+      logged_in_user
+    elsif session['file_access_real_user_id'].present?
+      @file_access_real_user ||= User.where(id: session['file_access_real_user_id']).first
+    else
+      file_access_user
+    end
+  end
+
+  def file_access_developer_key
+    if !@files_domain
+      @access_token&.developer_key
+    elsif session['file_access_developer_key_id'].present?
+      @file_access_developer_key ||= DeveloperKey.where(id: session['file_access_developer_key_id']).first
+    else
+      nil
+    end
+  end
+
+  def file_access_root_account
+    if !@files_domain
+      @domain_root_account
+    elsif session['file_access_root_account_id'].present?
+      @file_access_root_account ||= Account.where(id: session['file_access_root_account_id']).first
+    else
+      nil
+    end
+  end
+
+  def file_access_oauth_host
+    if logged_in_user && !@files_domain
+      request.host_with_port
+    elsif session['file_access_oauth_host'].present?
+      session['file_access_oauth_host']
+    else
+      nil
+    end
   end
 
   def file_authenticator
-    FileAuthenticator.new(logged_in_user, @current_user, request.host_with_port)
+    FileAuthenticator.new(
+      user: file_access_real_user,
+      acting_as: file_access_user,
+      access_token: @access_token,
+      # TODO: we prefer the access token when we have it, and we'll _need_ to
+      # before we can implement the long term API access solution (which means
+      # we'll need to stop going through the files domain). but if we don't
+      # have it (we're on the files domain, and can't safely get at the token
+      # itself, but can get the developer key id), we can use the developer key
+      # to "fake" an access token it for the short term work around (which only
+      # ends up looking at the developer key anyways)
+      developer_key: file_access_developer_key,
+      root_account: file_access_root_account,
+      oauth_host: file_access_oauth_host
+    )
   end
 
   def authenticated_download_url(attachment)

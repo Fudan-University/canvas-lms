@@ -20,7 +20,7 @@ import React from 'react';
 import I18n from 'i18n!dashboard';
 import axios from 'axios';
 import { bool, func, string } from 'prop-types';
-import { showFlashError } from '../shared/FlashAlert'
+import { showFlashAlert, showFlashError } from '../shared/FlashAlert'
 import DashboardOptionsMenu from '../dashboard_card/DashboardOptionsMenu';
 import loadCardDashboard from '../bundles/dashboard_card'
 
@@ -66,8 +66,8 @@ class DashboardHeader extends React.Component {
       const props = {
         changeToCardView: () => this.changeDashboard('cards'),
         getActiveApp: this.getActiveApp,
-        flashError: this.props.flashError,
-        flashMessage: this.props.flashMessage,
+        flashError: (message) => showFlashAlert({message, type: 'error'}),
+        flashMessage: (message) => showFlashAlert({message, type: 'info'}),
         srFlashMessage: this.props.screenReaderFlashMessage,
         externalFallbackFocusable: this.menuButtonFocusable,
         env: this.props.env,
@@ -112,6 +112,7 @@ class DashboardHeader extends React.Component {
     }
     const dashboardPlanner = document.getElementById('dashboard-planner') || fakeObj
     const dashboardPlannerHeader = document.getElementById('dashboard-planner-header') || fakeObj
+    const dashboardPlannerHeaderAux = document.getElementById('dashboard-planner-header-aux') || fakeObj
     const dashboardActivity = document.getElementById('dashboard-activity')
     const dashboardCards = document.getElementById('DashboardCard_Container')
     const rightSideContent = document.getElementById('right-side-wrapper') || fakeObj
@@ -121,18 +122,21 @@ class DashboardHeader extends React.Component {
     if (newView === 'planner') {
       dashboardPlanner.style.display = 'block'
       dashboardPlannerHeader.style.display = 'block'
+      dashboardPlannerHeaderAux.style.display = 'block'
       dashboardActivity.style.display = 'none'
       dashboardCards.style.display = 'none'
       rightSideContent.style.display = 'none'
     } else if (newView === 'activity') {
       dashboardPlanner.style.display = 'none'
       dashboardPlannerHeader.style.display = 'none'
+      dashboardPlannerHeaderAux.style.display = 'none'
       dashboardActivity.style.display = 'block'
       dashboardCards.style.display = 'none'
       rightSideContent.style.display = 'block'
     } else {
       dashboardPlanner.style.display = 'none'
       dashboardPlannerHeader.style.display = 'none'
+      dashboardPlannerHeaderAux.style.display = 'none'
       dashboardActivity.style.display = 'none'
       dashboardCards.style.display = 'block'
       rightSideContent.style.display = 'block'
@@ -154,12 +158,14 @@ class DashboardHeader extends React.Component {
           <div id="DashboardOptionsMenu_Container">
             <DashboardOptionsMenu
               view={this.state.currentDashboard}
-              hide_dashcard_color_overlays={this.props.hide_dashcard_color_overlays}
               planner_enabled={this.props.planner_enabled}
               onDashboardChange={this.changeDashboard}
               menuButtonRef={(ref) => {this.menuButtonFocusable = ref}}
             />
           </div>
+          {this.props.planner_enabled && (
+            <div id="dashboard-planner-header-aux" />
+          )}
         </div>
       </div>
     );
@@ -168,7 +174,6 @@ class DashboardHeader extends React.Component {
 
 DashboardHeader.propTypes = {
   dashboard_view: string,
-  hide_dashcard_color_overlays: bool,
   planner_enabled: bool.isRequired,
   flashError: func,
   flashMessage: func,
@@ -177,7 +182,6 @@ DashboardHeader.propTypes = {
 
 DashboardHeader.defaultProps = {
   dashboard_view: 'cards',
-  hide_dashcard_color_overlays: false,
   flashError: () => {},
   flashMessage: () => {},
   screenReaderFlashMessage: () => {},

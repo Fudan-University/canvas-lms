@@ -55,6 +55,8 @@ describe ModeratedGrading::ProvisionalGrade do
         'graded_at' => nil,
         'scorer_id' => provisional_grade.scorer_id,
         'graded_anonymously' => nil,
+        'entered_grade' => 'A',
+        'entered_score' => 100.0,
         'final' => false,
         'grade_matches_current_submission' => true
       })
@@ -237,6 +239,22 @@ describe ModeratedGrading::ProvisionalGrade do
       expect(sub.grade).not_to be_nil
       expect(sub.graded_anonymously).to eq true
     end
+
+    context 'for a moderated assignment' do
+      before(:each) do
+        assignment.update!(moderated_grading: true, grader_count: 2)
+      end
+
+      it 'publishes a provisional grade' do
+        sub = submission_model(assignment: assignment, user: student)
+        provisional_grade = sub.find_or_create_provisional_grade!(scorer, score: 80, graded_anonymously: true)
+
+        provisional_grade.publish!
+        sub.reload
+
+        expect(sub.workflow_state).to eq 'graded'
+      end
+    end
   end
 
   describe "copy_to_final_mark!" do
@@ -346,5 +364,18 @@ describe ModeratedGrading::NullProvisionalGrade do
     comments = double
     expect(sub).to receive(:submission_comments).and_return(comments)
     expect(ModeratedGrading::NullProvisionalGrade.new(sub, 1, false).submission_comments).to eq(comments)
+  end
+
+  describe 'scorer' do
+    it 'returns the associated scorer if scorer_id is present' do
+      scorer = user_factory(active_user: true)
+      scored_grade = ModeratedGrading::NullProvisionalGrade.new(nil, scorer.id, true)
+      expect(scored_grade.scorer).to eq scorer
+    end
+
+    it 'returns nil if scorer_id is nil' do
+      scored_grade = ModeratedGrading::NullProvisionalGrade.new(nil, nil, true)
+      expect(scored_grade.scorer).to be nil
+    end
   end
 end

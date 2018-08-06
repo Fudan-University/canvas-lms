@@ -16,24 +16,27 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+ // TODO: Get rid of this component.  AnnouncementRow should manage its own layout
+ // with the shared utilities created in g/something.
 import I18n from 'i18n!shared_components'
 import React, { Component } from 'react'
 import { bool, node, string, func, shape, arrayOf, oneOf } from 'prop-types'
 import cx from 'classnames'
 
-import Heading from '@instructure/ui-core/lib/components/Heading'
-import Checkbox from '@instructure/ui-core/lib/components/Checkbox'
-import Container from '@instructure/ui-core/lib/components/Container'
-import Avatar from '@instructure/ui-core/lib/components/Avatar'
-import Badge from '@instructure/ui-core/lib/components/Badge'
-import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent'
-import Text from '@instructure/ui-core/lib/components/Text'
-import Button from '@instructure/ui-core/lib/components/Button'
-import PopoverMenu from '@instructure/ui-core/lib/components/PopoverMenu'
-import IconMore from 'instructure-icons/lib/Line/IconMoreLine'
+import Heading from '@instructure/ui-elements/lib/components/Heading'
+import Checkbox from '@instructure/ui-forms/lib/components/Checkbox'
+import View from '@instructure/ui-layout/lib/components/View'
+import Avatar from '@instructure/ui-elements/lib/components/Avatar'
+import Badge from '@instructure/ui-elements/lib/components/Badge'
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
+import Text from '@instructure/ui-elements/lib/components/Text'
+import Button from '@instructure/ui-buttons/lib/components/Button'
+import Menu from '@instructure/ui-menu/lib/components/Menu'
+import IconMore from '@instructure/ui-icons/lib/Line/IconMore'
 
-import IconDragHandleLine from 'instructure-icons/lib/Line/IconDragHandleLine'
-import IconPeerReviewLine from 'instructure-icons/lib/Line/IconPeerReviewLine'
+import IconDragHandleLine from '@instructure/ui-icons/lib/Line/IconDragHandle'
+import IconPeerReviewLine from '@instructure/ui-icons/lib/Line/IconPeerReview'
 import LockIconView from 'compiled/views/LockIconView'
 import { author as authorShape } from '../proptypes/user'
 import masterCourseDataShape from '../proptypes/masterCourseData'
@@ -203,13 +206,13 @@ export default class CourseItemRow extends Component {
         </div>)}
         {
           !this.props.isRead ? (
-            <Container display="block" margin="0 medium 0 0">
+            <View display="block" margin="0 medium 0 0">
               <Badge margin="0 0 0 0" standalone type="notification" />
-            </Container>
+            </View>
           ) : this.props.hasReadBadge ? (
-            <Container display="block" margin="0 small 0 0">
-              <Container display="block" margin="0 medium 0 0" />
-            </Container>
+            <View display="block" margin="0 small 0 0">
+              <View display="block" margin="0 medium 0 0" />
+            </View>
           ) : null
         }
         {this.props.icon}
@@ -246,10 +249,10 @@ export default class CourseItemRow extends Component {
             }
             {this.props.actionsContent}
             <span ref={this.initializeMasterCourseIcon} className="ic-item-row__master-course-lock" />
-            {this.props.showManageMenu &&
-              (<span className="ic-item-row__manage-menu">
-                <PopoverMenu
-                  ref={(c) => { this._manageMenu = c }}
+            {this.props.showManageMenu && (
+              <span className="ic-item-row__manage-menu">
+                <Menu
+                  ref={c => this._manageMenu = c}
                   onSelect={this.props.onManageMenuSelect}
                   onToggle={this.toggleManageMenuShown}
                   trigger={
@@ -257,8 +260,12 @@ export default class CourseItemRow extends Component {
                       <IconMore />
                       <ScreenReaderContent>{I18n.t('Manage options for %{name}', { name: this.props.title })}</ScreenReaderContent>
                     </Button>
-                  }>{this.state.manageMenuShown ? this.props.manageMenuOptions() : null}</PopoverMenu>
-              </span>)}
+                  }
+                >
+                  {this.state.manageMenuShown ? this.props.manageMenuOptions() : null}
+                </Menu>
+              </span>
+            )}
           </div>
           <div className="ic-item-row__meta-content">
             {this.props.metaContent}

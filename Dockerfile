@@ -8,7 +8,7 @@ FROM instructure/ruby-passenger:2.4
 ENV APP_HOME /usr/src/app/
 ENV RAILS_ENV "production"
 ENV NGINX_MAX_UPLOAD_SIZE 10g
-ENV YARN_VERSION 1.6.0-1
+ENV YARN_VERSION 1.7.0-1
 
 # Work around github.com/zertosh/v8-compile-cache/issues/2
 # This can be removed once yarn pushes a release including the fixed version
@@ -39,7 +39,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - \
 
 RUN if [ -e /var/lib/gems/$RUBY_MAJOR.0/gems/bundler-* ]; then BUNDLER_INSTALL="-i /var/lib/gems/$RUBY_MAJOR.0"; fi \
   && gem uninstall --all --ignore-dependencies --force $BUNDLER_INSTALL bundler \
-  && gem install bundler --no-document -v 1.15.2 \
+  && gem install bundler --no-document -v 1.16.1 \
   && find $GEM_HOME ! -user docker | xargs chown docker:docker
 
 # We will need sfnt2woff in order to build fonts
@@ -81,12 +81,15 @@ RUN mkdir -p .yardoc \
              gems/selinimum/node_modules \
              log \
              node_modules \
+             packages/canvas-planner/lib \
              packages/canvas-planner/node_modules \
+             pacts \
              public/dist \
              public/doc/api \
              public/javascripts/client_apps \
              public/javascripts/compiled \
              public/javascripts/translations \
+             reports \
              tmp \
              /home/docker/.bundler/ \
              /home/docker/.cache/yarn \

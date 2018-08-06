@@ -49,6 +49,7 @@ class ContentTag < ActiveRecord::Base
   validates_presence_of :context, :unless => proc { |tag| tag.context_id && tag.context_type }
   validates_presence_of :workflow_state
   validates_length_of :comments, :maximum => maximum_text_length, :allow_nil => true, :allow_blank => true
+  before_save :associate_external_tool
   before_save :default_values
   after_save :update_could_be_locked
   after_save :touch_context_module_after_transaction
@@ -110,6 +111,12 @@ class ContentTag < ActiveRecord::Base
     end
   end
 
+  def associate_external_tool
+    return if content.present? || content_type != 'ContextExternalTool' || context.blank? || url.blank?
+    content = ContextExternalTool.find_external_tool(url, context)
+    self.content = content if content
+  end
+
   def default_values
     self.title ||= self.content.title rescue nil
     self.title ||= self.content.name rescue nil
@@ -166,7 +173,14 @@ class ContentTag < ActiveRecord::Base
   end
 
   def duplicate_able?
-    ['assignment', 'discussion_topic', 'wiki_page'].include? self.content_type_class
+    case self.content_type_class
+    when 'assignment'
+      content&.can_duplicate?
+    when 'discussion_topic', 'wiki_page'
+      true
+    else
+      false
+    end
   end
 
   def content_type_class

@@ -37,6 +37,9 @@ class Oauth2ProviderController < ApplicationController
 
     raise Canvas::Oauth::RequestError, :invalid_client_id unless provider.has_valid_key?
     raise Canvas::Oauth::RequestError, :invalid_redirect unless provider.has_valid_redirect?
+    if developer_key_management_and_scoping_enabled? provider
+      raise Canvas::Oauth::RequestError, :invalid_scope unless scopes.present? && scopes.all? { |scope| provider.key.scopes.include?(scope) }
+    end
 
     session[:oauth2] = provider.session_hash
     session[:oauth2][:state] = params[:state] if params.key?(:state)
@@ -54,7 +57,7 @@ class Oauth2ProviderController < ApplicationController
     end
 
     if @current_pseudonym && !params[:force_login]
-      redirect_to Canvas::Oauth::Provider.confirmation_redirect(self, provider, @current_user)
+      redirect_to Canvas::Oauth::Provider.confirmation_redirect(self, provider, @current_user, logged_in_user)
     else
       params["pseudonym_session"] = {"unique_id" => params[:unique_id]} if params.key?(:unique_id)
       redirect_to login_url(params.permit(:canvas_login, :force_login,
@@ -77,7 +80,7 @@ class Oauth2ProviderController < ApplicationController
   end
 
   def accept
-    redirect_params = Canvas::Oauth::Provider.final_redirect_params(session[:oauth2], @current_user, remember_access: params[:remember_access])
+    redirect_params = Canvas::Oauth::Provider.final_redirect_params(session[:oauth2], @current_user, logged_in_user, remember_access: params[:remember_access])
     redirect_to Canvas::Oauth::Provider.final_redirect(self, redirect_params)
   end
 
@@ -136,5 +139,16 @@ class Oauth2ProviderController < ApplicationController
         !params[:grant_type] && params[:code] ? "authorization_code" : "__UNSUPPORTED_PLACEHOLDER__"
       )
     )
+  end
+
+  def developer_key_management_and_scoping_enabled?(provider)
+    (
+      (
+        @domain_root_account.site_admin? &&
+        Setting.get(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, nil).present?
+      ) ||
+      @domain_root_account.feature_enabled?(:developer_key_management_and_scoping)
+    ) &&
+    provider.key.require_scopes?
   end
 end

@@ -49,7 +49,7 @@ describe "Gradezilla editing grades" do
     q.reload
 
     Gradezilla.visit(@course)
-    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .l4', points.to_s)
+    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .b4', points.to_s)
 
     get "/courses/#{@course.id}/quizzes/#{q.id}/history?quiz_submission_id=#{qs.id}"
     expect(f('.score_value')).to include_text points.to_s
@@ -68,10 +68,10 @@ describe "Gradezilla editing grades" do
     Gradezilla.visit(@course)
 
     # editing grade for first row, first cell
-    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .l1', 0)
+    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .b1', 0)
 
     # editing grade for second row, first cell
-    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(2) .l1', 0)
+    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(2) .b1', 0)
 
     # refresh page and make sure the grade sticks
     Gradezilla.visit(@course)
@@ -83,9 +83,9 @@ describe "Gradezilla editing grades" do
     assignment_model(course: @course, grading_type: 'letter_grade', points_possible: nil, title: 'no-points')
     Gradezilla.visit(@course)
 
-    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .l4', 'A-')
+    edit_grade('#gradebook_grid .container_1 .slick-row:nth-child(1) .b4', 'A-')
 
-    expect(f('#gradebook_grid .container_1 .slick-row:nth-child(1) .l4')).to include_text('A-')
+    expect(f('#gradebook_grid .container_1 .slick-row:nth-child(1) .b4')).to include_text('A-')
     expect(@assignment.submissions.where('grade is not null').count).to eq 1
 
     sub = @assignment.submissions.where('grade is not null').first
@@ -127,7 +127,7 @@ describe "Gradezilla editing grades" do
     driver.action.send_keys(:tab).perform
     driver.action.send_keys(:tab).perform
 
-    next_cell = f('#gradebook_grid .container_1 .slick-row:nth-child(1) .l3')
+    next_cell = f('#gradebook_grid .container_1 .slick-row:nth-child(1) .b3')
     expect(next_cell).not_to have_class('editable')
   end
 
@@ -267,6 +267,43 @@ describe "Gradezilla editing grades" do
       refresh_page
       current_score = Gradezilla::Cells.get_grade(@students[0], @assignment)
       expect(current_score).to eq('10')
+    end
+  end
+
+  context "for a moderated assignment" do
+    before(:each) do
+      # turn on the moderation flag
+      Account.default.enable_feature!(:anonymous_marking)
+
+      now = Time.zone.now
+      # create a moderated assignment
+      @moderated_assignment = @course.assignments.create!(
+        title: 'Moderated Assignment',
+        submission_types: 'online_text_entry',
+        grader_count: 1,
+        final_grader: @teacher,
+        due_at: 1.week.from_now(now),
+        moderated_grading: true,
+        points_possible: 10
+      )
+
+      user_session(@teacher)
+      Gradezilla.visit(@course)
+    end
+
+    it "is not allowed until grades are posted", priority: "1", test_id: 3503489 do
+      Gradezilla::Cells.grading_cell(@student_1, @moderated_assignment).click
+      grid_cell = Gradezilla::Cells.grid_assignment_row_cell(@student_1, @moderated_assignment)
+      class_attribute_fetched = grid_cell.attribute("class")
+      expect(class_attribute_fetched).to include "Grid__ReadOnlyCell"
+    end
+
+    it "is allowed if grades are posted ", priority: "1" do # test_id: 3503489
+      @moderated_assignment.update!(grades_published_at: Time.zone.now)
+      @moderated_assignment.unmute!
+      refresh_page
+      Gradezilla::Cells.edit_grade(@student_1, @moderated_assignment, "20,000")
+      expect(Gradezilla::Cells.get_grade(@student_1, @moderated_assignment)).to eq '20000'
     end
   end
 

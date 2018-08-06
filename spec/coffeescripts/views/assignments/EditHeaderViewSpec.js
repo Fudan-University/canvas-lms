@@ -28,7 +28,7 @@ const defaultAssignmentOpts = {
   name: 'Test Assignment',
   assignment_overrides: []
 }
-const editHeaderView = function(assignmentOptions = {}, viewOptions = {}) {
+const editHeaderView = function(assignmentOptions = {}, viewOptions = {}, beforeRender) {
   Object.assign(assignmentOptions, defaultAssignmentOpts)
   const assignment = new Assignment(assignmentOptions)
   const app = new EditHeaderView({
@@ -36,6 +36,7 @@ const editHeaderView = function(assignmentOptions = {}, viewOptions = {}) {
     views: {edit_assignment_form: new Backbone.View({template: editViewTemplate})},
     userIsAdmin: viewOptions.userIsAdmin
   })
+  if (beforeRender) beforeRender(app)
   return app.render()
 }
 

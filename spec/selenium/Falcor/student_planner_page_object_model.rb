@@ -34,7 +34,7 @@ module PlannerPageObject
 
   def navigate_to_course_object(object)
     expect_new_page_load do
-      fln(object.title.to_s).click
+      flnpt(object.title.to_s).click
     end
   end
 
@@ -43,6 +43,21 @@ module PlannerPageObject
     domain = url.split('courses')[0]
     expected_url = domain + "courses/#{@course.id}/#{object_type}/#{object.id}"
     expected_url = domain + "courses/#{@course.id}/#{object_type}/#{object.title.downcase}" if object_type == 'pages'
+    expect(url).to eq(expected_url)
+  end
+
+  def validate_submissions_url(object_type, object, submission)
+    url = driver.current_url
+    domain = url.split('courses')[0]
+    expected_url = domain + "courses/#{@course.id}/#{object_type}/#{object.id}/submissions/#{submission.id}"
+    expect(url).to eq(expected_url)
+  end
+
+  def validate_calendar_url(object)
+    url = driver.current_url
+    domain = url.split('calendar')[0]
+    expected_url = domain + "calendar?event_id=#{object.id}&include_contexts=#{object.context_code}"
+    expected_url += "#view_start=#{object.start_at.to_date}&view_name=month"
     expect(url).to eq(expected_url)
   end
 
@@ -82,14 +97,19 @@ module PlannerPageObject
   # should pass the type of object as a string
   def validate_link_to_url(object, url_type)
     navigate_to_course_object(object)
-    validate_url(url_type, object)
+    object.is_a?(CalendarEvent) ? validate_calendar_url(object) : validate_url(url_type, object)
+  end
+
+  def validate_link_to_submissions(object, submission, url_type)
+    navigate_to_course_object(object)
+    validate_submissions_url(url_type, object, submission)
   end
 
   def view_todo_item
     @student_to_do = @student1.planner_notes.create!(todo_date: Time.zone.now,
                                                      title: "Student to do", course_id: @course.id)
     go_to_list_view
-    fln(@student_to_do.title).click
+    flnpt(@student_to_do.title).click
     @modal = todo_sidebar_modal(@student_to_do.title)
   end
 
@@ -131,16 +151,26 @@ module PlannerPageObject
     fj("button:contains('New Activity')")
   end
 
+  def today_button
+    f("#planner-today-btn")
+  end
+
   def wait_for_planner_load
     wait_for_dom_ready
     wait_for_ajaximations
     todo_modal_button
+    f('.planner-day, .planner-empty-state') # one or the other will be rendered
   end
 
   def wait_for_dashboard_load
     wait_for_dom_ready
     wait_for_ajaximations
     f('.ic-dashboard-app')
+  end
+
+  def title_input(title = nil)
+    modal = todo_sidebar_modal(title)
+    ff('input', modal)[0]
   end
 
   def time_input
@@ -157,12 +187,16 @@ module PlannerPageObject
     f('textarea', modal)
   end
 
-  def todo_sidebar_modal(title = nil)
+  def todo_sidebar_modal_selector(title = nil)
     if title
-      f("[aria-label = 'Edit #{title}']")
+      "[aria-label = 'Edit #{title}']"
     else
-      f("[aria-label = 'Add To Do']")
+      "[aria-label = 'Add To Do']"
     end
+  end
+
+  def todo_sidebar_modal(title = nil)
+    f(todo_sidebar_modal_selector(title))
   end
 
   def wait_for_spinner

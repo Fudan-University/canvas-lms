@@ -29,7 +29,7 @@ describe Login::CasController do
       st.success = response.is_success?
       st
     end
-    allow_any_instance_of(AccountAuthorizationConfig::CAS).to receive(:client).and_return(cas_client) if use_mock
+    allow_any_instance_of(AuthenticationProvider::CAS).to receive(:client).and_return(cas_client) if use_mock
   end
 
   it "should logout with specific cas ticket" do
@@ -52,14 +52,10 @@ describe Login::CasController do
 
     session[:cas_session] = cas_ticket
     session[:login_aac] = Account.default.authentication_providers.first.id
-    @pseudonym.claim_cas_ticket(cas_ticket)
 
     post :destroy, params: {logoutRequest: request_text}
     expect(response.status).to eq 200
-
-    post :destroy, params: {logoutRequest: request_text}
-    expect(response.status).to eq 404
-  end
+ end
 
   it "should accept extra attributes" do
     account = account_with_cas(account: Account.default)

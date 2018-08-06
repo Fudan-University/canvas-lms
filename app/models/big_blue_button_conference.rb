@@ -55,11 +55,18 @@ class BigBlueButtonConference < WebConference
       :logoutURL => (settings[:default_return_url] || "http://www.instructure.com"),
       :record => settings[:record] ? "true" : "false",
       :welcome => settings[:record] ? t("This conference may be recorded.") : "",
+      "meta_canvas-recording-ready-user" => recording_ready_user,
       "meta_canvas-recording-ready-url" => recording_ready_url(current_host)
     }) or return nil
     @conference_active = true
     save
     conference_key
+  end
+
+  def recording_ready_user
+    if self.grants_right?(self.user, :create)
+      "#{self.user['name']} <#{self.user.email}>"
+    end
   end
 
   def recording_ready_url(current_host = nil)
@@ -87,15 +94,27 @@ class BigBlueButtonConference < WebConference
 
   def recordings
     fetch_recordings.map do |recording|
-      recording_format = recording.fetch(:playback, {}).fetch(:format, {})
-      {
-        recording_id:     recording[:recordID],
-        title:            recording[:name],
-        duration_minutes: recording_format[:length].to_i,
-        playback_url:     recording_format[:url],
-        ended_at:         recording[:endTime].to_i,
-      }
+      recording_formats(recording)
     end
+  end
+
+  def recording(recording_id = nil)
+    unless recording_id.nil?
+      recording = fetch_recordings.find{ |r| r[:recordID]==recording_id }
+      recording_formats(recording) if recording
+    end
+  end
+
+  def recording_formats(recording)
+    recording_formats = recording.fetch(:playback, [])
+    {
+      recording_id:     recording[:recordID],
+      title:            recording[:name],
+      duration_minutes: filter_duration(recording_formats),
+      playback_url:     nil,
+      playback_formats: recording_formats,
+      created_at:       recording[:startTime].to_i,
+    }
   end
 
   def delete_recording(recording_id)
@@ -206,7 +225,8 @@ class BigBlueButtonConference < WebConference
     # The BBB API follows the pattern where a plural element (ie <bars>)
     # contains many singular elements (ie <bar>) and nothing else. Detect this
     # and return an array to be assigned to the plural element.
-    elsif node.name.singularize == child_elements.first.name
+    # It excludes the playback node as all of them may be showing different content.
+    elsif node.name.singularize == child_elements.first.name || node.name == "playback"
       child_elements.map { |child| xml_to_value(child) }
     # otherwise, make a hash of the child elements
     else
@@ -214,6 +234,13 @@ class BigBlueButtonConference < WebConference
         hash[child.name.to_sym] = xml_to_value(child)
 
       end
+    end
+  end
+
+  def filter_duration(recording_formats)
+    # As not all the formats are the actual recording, identify the one that has :length
+    recording_formats.each do |recording_format|
+      return recording_format[:length].to_i if recording_format.key?(:length)
     end
   end
 end

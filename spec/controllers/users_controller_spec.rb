@@ -83,47 +83,6 @@ describe UsersController do
     end
   end
 
-  describe "index" do
-    before :each do
-      @a = Account.default
-      @u = user_factory(active_all: true)
-      @a.account_users.create!(user: @u)
-      user_session(@user)
-      @t1 = @a.default_enrollment_term
-      @t2 = @a.enrollment_terms.create!(:name => 'Term 2')
-
-      @e1 = course_with_student(:active_all => true)
-      @c1 = @e1.course
-      @c1.update_attributes!(:enrollment_term => @t1)
-      @e2 = course_with_student(:active_all => true)
-      @c2 = @e2.course
-      @c2.update_attributes!(:enrollment_term => @t2)
-      @c3 = course_with_student(:active_all => true, :user => @e1.user).course
-      @c3.update_attributes!(:enrollment_term => @t1)
-
-      User.update_account_associations(User.all.map(&:id))
-      # NOTE: A controller test should only call the action 1 time per test.
-      # this breaks use a js_env as it attempts to set a frozen hash multiple times.
-      # This was refactored out to 3 tests to keep it from breaking but should
-      # probably be refactored as integration test.
-    end
-
-    it "should filter account users by term - default" do
-      get 'index', params: {:account_id => @a.id}
-      expect(assigns[:users].map(&:id).sort).to eq [@u, @e1.user, @c1.teachers.first, @e2.user, @c2.teachers.first, @c3.teachers.first].map(&:id).sort
-    end
-
-    it "should filter account users by term - term 1" do
-      get 'index', params: {:account_id => @a.id, :enrollment_term_id => @t1.id}
-      expect(assigns[:users].map(&:id).sort).to eq [@e1.user, @c1.teachers.first, @c3.teachers.first].map(&:id).sort # 1 student, enrolled twice, and 2 teachers
-    end
-
-    it "should filter account users by term - term 2" do
-      get 'index', params: {:account_id => @a.id, :enrollment_term_id => @t2.id}
-      expect(assigns[:users].map(&:id).sort).to eq [@e2.user, @c2.teachers.first].map(&:id).sort
-    end
-  end
-
   describe "GET oauth" do
     it "sets up oauth for google_drive" do
       state = nil
@@ -200,6 +159,7 @@ describe UsersController do
       allow(authorization_mock).to receive_messages(:code= => nil, fetch_access_token!: nil, refresh_token:'refresh_token', access_token: 'access_token')
       drive_mock = double('drive_mock', about: double(get: nil))
       client_mock = double("client", discovered_api:drive_mock, :execute! => double('result', status: 200, data:{'permissionId' => 'permission_id'}))
+
       allow(client_mock).to receive(:authorization).and_return(authorization_mock)
       allow(GoogleDrive::Client).to receive(:create).and_return(client_mock)
 
@@ -280,6 +240,74 @@ describe UsersController do
           oe = new_user.observer_enrollments.first
           expect(oe.course).to eq @course
           expect(oe.associated_user).to eq @user
+        end
+
+        it "should allow observers to self register with a pairing code" do
+          course_with_student
+          @domain_root_account = @course.account
+          pairing_code = @student.generate_observer_pairing_code
+          @course.account.enable_feature!(:observer_pairing_code)
+
+          post 'create', params: {
+            pseudonym: {
+              unique_id: 'jon@example.com',
+              password: 'password',
+              password_confirmation: 'password'
+            },
+            user: {
+              name: 'Jon',
+              terms_of_use: '1',
+              initial_enrollment_type: 'observer',
+              skip_registration: '1'
+            },
+            pairing_code: {
+              code: pairing_code.code
+            }
+          }, format: 'json'
+
+          expect(response).to be_success
+          new_pseudo = Pseudonym.where(unique_id: 'jon@example.com').first
+          new_user = new_pseudo.user
+          expect(new_user.linked_students).to eq [@student]
+          oe = new_user.observer_enrollments.first
+          expect(oe.course).to eq @course
+          expect(oe.associated_user).to eq @student
+        end
+
+        it "should redirect users to the oauth confirmation when registering through oauth" do
+          redis = double('Redis')
+          allow(redis).to receive(:setex)
+          allow(redis).to receive(:hmget)
+          allow(redis).to receive(:del)
+          allow(Canvas).to receive_messages(:redis => redis)
+          key = DeveloperKey.create! :redirect_uri => 'https://example.com'
+          provider = Canvas::Oauth::Provider.new(key.id, key.redirect_uri, [], nil)
+
+          course_with_student
+          @domain_root_account = @course.account
+          pairing_code = @student.generate_observer_pairing_code
+          @course.account.enable_feature!(:observer_pairing_code)
+
+          post 'create', params: {
+            pseudonym: {
+              unique_id: 'jon@example.com',
+              password: 'password',
+              password_confirmation: 'password'
+            },
+            user: {
+              name: 'Jon',
+              terms_of_use: '1',
+              initial_enrollment_type: 'observer',
+              skip_registration: '1'
+            },
+            pairing_code: {
+              code: pairing_code.code
+            }
+          }, format: 'json', session: { oauth2: provider.session_hash }
+
+          expect(response).to be_success
+          json = json_parse
+          expect(json['destination']).to eq 'http://test.host/login/oauth2/confirm'
         end
 
         it "should redirect 'new' action to root_url" do
@@ -1618,6 +1646,17 @@ describe UsersController do
         expect(groups.map {|g| g[:id]}).to eq [group.id]
       end
 
+    end
+  end
+
+  describe "#pandata_events_token" do
+    it 'should return bad_request if called without an access token' do
+      user_factory(active_all: true)
+      user_session(@user)
+      get 'pandata_events_token'
+      assert_status(400)
+      json = JSON.parse(response.body.gsub("while(1);", ""))
+      expect(json['message']).to eq "Access token required"
     end
   end
 

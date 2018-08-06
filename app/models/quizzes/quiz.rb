@@ -30,6 +30,7 @@ class Quizzes::Quiz < ActiveRecord::Base
   include SearchTermHelper
   include Plannable
   include Canvas::DraftStateValidations
+  include LockedFor
 
   attr_readonly :context_id, :context_type
   attr_accessor :notify_of_update
@@ -89,8 +90,8 @@ class Quizzes::Quiz < ActiveRecord::Base
     :quiz_type, :assignment_group_id, :shuffle_answers, :time_limit,
     :anonymous_submissions, :scoring_policy, :allowed_attempts, :hide_results,
     :one_time_results, :show_correct_answers, :show_correct_answers_last_attempt,
-    :hide_correct_answers_at, :one_question_at_a_time, :cant_go_back, :access_code,
-    :ip_filter, :require_lockdown_browser, :require_lockdown_browser_for_results
+    :show_correct_answers_at, :hide_correct_answers_at, :one_question_at_a_time,
+    :cant_go_back, :access_code, :ip_filter, :require_lockdown_browser, :require_lockdown_browser_for_results
   ]
   restrict_assignment_columns
   restrict_columns :state, [:workflow_state]
@@ -322,8 +323,11 @@ class Quizzes::Quiz < ActiveRecord::Base
     end
   end
 
-  def update_cached_due_dates?
-    due_at_changed? || workflow_state_changed? || only_visible_to_overrides_changed?
+  def update_cached_due_dates?(next_quiz_type = nil)
+    due_at_changed? ||
+      workflow_state_changed? ||
+      only_visible_to_overrides_changed? ||
+      (assignment.nil? && next_quiz_type == 'assignment')
   end
 
   def assignment?
@@ -752,8 +756,7 @@ class Quizzes::Quiz < ActiveRecord::Base
 
   alias_method :to_s, :quiz_title
 
-
-  def locked_for?(user, opts={})
+  def low_level_locked_for?(user, opts={})
     ::Rails.cache.fetch(locked_cache_key(user), :expires_in => 1.minute) do
       user_submission = user && quiz_submissions.where(user_id: user.id).first
       return false if user_submission && user_submission.manually_unlocked
@@ -764,7 +767,7 @@ class Quizzes::Quiz < ActiveRecord::Base
       lock_time_already_occurred = quiz_for_user.lock_at && quiz_for_user.lock_at <= Time.zone.now
 
       locked = false
-      lock_info = { asset_string: asset_string }
+      lock_info = { object: quiz_for_user }
       if unlock_time_not_yet_reached
         locked = lock_info.merge({ unlock_at: quiz_for_user.unlock_at })
       elsif lock_time_already_occurred
@@ -772,19 +775,19 @@ class Quizzes::Quiz < ActiveRecord::Base
       elsif !opts[:skip_assignment] && (assignment_lock = locked_by_assignment?(user, opts))
         locked = assignment_lock
       elsif (module_lock = locked_by_module_item?(user, opts))
-        locked = lock_info.merge({ context_module: module_lock.context_module.attributes })
+        locked = lock_info.merge({module: module_lock.context_module})
       elsif !context.try_rescue(:is_public) && !context.grants_right?(user, :participate_as_student) && !opts[:is_observer]
         locked = lock_info.merge({ missing_permission: :participate_as_student.to_s })
       end
 
-    locked
+      locked
     end
   end
 
   def locked_by_assignment?(user, opts = {})
     return false unless for_assignment?
 
-    assignment.locked_for?(user, opts)
+    assignment.low_level_locked_for?(user, opts)
   end
 
   def clear_locked_cache(user)
@@ -1433,4 +1436,8 @@ class Quizzes::Quiz < ActiveRecord::Base
   def run_if_overrides_changed_later!
     self.send_later_if_production_enqueue_args(:run_if_overrides_changed!, {:singleton => "quiz_overrides_changed_#{self.global_id}"})
   end
+
+  # This alias exists to handle cases where a method that expects an
+  # Assignment is instead passed a quiz (e.g., Submission#submission_zip).
+  alias_attribute :anonymous_grading?, :anonymous_submissions
 end

@@ -20,7 +20,6 @@ import Gradebook from 'compiled/gradezilla/Gradebook';
 
 export function createGradebook (options = {}) {
   const gradebook = new Gradebook({
-    anonymous_moderated_marking_enabled: false,
     colors: {},
     context_allows_gradebook_uploads: true,
     context_id: '1',
@@ -85,6 +84,7 @@ export function setFixtureHtml ($fixture) {
         <div id="gradebook-settings-modal-button-container"></div>
         <div data-component="GradebookSettingsModal"></div>
         <div data-component="StatusesModal"></div>
+        <div data-component="AnonymousSpeedGraderAlert"></div>
         <div id="StudentTray__Container"></div>
         <div id="gradebook_grid"></div>
       </div>

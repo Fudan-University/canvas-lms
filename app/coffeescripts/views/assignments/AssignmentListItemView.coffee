@@ -68,7 +68,8 @@ define [
       'click .icon-unlock': 'onLockAssignment'
       'click .move_assignment': 'onMove'
       'click .duplicate-failed-retry': 'onDuplicateFailedRetry'
-      'click .duplicate-failed-cancel': 'onDuplicateFailedCancel'
+      'click .duplicate-failed-cancel': 'onDuplicateOrImportFailedCancel'
+      'click .import-failed-cancel': 'onDuplicateOrImportFailedCancel'
 
     messages:
       confirm: I18n.t('Are you sure you want to delete this assignment?')
@@ -82,15 +83,18 @@ define [
       @model.assignmentView = @
 
       @model.on('change:hidden', @toggleHidden)
+      @model.set('disabledForModeration', !@canEdit())
 
       if @canManage()
         @model.on('change:published', @updatePublishState)
 
         # re-render for attributes we are showing
-        attrs = ["name", "points_possible", "due_at", "lock_at", "unlock_at", "modules", "published"]
+        attrs = ["name", "points_possible", "due_at", "lock_at", "unlock_at", "modules", "published", "workflow_state"]
         observe = attrs.map((attr) -> "change:#{attr}").join(" ")
         @model.on(observe, @render)
       @model.on 'change:submission', @updateScore
+
+      @model.pollUntilFinishedLoading()
 
     initializeChildViews: ->
       @publishIconView = false
@@ -171,7 +175,7 @@ define [
 
       if @editAssignmentView
         @editAssignmentView.hide()
-        @editAssignmentView.setTrigger @$editAssignmentButton
+        @editAssignmentView.setTrigger @$editAssignmentButton if @canEdit()
 
       @updateScore() if @canReadGrades()
 
@@ -199,6 +203,7 @@ define [
       data.canManage = @canManage()
       data = @_setJSONForGrade(data) unless data.canManage
 
+      data.canEdit = @canEdit()
       data.canMove = @canMove()
       data.canDelete = @canDelete()
       data.canDuplicate = @canDuplicate()
@@ -268,7 +273,7 @@ define [
         @delete(silent: true)
       ).always -> $button.prop('disabled', false)
 
-    onDuplicateFailedCancel: (e) =>
+    onDuplicateOrImportFailedCancel: (e) =>
       e.preventDefault()
       @delete(silent: true)
 
@@ -297,14 +302,24 @@ define [
       @model.destroy(callbacks)
       @$el.remove()
 
+    hasIndividualPermissions: ->
+      ENV.PERMISSIONS.by_assignment_id?
+
     canDelete: ->
-      (@userIsAdmin or @model.canDelete()) && !@model.isRestrictedByMasterCourse()
+      result = (@userIsAdmin or @model.canDelete()) && !@model.isRestrictedByMasterCourse()
+      if @hasIndividualPermissions() then result && @canEdit() else result
 
     canDuplicate: ->
       (@userIsAdmin || @canManage()) && @model.canDuplicate()
 
     canMove: ->
       @userIsAdmin or (@canManage() and @model.canMove())
+
+    canEdit: ->
+      if !@hasIndividualPermissions()
+        return @userIsAdmin or @canManage()
+
+      @userIsAdmin or (@canManage() and ENV.PERMISSIONS.by_assignment_id[@model.id].update)
 
     canManage: ->
       ENV.PERMISSIONS.manage

@@ -729,7 +729,7 @@ describe ApplicationHelper do
         @account.enable_feature! :student_planner
       end
 
-      it "returns the list of account-level groups the user belongs to" do
+      it "returns the list of groups the user belongs to" do
         user = user_model
         group1 = @account.groups.create! :name => 'Account group'
         course1 = @account.courses.create!
@@ -741,7 +741,7 @@ describe ApplicationHelper do
         course1.enroll_student(@current_user)
         groups.each {|g| g.add_user(user, 'accepted', true)}
         user_account_groups = map_groups_for_planner(groups)
-        expect(user_account_groups.map {|g| g[:id]}).to eq [group1.id, group3.id]
+        expect(user_account_groups.map {|g| g[:id]}).to eq [group1.id, group2.id, group3.id]
       end
     end
   end
@@ -794,6 +794,292 @@ describe ApplicationHelper do
     context "with student_planner feature flag disabled" do
       it "returns false" do
         expect(planner_enabled?).to be false
+      end
+    end
+  end
+
+  describe "file_access_user" do
+    context "not on the files domain" do
+      before :each do
+        @files_domain = false
+      end
+
+      it "should return @current_user" do
+        @current_user = user_model
+        expect(file_access_user).to be @current_user
+      end
+    end
+
+    context "on the files domain" do
+      before :each do
+        @files_domain = true
+      end
+
+      it "should return access user from session" do
+        access_user = user_model
+        session['file_access_user_id'] = access_user.id
+        expect(file_access_user).to eql access_user
+      end
+
+      it "should return nil if not set" do
+        expect(file_access_user).to be nil
+      end
+    end
+  end
+
+  describe "file_access_real_user" do
+    context "not on the files domain" do
+      before :each do
+        @files_domain = false
+      end
+
+      let(:logged_in_user) { user_model }
+
+      it "should return logged_in_user" do
+        expect(file_access_real_user).to be logged_in_user
+      end
+    end
+
+    context "on the files domain" do
+      before :each do
+        @files_domain = true
+      end
+
+      it "should return real access user from session" do
+        real_access_user = user_model
+        session['file_access_real_user_id'] = real_access_user.id
+        expect(file_access_real_user).to eql real_access_user
+      end
+
+      it "should return access user from session if real access user not set" do
+        access_user = user_model
+        session['file_access_user_id'] = access_user.id
+        session['file_access_real_user_id'] = nil
+        expect(file_access_real_user).to eql access_user
+      end
+
+      it "should return real access user over access user if both set" do
+        access_user = user_model
+        real_access_user = user_model
+        session['file_access_user_id'] = access_user.id
+        session['file_access_real_user_id'] = real_access_user.id
+        expect(file_access_real_user).to eql real_access_user
+      end
+
+      it "should return nil if neither set" do
+        expect(file_access_real_user).to be nil
+      end
+    end
+  end
+
+  describe "file_access_developer_key" do
+    context "not on the files domain" do
+      before :each do
+        @files_domain = false
+      end
+
+      it "should return token's developer_key with @access_token set" do
+        user = user_model
+        developer_key = DeveloperKey.create!
+        @access_token = user.access_tokens.where(developer_key_id: developer_key).create!
+        expect(file_access_developer_key).to eql developer_key
+      end
+
+      it "should return nil without @access_token set" do
+        expect(file_access_developer_key).to be nil
+      end
+    end
+
+    context "on the files domain" do
+      before :each do
+        @files_domain = true
+      end
+
+      it "should return developer key from session" do
+        developer_key = DeveloperKey.create!
+        session['file_access_developer_key_id'] = developer_key.id
+        expect(file_access_developer_key).to eql developer_key
+      end
+
+      it "should return nil if developer key in session not set" do
+        expect(file_access_developer_key).to eql nil
+      end
+    end
+  end
+
+  describe "file_access_root_account" do
+    context "not on the files domain" do
+      before :each do
+        @domain_root_account = Account.default
+        @files_domain = false
+      end
+
+      it "should return @domain_root_account" do
+        expect(file_access_root_account).to eql Account.default
+      end
+    end
+
+    context "on the files domain" do
+      before :each do
+        @files_domain = true
+      end
+
+      it "should return root account from session" do
+        session['file_access_root_account_id'] = Account.default.id
+        expect(file_access_root_account).to eql Account.default
+      end
+
+      it "should return nil if root account in session not set" do
+        expect(file_access_root_account).to eql nil
+      end
+    end
+  end
+
+  describe "file_access_oauth_host" do
+    let(:host) { "test.host" }
+
+    context "not on the files domain" do
+      let(:request) { double("request", host_with_port: host) }
+      let(:logged_in_user) { user_model }
+
+      before :each do
+        @files_domain = false
+      end
+
+      it "should return the request's host" do
+        expect(file_access_oauth_host).to eql host
+      end
+    end
+
+    context "on the files domain" do
+      let(:logged_in_user) { user_model }
+
+      before :each do
+        @files_domain = true
+      end
+
+      it "should return the host from the session" do
+        session['file_access_oauth_host'] = host
+        expect(file_access_oauth_host).to eql host
+      end
+
+      it "should return nil if no host in the session" do
+        expect(file_access_oauth_host).to eql nil
+      end
+    end
+  end
+
+  describe "file_authenticator" do
+    before :each do
+      @domain_root_account = Account.default
+    end
+
+    context "not on the files domain, logged in" do
+      before :each do
+        @files_domain = false
+        @current_user = user_model
+      end
+
+      let(:logged_in_user) { user_model }
+      let(:current_host) { 'non-files-domain' }
+      let(:request) { double('request', host_with_port: current_host) }
+
+      it "creates an authenticator for the logged in user" do
+        expect(file_authenticator.user).to eql logged_in_user
+      end
+
+      it "creates an authenticator with the acting user" do
+        expect(file_authenticator.acting_as).to eql @current_user
+      end
+
+      it "creates an authenticator for the current host" do
+        expect(file_authenticator.oauth_host).to eql current_host
+      end
+
+      it "creates an authenticator aware of the access token if present" do
+        @access_token = logged_in_user.access_tokens.create!
+        expect(file_authenticator.access_token).to eql @access_token
+      end
+
+      it "creates an authenticator aware of the root account" do
+        expect(file_authenticator.root_account).to eql @domain_root_account
+      end
+    end
+
+    context "not on the files domain, not logged in" do
+      before :each do
+        @files_domain = false
+        @current_user = nil
+      end
+
+      let(:logged_in_user) { nil }
+      let(:current_host) { 'non-files-domain' }
+      let(:request) { double('request', host_with_port: current_host) }
+
+      it "creates a public authenticator" do
+        expect(file_authenticator.user).to be nil
+        expect(file_authenticator.acting_as).to be nil
+        expect(file_authenticator.oauth_host).to be nil
+      end
+    end
+
+    context "on the files domain with access user" do
+      let(:access_user) { user_model }
+      let(:real_access_user) { user_model }
+      let(:developer_key) { DeveloperKey.create! }
+      let(:original_host) { 'non-files-domain' }
+
+      before :each do
+        @files_domain = true
+        session['file_access_user_id'] = access_user.id
+        session['file_access_real_user_id'] = real_access_user.id
+        session['file_access_root_account_id'] = Account.default.id
+        session['file_access_developer_key_id'] = developer_key.id
+        session['file_access_oauth_host'] = original_host
+      end
+
+      let(:logged_in_user) { nil }
+      let(:current_host) { 'files-domain' }
+      let(:request) { double('request', host_with_port: current_host) }
+
+      it "creates an authenticator for the real access user" do
+        expect(file_authenticator.user).to eql real_access_user
+      end
+
+      it "creates an authenticator with the acting access user" do
+        expect(file_authenticator.acting_as).to eql access_user
+      end
+
+      it "creates an authenticator with a fake access token for the developer key from the session" do
+        expect(file_authenticator.access_token).not_to eql nil
+        expect(file_authenticator.access_token.global_developer_key_id).to eql developer_key.global_id
+      end
+
+      it "creates an authenticator with the root account from the session" do
+        expect(file_authenticator.root_account).to eql Account.default
+      end
+
+      it "creates an authenticator with the original host from the session" do
+        expect(file_authenticator.oauth_host).to be original_host
+      end
+    end
+
+    context "on the files domain without access user" do
+      before :each do
+        @files_domain = true
+        session['file_access_user_id'] = nil
+        session['file_access_real_user_id'] = nil
+      end
+
+      let(:logged_in_user) { nil }
+      let(:current_host) { 'files-domain' }
+      let(:request) { double('request', host_with_port: current_host) }
+
+      it "creates a public authenticator" do
+        authenticator = file_authenticator
+        expect(authenticator.user).to be nil
+        expect(authenticator.acting_as).to be nil
+        expect(authenticator.oauth_host).to be nil
       end
     end
   end

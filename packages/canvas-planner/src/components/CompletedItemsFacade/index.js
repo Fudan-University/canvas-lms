@@ -16,9 +16,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 import React, { Component } from 'react';
+import classnames from 'classnames';
 import themeable from '@instructure/ui-themeable/lib';
 import ToggleDetails from '@instructure/ui-toggle-details/lib/components/ToggleDetails';
-import Pill from '@instructure/ui-core/lib/components/Pill';
+import Pill from '@instructure/ui-elements/lib/components/Pill';
 import BadgeList from '../BadgeList';
 import NotificationBadge, { MissingIndicator, NewActivityIndicator} from '../NotificationBadge';
 import { func, number, string, arrayOf, shape, oneOf } from 'prop-types';
@@ -61,7 +62,7 @@ export class CompletedItemsFacade extends Component {
     this.props.deregisterAnimatable('item', this, this.props.animatableItemIds);
   }
 
-  getFocusable () { return this.buttonRef; }
+  getFocusable = () => { return this.buttonRef; }
 
   getScrollable () { return this.rootDiv; }
 
@@ -90,12 +91,15 @@ export class CompletedItemsFacade extends Component {
     const IndicatorComponent = isNewItem ? NewActivityIndicator : MissingIndicator;
     const badgeMessage = formatMessage('{items} completed {items, plural,=1 {item} other {items}}', {items: this.props.itemCount});
     return (
+      <NotificationBadge>
       <div className={styles.activityIndicator}>
         <IndicatorComponent
         title={badgeMessage}
         itemIds={this.props.animatableItemIds}
-        animatableIndex={this.props.animatableIndex} />
+        animatableIndex={this.props.animatableIndex}
+        getFocusable={this.getFocusable} />
       </div>
+      </NotificationBadge>
     );
   }
   render () {
@@ -105,8 +109,8 @@ export class CompletedItemsFacade extends Component {
       iconMargin: this.theme.gutterWidth,
     } : null;
     return (
-      <div className={styles.root} ref={elt => this.rootDiv = elt}>
-        <NotificationBadge>{this.renderNotificationBadge()}</NotificationBadge>
+      <div className={classnames(styles.root, 'planner-completed-items')} ref={elt => this.rootDiv = elt}>
+        {this.renderNotificationBadge()}
         <div className={styles.contentPrimary}>
           <ToggleDetails
             ref={ref => this.buttonRef = ref}

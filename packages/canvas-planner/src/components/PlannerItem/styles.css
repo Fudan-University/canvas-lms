@@ -19,21 +19,20 @@
 
 .completed {
   width: 1.375rem;
-  margin-left: var(--gutterWidth);
+  margin-inline-start: var(--gutterWidth);
 }
 
 .activityIndicator {
-  padding-right: 0;
-  padding-left: 0;
+  padding-inline-end: 0;
+  padding-inline-start: 0;
 }
 
 .activityIndicator + .completed {
-  margin-left: calc(var(--gutterWidth) - var(--activityIndicatorWidth))
+  margin-inline-start: calc(var(--gutterWidth) - var(--activityIndicatorWidth))
 }
 
 .icon {
   color: var(--iconColor);
-  font-size: var(--iconFontSize);
   margin: 0 var(--gutterWidth);
 
   > svg { /* stylelint-disable-line selector-no-type */
@@ -48,9 +47,16 @@
 
 .layout {
   display: flex;
-  flex: 1;
+  flex-direction: column;
+  flex: 1 0;
+  min-width: 1px;
+}
+.innerLayout {
+  display: flex;
+  flex: 1 0;
   align-items: center;
   min-width: 1px;
+  min-height: 2.5rem; /* or ie11 smashes it down */
 }
 
 .details {
@@ -92,10 +98,10 @@
 
 .metrics {
   box-sizing: border-box;
-  text-align: right;
+  text-align: end;
   flex: 0 0 7rem;
   min-width: 1px;
-  padding-left: var(--metricsPadding);
+  padding-inline-start: var(--metricsPadding);
 }
 
 .due,
@@ -113,11 +119,27 @@
   min-width: 1px;
 }
 
+.feedback {
+  display: flex;
+  align-items: center;
+  min-height: 40px;   /* height of the avater, so ie11 doesn't squish it */
+  
+  .feedbackAvatar {
+    flex-shrink: 0;
+    margin-inline-end: var(--gutterWidth);
+  }
+  .feedbackComment {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
 .medium {
   .title {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    padding-right: 0.5rem;
+    padding-inline-end: 0.5rem;
   }
 }

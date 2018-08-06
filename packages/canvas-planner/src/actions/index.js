@@ -15,13 +15,13 @@
  * You should have received a copy of the GNU Affero General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-import { createActions } from 'redux-actions';
+import { createActions, createAction } from 'redux-actions';
 import axios from 'axios';
-import moment from 'moment';
 import configureAxios from '../utilities/configureAxios';
 import { alert } from '../utilities/alertUtils';
 import formatMessage from '../format-message';
 import parseLinkHeader from 'parse-link-header';
+import { makeEndOfDayIfMidnight } from '../utilities/dateUtils';
 
 import {
   transformInternalToApiItem,
@@ -45,9 +45,9 @@ export const {
   updateTodo,
   clearUpdateTodo,
   openEditingPlannerItem,
-  cancelEditingPlannerItem,
   setNaiAboveScreen,
-  scrollToNewActivity
+  scrollToNewActivity,
+  scrollToToday,
 } = createActions(
   'INITIAL_OPTIONS',
   'ADD_OPPORTUNITIES',
@@ -62,12 +62,13 @@ export const {
   'UPDATE_TODO',
   'CLEAR_UPDATE_TODO',
   'OPEN_EDITING_PLANNER_ITEM',
-  'CANCEL_EDITING_PLANNER_ITEM',
   'SET_NAI_ABOVE_SCREEN',
   'SCROLL_TO_NEW_ACTIVITY',
+  'SCROLL_TO_TODAY',
 );
 
 export * from './loading-actions';
+export * from './sidebar-actions';
 
 function saveExistingPlannerItem (apiItem) {
   return axios({
@@ -111,7 +112,7 @@ export const getInitialOpportunities = () => {
 
     axios({
       method: 'get',
-      url: getState().opportunities.nextUrl || '/api/v1/users/self/missing_submissions?include[]=planner_overrides',
+      url: getState().opportunities.nextUrl || '/api/v1/users/self/missing_submissions?include[]=planner_overrides&filter[]=submittable',
     }).then(response => {
       if(parseLinkHeader(response.headers.link).next) {
         dispatch(addOpportunities({items: response.data, nextUrl: parseLinkHeader(response.headers.link).next.url }));
@@ -140,15 +141,19 @@ export const dismissOpportunity = (id, plannerOverride) => {
         return opp.planner_override && !opp.planner_override.dismissed;
       }).length < 10)
         dispatch(getNextOpportunities());
+    })
+    .catch((error) => {
+      alert(formatMessage('An error occurred attempting to dismiss the opportunity.'), true);
     });
     return promise;
   };
 };
 
 export const savePlannerItem = (plannerItem) => {
-  plannerItem.date = moment(plannerItem.date).endOf('day').format('YYYY-MM-DDTHH:mm:ssZ');
-
   return (dispatch, getState) => {
+    plannerItem.date = makeEndOfDayIfMidnight(plannerItem.date, getState().timeZone);
+    plannerItem.date = plannerItem.date.toISOString();
+
     const isNewItem = !plannerItem.id;
     const overrideData = getOverrideDataOnItem(plannerItem);
     dispatch(savingPlannerItem({item: plannerItem, isNewItem}));
@@ -165,6 +170,7 @@ export const savePlannerItem = (plannerItem) => {
         };
       })
       .catch(() => alert(formatMessage('Failed to save to do'), true));
+    dispatch(clearUpdateTodo());
     dispatch(savedPlannerItem(promise));
     return promise;
   };
@@ -178,8 +184,18 @@ export const deletePlannerItem = (plannerItem) => {
       url: `api/v1/planner_notes/${plannerItem.id}`,
     }).then(response => transformPlannerNoteApiToInternalItem(response.data, getState().courses, getState().timeZone))
       .catch(() => alert(formatMessage('Failed to delete to do'), true));
+    dispatch(clearUpdateTodo());
     dispatch(deletedPlannerItem(promise));
     return promise;
+  };
+};
+
+export const canceledEditingPlannerItem = createAction('CANCELED_EDITING_PLANNER_ITEM');
+
+export const cancelEditingPlannerItem = () => {
+  return (dispatch, getState) => {
+    dispatch(clearUpdateTodo());
+    dispatch(canceledEditingPlannerItem());
   };
 };
 
@@ -202,7 +218,7 @@ function saveNewPlannerOverride (apiOverride) {
 export const togglePlannerItemCompletion = (plannerItem) => {
   return (dispatch, getState) => {
     const savingItem = {...plannerItem, toggleAPIPending: true, show: true};
-    dispatch(savedPlannerItem({item: savingItem, isNewItem: false}));
+    dispatch(savingPlannerItem({item: savingItem, isNewItem: false, wasToggled: true}));
     const apiOverride = transformInternalToApiOverride(plannerItem, getState().currentUser.id);
     apiOverride.marked_complete = !apiOverride.marked_complete;
     let promise = apiOverride.id ?
@@ -211,11 +227,13 @@ export const togglePlannerItemCompletion = (plannerItem) => {
     promise = promise.then(response => ({
       item: updateOverrideDataOnItem(plannerItem, response.data),
       isNewItem: false,
+      wasToggled: true,
     })).catch(response => {
       alert(formatMessage('Unable to mark as complete.'), true);
       return ({
         item: plannerItem,
         isNewItem: false,
+        wasToggled: true,
       });
     });
     dispatch(savedPlannerItem(promise));

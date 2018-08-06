@@ -33,6 +33,7 @@ import ActionMenu from 'jsx/gradezilla/default_gradebook/components/ActionMenu';
 import CourseGradeCalculator from 'jsx/gradebook/CourseGradeCalculator';
 import DataLoader from 'jsx/gradezilla/DataLoader';
 import GradeFormatHelper from 'jsx/gradebook/shared/helpers/GradeFormatHelper';
+import AnonymousSpeedGraderAlert from 'jsx/gradezilla/default_gradebook/components/AnonymousSpeedGraderAlert'
 import GradebookApi from 'jsx/gradezilla/default_gradebook/apis/GradebookApi';
 import LatePolicyApplicator from 'jsx/grading/LatePolicyApplicator';
 import SubmissionStateMap from 'jsx/gradezilla/SubmissionStateMap';
@@ -195,6 +196,7 @@ test('renders the StatusesModal', function () {
     'arrangeColumnsBy',
     'renderGradebookSettingsModal',
     'renderSettingsButton',
+    'renderAnonymousSpeedGraderAlert',
     'updatePostGradesFeatureButton',
     'initPostGradesStore',
   ].forEach(fn => this.stub(gradebook, fn));
@@ -3169,7 +3171,10 @@ QUnit.module('Gradebook#updateSectionFilterVisibility', {
     const sectionsFilterContainerSelector = 'sections-filter-container';
     $fixtures.innerHTML = `<div id="${sectionsFilterContainerSelector}"></div>`;
     this.container = $fixtures.querySelector(`#${sectionsFilterContainerSelector}`);
-    const sections = [{ id: '2001', name: 'Freshmen' }, { id: '2002', name: 'Sophomores' }];
+    const sections = [
+      { id: '2001', name: 'Freshmen / First-Year' },
+      { id: '2002', name: 'Sophomores' }
+    ];
     this.gradebook = createGradebook({ sections });
     this.gradebook.sections_enabled = true;
     this.gradebook.setSelectedViewOptionsFilters(['sections']);
@@ -3209,6 +3214,12 @@ test('renders the section select with a list of sections', function () {
   const sections = this.gradebook.sectionFilterMenu.props.items;
   strictEqual(sections.length, 2, 'includes the "nothing selected" option plus the two sections');
   deepEqual(sections.map(section => section.id), ['2001', '2002']);
+});
+
+test('unescapes section names', function () {
+  this.gradebook.updateSectionFilterVisibility();
+  const sections = this.gradebook.sectionFilterMenu.props.items;
+  deepEqual(sections.map(section => section.name), ['Freshmen / First-Year', 'Sophomores']);
 });
 
 test('sets the section select to show the saved "filter rows by" setting', function () {
@@ -4528,23 +4539,6 @@ QUnit.module('Gradebook Grid Events', () => {
     test('returns false when the student does not exist', () => {
       delete gradebook.students[1101];
       strictEqual(gradebook.onBeforeEditCell(null, eventObject), false);
-    });
-
-    test('returns false when the student enrollment is concluded', () => {
-      gradebook.students[1101].isConcluded = true;
-      strictEqual(gradebook.onBeforeEditCell(null, eventObject), false);
-    });
-
-    test('returns false when the submission is locked', () => {
-      gradebook.submissionStateMap.getSubmissionState
-        .withArgs({ user_id: '1101', assignment_id: '2301' }).returns({ locked: true });
-      strictEqual(gradebook.onBeforeEditCell(null, eventObject), false);
-    });
-
-    test('returns true when the submission state is undefined', () => {
-      gradebook.submissionStateMap.getSubmissionState
-        .withArgs({ user_id: '1101', assignment_id: '2301' }).returns(undefined);
-      strictEqual(gradebook.onBeforeEditCell(null, eventObject), true);
     });
 
     test('returns true when the cell is not in an assignment column', () => {
@@ -6976,19 +6970,6 @@ QUnit.module('Gradebook#getSubmissionTrayProps', function(suiteHooks) {
     moxios.uninstall();
   });
 
-  test('anonymousModeratedMarkingEnabled is true when options.anonymous_moderated_marking_enabled is true', function () {
-    gradebook.options.anonymous_moderated_marking_enabled = true
-    gradebook.setSubmissionTrayState(true, '1101', '2301');
-    const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'));
-    strictEqual(props.anonymousModeratedMarkingEnabled, true);
-  });
-
-  test('anonymousModeratedMarkingEnabled is false when options.anonymous_moderated_marking_enabled is false', function () {
-    gradebook.setSubmissionTrayState(true, '1101', '2301');
-    const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'));
-    strictEqual(props.anonymousModeratedMarkingEnabled, false);
-  });
-
   test('gradingDisabled is true when the submission state is locked', function () {
     sinon.stub(gradebook.submissionStateMap, 'getSubmissionState').returns({ locked: true });
     gradebook.setSubmissionTrayState(true, '1101', '2301');
@@ -7169,14 +7150,14 @@ QUnit.module('Gradebook#getSubmissionTrayProps', function(suiteHooks) {
     strictEqual(props.enterGradesAs, 'points');
   });
 
-  test('sets isNotCountedForScore to false when the assignment is not counted toward final grade', () => {
+  test('sets isNotCountedForScore to false when the assignment is counted toward final grade', () => {
     gradebook.assignments[2301].omit_from_final_grade = false
     gradebook.setSubmissionTrayState(true, '1101', '2301')
     const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
     strictEqual(props.isNotCountedForScore, false)
   })
 
-  test('sets isNotCountedForScore to false when the assignment is counted toward final grade', () => {
+  test('sets isNotCountedForScore to true when the assignment is not counted toward final grade', () => {
     gradebook.assignments[2301].omit_from_final_grade = true
     gradebook.setSubmissionTrayState(true, '1101', '2301')
     const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
@@ -7185,18 +7166,33 @@ QUnit.module('Gradebook#getSubmissionTrayProps', function(suiteHooks) {
 
   test('sets isNotCountedForScore to false when the assignment group weight is not zero', () => {
     gradebook.assignmentGroups[9000].group_weight = 100
-
     gradebook.setSubmissionTrayState(true, '1101', '2301')
     const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
     strictEqual(props.isNotCountedForScore, false)
   })
 
-  test('sets isNotCountedForScore to true when the assignmentgroup weight is zero', () => {
+  test('sets isNotCountedForScore to true when the assignment group weight is zero and weighting scheme is percent', () => {
     gradebook.assignmentGroups[9000].group_weight = 0
-
+    gradebook.options.group_weighting_scheme = 'percent'
     gradebook.setSubmissionTrayState(true, '1101', '2301')
     const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
     strictEqual(props.isNotCountedForScore, true)
+  })
+
+  test('sets isNotCountedForScore to false when the assignment group weight is not zero and weighting scheme is percent', () => {
+    gradebook.assignmentGroups[9000].group_weight = 100
+    gradebook.options.group_weighting_scheme = 'percent'
+    gradebook.setSubmissionTrayState(true, '1101', '2301')
+    const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
+    strictEqual(props.isNotCountedForScore, false)
+  })
+
+  test('sets isNotCountedForScore to false when assignment group weight is zero and weighting scheme is not percent', () => {
+    gradebook.assignmentGroups[9000].group_weight = 0
+    gradebook.options.group_weighting_scheme = 'equals'
+    gradebook.setSubmissionTrayState(true, '1101', '2301')
+    const props = gradebook.getSubmissionTrayProps(gradebook.student('1101'))
+    strictEqual(props.isNotCountedForScore, false)
   })
 
   test('sets pendingGradeInfo when a pending grade exists for the current student/assignment', () => {
@@ -7984,6 +7980,91 @@ test('affects submissions that are in not-closed grading periods', function () {
 
 QUnit.module('Gradebook', () => {
   let gradebook
+
+  QUnit.module('#isGradeEditable()', hooks => {
+    hooks.beforeEach(() => {
+      gradebook = createGradebook()
+      gradebook.students = {1101: {id: '1101', isConcluded: false}}
+      sinon.stub(gradebook.submissionStateMap, 'getSubmissionState').returns({hideGrade: false, locked: false})
+    })
+
+    hooks.afterEach(() => {
+      gradebook.submissionStateMap.getSubmissionState.restore()
+    })
+
+    test('returns true when the submission state is not locked', () => {
+      strictEqual(gradebook.isGradeEditable('1101', '2301'), true)
+    })
+
+    test('returns false when the submission state is locked', () => {
+      gradebook.submissionStateMap.getSubmissionState.returns({hideGrade: false, locked: true})
+      strictEqual(gradebook.isGradeEditable('1101', '2301'), false)
+    })
+
+    test('returns false when the submission state is not defined', () => {
+      gradebook.submissionStateMap.getSubmissionState.returns(undefined)
+      strictEqual(gradebook.isGradeEditable('1101', '2301'), false)
+    })
+
+    test('uses the given assignment id when retrieving submission state', () => {
+      gradebook.isGradeEditable('1101', '2301')
+      const submission = gradebook.submissionStateMap.getSubmissionState.lastCall.args[0]
+      strictEqual(submission.assignment_id, '2301')
+    })
+
+    test('uses the given student id when retrieving submission state', () => {
+      gradebook.isGradeEditable('1101', '2301')
+      const submission = gradebook.submissionStateMap.getSubmissionState.lastCall.args[0]
+      strictEqual(submission.user_id, '1101')
+    })
+
+    test('returns false when the student enrollment is concluded', () => {
+      gradebook.students[1101].isConcluded = true
+      strictEqual(gradebook.isGradeEditable('1101', '2301'), false)
+    })
+
+    test('returns false when the student is not loaded', () => {
+      delete gradebook.students[1101]
+      strictEqual(gradebook.isGradeEditable('1101', '2301'), false)
+    })
+  })
+
+  QUnit.module('#isGradeVisible()', hooks => {
+    hooks.beforeEach(() => {
+      gradebook = createGradebook()
+      sinon.stub(gradebook.submissionStateMap, 'getSubmissionState').returns({hideGrade: false, locked: true})
+    })
+
+    hooks.afterEach(() => {
+      gradebook.submissionStateMap.getSubmissionState.restore()
+    })
+
+    test('returns true when the submission state is not hiding the grade', () => {
+      strictEqual(gradebook.isGradeVisible('1101', '2301'), true)
+    })
+
+    test('returns false when the submission state is hiding the grade', () => {
+      gradebook.submissionStateMap.getSubmissionState.returns({hideGrade: true, locked: true})
+      strictEqual(gradebook.isGradeVisible('1101', '2301'), false)
+    })
+
+    test('returns false when the submission state is not defined', () => {
+      gradebook.submissionStateMap.getSubmissionState.returns(undefined)
+      strictEqual(gradebook.isGradeVisible('1101', '2301'), false)
+    })
+
+    test('uses the given assignment id when retrieving submission state', () => {
+      gradebook.isGradeVisible('1101', '2301')
+      const submission = gradebook.submissionStateMap.getSubmissionState.lastCall.args[0]
+      strictEqual(submission.assignment_id, '2301')
+    })
+
+    test('uses the given student id when retrieving submission state', () => {
+      gradebook.isGradeVisible('1101', '2301')
+      const submission = gradebook.submissionStateMap.getSubmissionState.lastCall.args[0]
+      strictEqual(submission.user_id, '1101')
+    })
+  })
 
   QUnit.module('#addPendingGradeInfo()', hooks => {
     let pendingGradeInfo
@@ -8962,6 +9043,115 @@ QUnit.module('#renderGradebookSettingsModal', (hooks) => {
   });
 });
 
+QUnit.module('Gradebook#renderAnonymousSpeedGraderAlert', (hooks) => {
+  let gradebook;
+  const onClose = () => {}
+  const alertProps = {
+    speedGraderUrl: 'http://test.url:3000',
+    onClose
+  };
+
+  function anonymousSpeedGraderAlertProps () {
+    return ReactDOM.render.firstCall.args[0].props;
+  }
+
+  hooks.beforeEach(() => {
+    sinon.stub(ReactDOM, 'render');
+  });
+
+  hooks.afterEach(() => {
+    ReactDOM.render.restore();
+  });
+
+  test('renders the AnonymousSpeedGraderAlert component', function () {
+    gradebook = createGradebook();
+    gradebook.renderAnonymousSpeedGraderAlert(alertProps);
+    const componentName = ReactDOM.render.firstCall.args[0].type.name;
+    strictEqual(componentName, 'AnonymousSpeedGraderAlert');
+  });
+
+  test('passes speedGraderUrl to the modal as a prop', function () {
+    gradebook = createGradebook();
+    gradebook.renderAnonymousSpeedGraderAlert(alertProps);
+    strictEqual(anonymousSpeedGraderAlertProps().speedGraderUrl, 'http://test.url:3000');
+  });
+
+  test('passes onClose to the modal as a prop', function () {
+    gradebook = createGradebook();
+
+    gradebook.renderAnonymousSpeedGraderAlert(alertProps)
+    strictEqual(anonymousSpeedGraderAlertProps().onClose, onClose);
+  });
+});
+
+QUnit.module('Gradebook#showAnonymousSpeedGraderAlertForURL', (hooks) => {
+  let gradebook;
+
+  function anonymousSpeedGraderAlertProps () {
+    return gradebook.renderAnonymousSpeedGraderAlert.firstCall.args[0];
+  }
+
+  hooks.beforeEach(() => {
+    $fixtures.innerHTML = `
+      <div id="application">
+        <div id="wrapper">
+          <div data-component='AnonymousSpeedGraderAlert'></div>
+        </div>
+      </div>
+    `;
+  });
+
+  hooks.afterEach(() => {
+    $fixtures.innerHTML = '';
+  });
+
+  test('renders the alert with the supplied speedGraderURL', function () {
+    gradebook = createGradebook();
+    sinon.stub(AnonymousSpeedGraderAlert.prototype, 'open');
+    sinon.spy(gradebook, 'renderAnonymousSpeedGraderAlert');
+    gradebook.showAnonymousSpeedGraderAlertForURL('http://test.url:3000');
+
+    strictEqual(anonymousSpeedGraderAlertProps().speedGraderUrl, 'http://test.url:3000');
+    gradebook.renderAnonymousSpeedGraderAlert.restore();
+    AnonymousSpeedGraderAlert.prototype.open.restore();
+  });
+});
+
+QUnit.module('Gradebook#hideAnonymousSpeedGraderAlert', (hooks) => {
+  let gradebook;
+
+  hooks.beforeEach(() => {
+    $fixtures.innerHTML = `
+      <div id="application">
+        <div id="wrapper">
+          <div data-component='AnonymousSpeedGraderAlert'></div>
+        </div>
+      </div>
+    `;
+
+    sinon.stub(ReactDOM, 'unmountComponentAtNode');
+  });
+
+  hooks.afterEach(() => {
+    ReactDOM.unmountComponentAtNode.restore();
+
+    $fixtures.innerHTML = '';
+  });
+
+  test('unmounts the component at the alert mount point', function () {
+    const clock = sinon.useFakeTimers();
+    gradebook = createGradebook();
+    gradebook.hideAnonymousSpeedGraderAlert();
+
+    // allow the component to unmount (which is handled via a delayed call)
+    clock.tick(0);
+
+    const mountPoint = ReactDOM.unmountComponentAtNode.firstCall.args[0];
+    strictEqual(mountPoint.dataset.component, 'AnonymousSpeedGraderAlert');
+    clock.restore();
+  });
+});
+
 QUnit.module('#setVisibleGridColumns', (hooks) => {
   let gradebook;
 
@@ -9065,5 +9255,20 @@ QUnit.module('Gradebook#setAssignmentGroupsLoaded', (hooks) => {
   test('sets contentLoadStates.assignmentGroupsLoaded to false when passed false', () => {
     gradebook.setAssignmentGroupsLoaded(false)
     strictEqual(gradebook.contentLoadStates.assignmentGroupsLoaded, false)
+  })
+})
+
+QUnit.module('Gradebook#handleAssignmentMutingChange', (hooks) => {
+  let gradebook
+
+  hooks.beforeEach(() => {
+    gradebook = createGradebook()
+  })
+
+  test('resets grading', () => {
+    sinon.stub(gradebook, 'resetGrading')
+    gradebook.handleAssignmentMutingChange({ id: '2301' })
+    strictEqual(gradebook.resetGrading.callCount, 1)
+    gradebook.resetGrading.restore()
   })
 })

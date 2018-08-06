@@ -18,16 +18,16 @@
 import React, { Component } from 'react';
 import _ from 'lodash';
 import themeable from '@instructure/ui-themeable/lib';
-import Container from '@instructure/ui-core/lib/components/Container';
-import FormFieldGroup from '@instructure/ui-core/lib/components/FormFieldGroup';
-import ScreenReaderContent from '@instructure/ui-core/lib/components/ScreenReaderContent';
-import Button from '@instructure/ui-core/lib/components/Button';
+import View from '@instructure/ui-layout/lib/components/View';
+import FormFieldGroup from '@instructure/ui-forms/lib/components/FormFieldGroup';
+import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent';
+import Button from '@instructure/ui-buttons/lib/components/Button';
 import formatMessage from '../../format-message';
 import PropTypes from 'prop-types';
-import TextInput from '@instructure/ui-core/lib/components/TextInput';
-import Select from '@instructure/ui-core/lib/components/Select';
-import TextArea from '@instructure/ui-core/lib/components/TextArea';
-import DateInput from '@instructure/ui-core/lib/components/DateInput';
+import TextInput from '@instructure/ui-forms/lib/components/TextInput';
+import Select from '@instructure/ui-forms/lib/components/Select';
+import TextArea from '@instructure/ui-forms/lib/components/TextArea';
+import DateTimeInput from '@instructure/ui-forms/lib/components/DateTimeInput';
 import moment from 'moment-timezone';
 
 import { courseShape } from '../plannerPropTypes';
@@ -47,9 +47,6 @@ export class UpdateItemTray extends Component {
   constructor (props) {
     super(props);
     const updates = this.getNoteUpdates(props);
-    if (!updates.date) {
-      updates.date = props.noteItem && props.noteItem.date ? props.noteItem.date : moment.tz(props.timeZone).toISOString();
-    }
     this.state = {
       updates,
       titleMessages: [],
@@ -58,10 +55,14 @@ export class UpdateItemTray extends Component {
   }
 
   componentWillReceiveProps (nextProps) {
-    if (nextProps.noteItem) {
+    if (!_.isEqual(this.props.noteItem, nextProps.noteItem)) {
       const updates = this.getNoteUpdates(nextProps);
       this.setState({updates}, this.updateMessages);
     }
+  }
+
+  editingExistingNote () {
+    return this.props.noteItem && this.props.noteItem.uniqueId
   }
 
   getNoteUpdates (props) {
@@ -69,6 +70,9 @@ export class UpdateItemTray extends Component {
     if (updates.context) {
       updates.courseId = updates.context.id;
       delete updates.context;
+    }
+    if (!updates.date) {
+       updates.date = moment.tz(props.timeZone).endOf('day');
     }
     return updates;
   }
@@ -88,6 +92,7 @@ export class UpdateItemTray extends Component {
     } else {
       updates.context = { id: null };
     }
+    updates.date = updates.date.toISOString();
     delete updates.courseId;
     this.props.onSavePlannerItem(updates);
   }
@@ -101,8 +106,9 @@ export class UpdateItemTray extends Component {
     }, this.updateMessages);
   }
 
-  handleCourseIdChange = (e) => {
-    let value = e.target.value;
+  handleCourseIdChange = (e, option) => {
+    if (!option) return
+    let value = option.value;
     if (value === 'none') value = undefined;
     this.handleChange('courseId', value);
   }
@@ -119,10 +125,23 @@ export class UpdateItemTray extends Component {
     this.handleChange('title', value);
   }
 
-  handleDateChange = (e, date) => {
-    const value = date ? moment(date).toISOString() : '';  // works if date is a moment obj (instui 3) or iso string (instui 4)
-      this.handleChange('date', value);
+  handleDateChange = (e, isoDate) => {
+    const value = isoDate || '';
+      this.handleChange('date', moment.tz(value, this.props.timeZone));
   }
+
+  invalidDateTimeMessage (rawDateValue, rawTimeValue) {
+    let errmsg;
+    if (rawDateValue) {
+      errmsg = formatMessage("#{date} is not a valid date.", {date: rawDateValue});
+    } else {
+      errmsg = formatMessage('You must provide a date and time.');
+    }
+    return errmsg;
+  }
+  // separating the function from the bound callback is necessary so I can spy
+  // on invalidDateTimeMessage in unit tests.
+  onInvalidDateTimeMessage = this.invalidDateTimeMessage.bind(this);
 
   handleDeleteClick = () => {
     // eslint-disable-next-line no-restricted-globals
@@ -136,14 +155,15 @@ export class UpdateItemTray extends Component {
   }
 
   isValid () {
-    if (this.state.updates.title && this.state.updates.date) {
+    if (this.state.updates.title &&
+        this.state.updates.date && this.state.updates.date.isValid()) {
       return this.state.updates.title.replace(/\s/g, '').length > 0;
     }
     return false;
   }
 
   renderDeleteButton () {
-    if (this.props.noteItem == null) return;
+    if (!this.editingExistingNote()) return;
     return <Button
       variant="light"
       margin="0 x-small 0 0"
@@ -157,7 +177,8 @@ export class UpdateItemTray extends Component {
       variant="primary"
       margin="0 0 0 x-small"
       disabled={!this.isValid()}
-      onClick={this.handleSave}>
+      onClick={this.handleSave}
+    >
         {formatMessage("Save")}
     </Button>;
   }
@@ -175,40 +196,53 @@ export class UpdateItemTray extends Component {
   }
 
   renderDateInput () {
+    const datevalue = this.state.updates.date && this.state.updates.date.isValid() ? this.state.updates.date.toISOString() : undefined;
     return (
-      <DateInput
+      <DateTimeInput
         required={true}
+        description={<ScreenReaderContent>{formatMessage("The date and time this to do is due")}</ScreenReaderContent>}
         messages={this.state.dateMessages}
-        label={formatMessage("Date")}
-        nextLabel={formatMessage("Next Month")}
-        previousLabel={formatMessage("Previous Month")}
+        dateLabel={formatMessage("Date")}
+        dateNextLabel={formatMessage("Next Month")}
+        datePreviousLabel={formatMessage("Previous Month")}
+        timeLabel={formatMessage("Time")}
+        timeStep={30}
         locale={this.props.locale}
         timezone={this.props.timeZone}
-        placement="start"
-        dateValue={this.state.updates.date}
-        onDateChange={this.handleDateChange}
+        value={datevalue}
+        layout="stacked"
+        onChange={this.handleDateChange}
+        invalidDateTimeMessage={this.onInvalidDateTimeMessage}
       />
     );
   }
 
-  renderCourseSelectOptions () {
-    if (!this.props.courses) return [];
-    return this.props.courses.map(course => {
-      return <option key={course.id} value={course.id}>{course.longName}</option>;
-    });
-  }
+
 
   renderCourseSelect () {
-    let courseId = this.findCurrentValue('courseId');
-    if (courseId == null) courseId = 'none';
+    const noneOption = {
+      value: "none",
+      label: formatMessage("Optional: Add Course")
+    }
+    const courseOptions = (this.props.courses || []).map(course => ({
+      value: course.id,
+      label: course.longName
+    }))
+
+    const courseId = this.findCurrentValue('courseId');
+    const selectedOption = courseId
+      ? courseOptions.find(o => o.value === courseId)
+      : noneOption
+
     return (
       <Select
         label={formatMessage("Course")}
-        value={courseId}
+        selectedOption={selectedOption}
         onChange={this.handleCourseIdChange}
       >
-        <option value="none">{formatMessage("Optional: Add Course")}</option>
-        {this.renderCourseSelectOptions()}
+        {[noneOption, ...courseOptions].map(props => (
+          <option key={props.value} value={props.value}>{props.label}</option>
+        ))}
       </Select>
     );
   }
@@ -227,7 +261,7 @@ export class UpdateItemTray extends Component {
   }
 
   renderTrayHeader () {
-    if (this.props.noteItem) {
+    if (this.editingExistingNote()) {
       return (
         <h2>{formatMessage('Edit {title}', { title: this.props.noteItem.title })}</h2>
       );
@@ -241,7 +275,7 @@ export class UpdateItemTray extends Component {
   render () {
     return (
       <div className={styles.root}>
-        <Container
+        <View
           as="div"
           padding="large medium medium"
         >
@@ -258,11 +292,11 @@ export class UpdateItemTray extends Component {
             {this.renderCourseSelect()}
             {this.renderDetailsInput()}
           </FormFieldGroup>
-          <Container as="div" margin="small 0 0" textAlign="end">
+          <View as="div" margin="small 0 0" textAlign="end">
             {this.renderDeleteButton()}
             {this.renderSaveButton()}
-          </Container>
-        </Container>
+          </View>
+        </View>
       </div>
     );
   }

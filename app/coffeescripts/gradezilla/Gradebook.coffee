@@ -65,6 +65,7 @@ define [
   'jsx/gradezilla/default_gradebook/components/StatusesModal'
   'jsx/gradezilla/default_gradebook/components/SubmissionTray'
   'jsx/gradezilla/default_gradebook/components/GradebookSettingsModal'
+  'jsx/gradezilla/default_gradebook/components/AnonymousSpeedGraderAlert'
   'jsx/gradezilla/default_gradebook/constants/colors'
   'jsx/gradezilla/default_gradebook/stores/StudentDatastore'
   'jsx/gradezilla/SISGradePassback/PostGradesStore'
@@ -79,8 +80,8 @@ define [
   'jsx/grading/helpers/GradeInputHelper'
   'jsx/grading/helpers/OutlierScoreHelper'
   'jsx/grading/LatePolicyApplicator'
-  '@instructure/ui-core/lib/components/Button'
-  'instructure-icons/lib/Solid/IconSettingsSolid'
+  '@instructure/ui-buttons/lib/components/Button'
+  '@instructure/ui-icons/lib/Solid/IconSettings'
   'jsx/shared/FlashAlert'
   'jquery.ajaxJSON'
   'jquery.instructure_date_and_time'
@@ -102,7 +103,7 @@ define [
   EnterGradesAsSetting, SetDefaultGradeDialogManager, CurveGradesDialogManager, GradebookApi, SubmissionCommentApi,
   GradebookGrid, studentRowHeaderConstants, AssignmentRowCellPropFactory, GradebookMenu, ViewOptionsMenu, ActionMenu,
   AssignmentGroupFilter, GradingPeriodFilter, ModuleFilter, SectionFilter, GridColor, StatusesModal, SubmissionTray,
-  GradebookSettingsModal, { statusColors }, StudentDatastore, PostGradesStore, PostGradesApp, SubmissionStateMap,
+  GradebookSettingsModal, AnonymousSpeedGraderAlert, { statusColors }, StudentDatastore, PostGradesStore, PostGradesApp, SubmissionStateMap,
   DownloadSubmissionsDialogManager, ReuploadSubmissionsDialogManager, GradebookKeyboardNav,
   AssignmentMuterDialogManager, assignmentHelper, TextMeasure, GradeInputHelper, { default: OutlierScoreHelper },
   LatePolicyApplicator, { default: Button }, { default: IconSettingsSolid }, FlashAlert) ->
@@ -227,6 +228,9 @@ define [
       pendingGradeInfo: []
     }
 
+  anonymousSpeedGraderAlertMountPoint = () ->
+    document.querySelector("[data-component='AnonymousSpeedGraderAlert']")
+
   class Gradebook
     columnWidths =
       assignment:
@@ -255,7 +259,6 @@ define [
       @gradebookGrid = new GradebookGrid({
         $container: document.getElementById('gradebook_grid')
         activeBorderColor: '#1790DF' # $active-border-color
-        change_grade_url: @options.change_grade_url
         data: @gridData
         editable: @options.gradebook_is_editable
         gradebook: @
@@ -891,7 +894,7 @@ define [
     handleAssignmentMutingChange: (assignment) =>
       @gradebookGrid.gridSupport.columns.updateColumnHeaders([@getAssignmentColumnId(assignment.id)])
       @updateFilteredContentInfo()
-      @buildRows()
+      @resetGrading()
 
     handleSubmissionsDownloading: (assignmentId) =>
       @getAssignment(assignmentId).hasDownloadedSubmissions = true
@@ -1057,7 +1060,9 @@ define [
       @gradebookGrid.gridSupport.state.blur()
 
     sectionList: () ->
-      _.values(@sections).sort((a, b) => (a.id - b.id))
+      _.values(@sections)
+        .sort((a, b) => (a.id - b.id))
+        .map((section) => Object.assign({}, section, {name: htmlEscape.unescape(section.name)}))
 
     updateSectionFilterVisibility: () ->
       mountPoint = document.getElementById('sections-filter-container')
@@ -1712,13 +1717,9 @@ define [
       if obj.column.type == 'custom_column' && @getCustomColumn(obj.column.customColumnId)?.read_only
         return false
       return true if obj.column.type != 'assignment'
-      return false unless student = @student(obj.item.id)
-      return false if student.isConcluded
-      submissionState = @submissionStateMap.getSubmissionState({
-        user_id: obj.item.id,
-        assignment_id: obj.column.assignmentId
-      })
-      not submissionState?.locked
+
+      # Allow editing when the student has been loaded.
+      !!@student(obj.item.id)
 
     # The current cell editor has been changed and is valid
     onCellChange: (event, obj) =>
@@ -1955,7 +1956,7 @@ define [
       not @isFilteringColumnsByGradingPeriod()
 
     fieldsToExcludeFromAssignments: ['description', 'needs_grading_count', 'in_closed_grading_period']
-    fieldsToIncludeWithAssignments: ['module_ids', 'assignment_group_id']
+    fieldsToIncludeWithAssignments: ['grades_published', 'module_ids', 'assignment_group_id']
 
     studentsParams: ->
       enrollmentStates = ['invited', 'active']
@@ -2159,7 +2160,6 @@ define [
       submissionState = @submissionStateMap.getSubmissionState({ user_id: studentId, assignment_id: assignmentId })
       isGroupWeightZero = @assignmentGroups[assignment.assignment_group_id].group_weight == 0
 
-      anonymousModeratedMarkingEnabled: @options.anonymous_moderated_marking_enabled
       assignment: ConvertCase.camelize(assignment)
       colors: @getGridColors()
       comments: comments
@@ -2175,11 +2175,13 @@ define [
       isLastAssignment: isLastAssignment
       isFirstStudent: isFirstStudent
       isLastStudent: isLastStudent
-      isNotCountedForScore: assignment.omit_from_final_grade or isGroupWeightZero
+      isNotCountedForScore: assignment.omit_from_final_grade or
+                            (@options.group_weighting_scheme == 'percent' and isGroupWeightZero)
       isOpen: open
       key: "grade_details_tray"
       latePolicy: @courseContent.latePolicy
       locale: @options.locale
+      onAnonymousSpeedGraderClick: @showAnonymousSpeedGraderAlertForURL
       onClose: => @gradebookGrid.gridSupport.helper.focus()
       onGradeSubmission: @gradeSubmission
       onRequestClose: @closeSubmissionTray
@@ -2351,6 +2353,16 @@ define [
 
     setSubmissionsLoaded: (loaded) =>
       @contentLoadStates.submissionsLoaded = loaded
+
+    isGradeEditable: (studentId, assignmentId) =>
+      student = @student(studentId)
+      return false if !student || student.isConcluded
+      submissionState = @submissionStateMap.getSubmissionState(assignment_id: assignmentId, user_id: studentId)
+      submissionState? && !submissionState.locked
+
+    isGradeVisible: (studentId, assignmentId) =>
+      submissionState = @submissionStateMap.getSubmissionState(assignment_id: assignmentId, user_id: studentId)
+      submissionState? && !submissionState.hideGrade
 
     addPendingGradeInfo: (submission, gradeInfo) =>
       { userId, assignmentId } = submission
@@ -2792,6 +2804,18 @@ define [
         valid: true
 
       @apiUpdateSubmission(submissionData, gradeInfo)
+
+    renderAnonymousSpeedGraderAlert: (props) =>
+      renderComponent(AnonymousSpeedGraderAlert, anonymousSpeedGraderAlertMountPoint(), props)
+
+    showAnonymousSpeedGraderAlertForURL: (speedGraderUrl) =>
+      props = { speedGraderUrl, onClose: @hideAnonymousSpeedGraderAlert }
+      @anonymousSpeedGraderAlert = @renderAnonymousSpeedGraderAlert(props)
+      @anonymousSpeedGraderAlert.open()
+
+    hideAnonymousSpeedGraderAlert: =>
+      # React throws an error if we try to unmount while the event is being handled
+      @delayedCall 0, => ReactDOM.unmountComponentAtNode(anonymousSpeedGraderAlertMountPoint())
 
     destroy: =>
       $(window).unbind('resize.fillWindowWithMe')
