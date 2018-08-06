@@ -6335,17 +6335,17 @@ zh-Hans:
       date_at_time: "%b%-d日 %H:%M"
       default: "%Y年%b%-d日"
       full: "%Y年%b%-d日 %-k:%M"
-      full_with_weekday: "%Y年%b%-d日 %A %-k:%M"
+      full_with_weekday: "%Y年%b%-d日 %a %-k:%M"
       long: "%Y年%b%-d日"
-      long_with_weekday: "%Y年%b%-d日 %A"
+      long_with_weekday: "%Y年%b%-d日 %a"
       medium: "%Y年%b%-d日"
       medium_month: "%Y年%b"
-      medium_with_weekday: "%Y年%b%-d日 %A"
+      medium_with_weekday: "%Y年%b%-d日 %a"
       short: "%b%d日"
       short_month: "%b"
-      short_weekday: "%A"
-      short_with_weekday: "%b%d日 %A"
-      weekday: "%A"
+      short_weekday: "%a"
+      short_with_weekday: "%b%d日 %a"
+      weekday: "%a"
     month_names: 
       - ~
       - 一月
@@ -8288,7 +8288,7 @@ zh-Hans:
   full_name_83cf5453: 全名
   full_name_is_required_8efbdc84: 全名是必需的
   future_5416ea92: 未来
-  future_terms_7fba2ae6: 将来的学期
+  future_terms_7fba2ae6: 将来学期
   general_locked_objects_6a9adafb: 常规锁定项目
   generate_activity_for_user_2b0af749: "生成活动%{user}"
   generate_epub_80e89ea4: "生成 ePub"
@@ -13879,7 +13879,7 @@ zh-Hans:
   password_8a271b1c: 密码
   past_14da759a: 过去
   past_collaborations_1241938f: 过去的协作
-  past_terms_4b6ec40e: 粘贴学期
+  past_terms_4b6ec40e: 过往学期
   paste_xml_cda3a64e: "粘贴 XML"
   path_4f9abf12: 路径
   paypal: 
@@ -18128,7 +18128,7 @@ zh-Hans:
   sis_export_title: "SIS 导出"
   sis_friendly_name_52b5683d: "SIS 友好名称"
   sis_grade_export_settings_45a9f709: "SIS 评分导出设置"
-  sis_id_4495a887: 工号或学号
+  sis_id_4495a887: 编号
   sis_id_70eda157: 学号：
   sis_id_8c2029e1: "sis id"
   sis_import: 
