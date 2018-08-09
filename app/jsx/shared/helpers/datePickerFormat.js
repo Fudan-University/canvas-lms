@@ -25,10 +25,16 @@ import tz from 'timezone'
 
 export default function datePickerFormat (format) {
   return tz.adjustFormat(format)
-    .replace(/%Y/, 'yy') // Year (eg. 2017)
-    .replace(/%b/, 'M') // Month (eg. May)
-    .replace(/%-?d/, 'd') // Day of Month (eg. 3)
-    .replace(/%a/, 'D') // Day of week (eg. Wed)
+    .replace(/%y/, 'y') // Year (two digit, eg. 17)
+    .replace(/%Y/, 'yy') // Year (four digit, eg. 2017)
+    .replace(/%b/, 'M') // Month name (short, eg. May)
+    .replace(/%B/, 'MM') // Month name (long, eg. January)
+    .replace(/%-m/, 'm') // Month of year (no leading zero)
+    .replace(/%m/, 'mm') // Month of year (two digit)
+    .replace(/%-d/, 'd') // Day of month (no leading zero)
+    .replace(/%d/, 'dd') // Day of Month (two digit)
+    .replace(/%a/, 'D') // Day of week (short, eg. Wed)
+    .replace(/%A/, 'DD') // Day of week (long, eg. Wednesday)
     .replace(/%-?[lk]|:|%M|%P/g, '') // Remove time info*
     .trim()
   // *Time info removed because it's already added by the datetime picker

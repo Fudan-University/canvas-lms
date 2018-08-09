@@ -1284,11 +1284,11 @@ zh-Hans:
       import_failed_message: "导入您的 SIS 数据时出错。"
       import_failed_with_messages_message: 导入失败，显示消息：
       import_log_title: 导入进度日志
-      import_started_message: 导入过程已开始！如果要导入的内容很多，可能需要一段时间。您可以离开该页面，稍后再回来。
+      import_started_message: 导入过程已开始！如果要导入的内容很多，可能需要一段时间。您可以离开此页面，稍后再回来。
       import_type_label: 导入类型
       imported_message: "所有 SIS 数据都已成功导入。"
       imported_with_messages_message: "SIS 数据已导入，但显示下列消息:"
-      last_batch_title: 最后批次
+      last_batch_title: 最近批次
       override_sis_stickiness_instructions: |-
           默认情况下，UI 更改优先于 SIS 导入更改；对于许多字段，如果管理员通过 UI 更改了字段，SIS 导入不会改变该字段的数据。如果选择此选项，此 SIS 导入将覆盖 UI 更改。
           有关详细信息，请参阅相关文档。
@@ -6332,19 +6332,19 @@ zh-Hans:
       tomorrow: 明天
       yesterday: 昨天
     formats: 
-      date_at_time: "%b%-d日 %H:%M"
-      default: "%Y年%b%-d日"
-      full: "%Y年%b%-d日 %-k:%M"
-      full_with_weekday: "%Y年%b%-d日 %a %-k:%M"
-      long: "%Y年%b%-d日"
-      long_with_weekday: "%Y年%b%-d日 %a"
-      medium: "%Y年%b%-d日"
-      medium_month: "%Y年%b"
-      medium_with_weekday: "%Y年%b%-d日 %a"
-      short: "%b%d日"
-      short_month: "%b"
+      date_at_time: "%-m月%d日 %H:%M"
+      default: "%Y年%-m月%-d日"
+      full: "%Y年%-m月%-d日 %-k:%M"
+      full_with_weekday: "%Y年%-m月%-d日 %a %-k:%M"
+      long: "%Y年%-m月%-d日"
+      long_with_weekday: "%Y年%-m月%-d日 %a"
+      medium: "%Y年%-m月%-d日"
+      medium_month: "%Y年%-m月"
+      medium_with_weekday: "%Y年%-m月%-d日 %A"
+      short: "%-m月%d日"
+      short_month: "%-m月"
       short_weekday: "%a"
-      short_with_weekday: "%b%d日 %a"
+      short_with_weekday: "%-m月%d日 %A"
       weekday: "%a"
     month_names: 
       - ~
