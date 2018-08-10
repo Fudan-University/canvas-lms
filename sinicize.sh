@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -e
+
+GITHUB_PREFIX="https://github.com/"
+GITHUB_MIRROR_PREFIX="https://source.fudan.edu.cn/gitlab/canvas/mirrors/"
+YARNPKG_PREFIX="https://registry.yarnpkg.com/"
+YARNPKG_MIRROR_PREFIX="https://npmreg.proxy.ustclug.org/"
+
+# 切换到当前目录
+cd $(dirname $(readlink -f $0))
+
+echo "处理 package.json:"
+echo "  GitHub镜像: ${GITHUB_PREFIX} -> ${GITHUB_MIRROR_PREFIX}"
+sed -i "s,${GITHUB_PREFIX},${GITHUB_MIRROR_PREFIX},g" package.json
+
+echo "处理所有 yarn.lock:"
+echo "  GitHub镜像: ${GITHUB_PREFIX} -> ${GITHUB_MIRROR_PREFIX}"
+echo "  yarnpkg镜像: ${YARNPKG_PREFIX} -> ${YARNPKG_MIRROR_PREFIX}"
+find . -name yarn.lock -exec sed -i "s,${GITHUB_PREFIX},${GITHUB_MIRROR_PREFIX},g;s,${YARNPKG_PREFIX},${YARNPKG_MIRROR_PREFIX},g" {} +
