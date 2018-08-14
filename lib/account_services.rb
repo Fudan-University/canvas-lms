@@ -26,6 +26,7 @@ module AccountServices
         :google_drive => {
             :name => I18n.t("Google Drive"),
             :description => "",
+            :default_proc => proc { !!GoogleDrive::Connection.config },
             :expose_to_ui => :service,
             :expose_to_ui_proc => proc { !!GoogleDrive::Connection.config }
         },
@@ -42,12 +43,14 @@ module AccountServices
         :linked_in => {
             :name => I18n.t("LinkedIn"),
             :description => "",
+            :default_proc => proc { !!LinkedIn::Connection.config },
             :expose_to_ui => :service,
             :expose_to_ui_proc => proc { !!LinkedIn::Connection.config }
         },
         :twitter => {
             :name => I18n.t("Twitter"),
             :description => "",
+            :default_proc => proc { !!Twitter::Connection.config },
             :expose_to_ui => :service,
             :expose_to_ui_proc => proc { !!Twitter::Connection.config }
         },
@@ -59,6 +62,7 @@ module AccountServices
         :diigo => {
             :name => I18n.t("Diigo"),
             :description => "",
+            :default_proc => proc { !!Diigo::Connection.config },
             :expose_to_ui => :service,
             :expose_to_ui_proc => proc { !!Diigo::Connection.config }
         },
@@ -90,7 +94,7 @@ module AccountServices
 
   def self.default_allowable_services
     res = self.allowable_services.dup
-    res.reject! {|_, info| info[:default] == false }
+    res.reject! {|_, info| info[:default] == false || info[:default_proc] && !info[:default_proc].call }
     res
   end
 end
