@@ -245,8 +245,8 @@ zh-Hans:
       logout_request_to_idp: "已向 IdP 发送 LogoutRequest"
       logout_response_from_idp: "来自 IdP 的 LogoutResponse"
     sso_settings_form: 
-      change_password_url_help: "为默认的 Canvas行为而留空"
-      discovery_url_description: "如果设置了一个探索URL，当他们需要认证时，Canvas 会将所有用户转移到那个URL。 此页面将需要帮助用户找出他们要去哪里登录。 如果没有配置探索URL，Canvas 将使用第一个配置尝试认证用户。"
+      change_password_url_help: "为空时，为默认Canvas URL"
+      discovery_url_description: "如果设置了探索URL，则 Canvas 会将所有需要进行身份验证的用户转至该URL。该页面需帮助用户确定需要登录的网站。如果没有配置探索URL，Canvas将使用第一个配置尝试对用户进行身份验证。"
       login_handle_name_description: "标签用作唯一登录的标识符。示例： 登录名、用户名、学生 ID 等"
       unknown_user_url_description: 当一个已认证的用户无法在Canvas找到时，URL要重新定向。
   account_course_and_user_search_22bf297a: 课程帐户和用户搜索
@@ -437,7 +437,7 @@ zh-Hans:
       add_course_link: 新课程
       add_user_button: 添加用户
       add_user_link: 新用户
-      display_name_help: 人们会在讨论、消息和评论中看到此姓名。
+      display_name_help: 在讨论、消息和评论中显示此姓名。
       full_name_description: 教师将使用此姓名来评分。
       labels: 
         account_id: 子帐户
@@ -3003,7 +3003,7 @@ zh-Hans:
         syllabus: |-
             教学大纲页面显示了课程表的导向表格视图，以及课程评分的基础。
             您可以添加其它评论、注释或有关课程结构的想法，
-            课程条款或其它等。
+            课程条款或其他内容。
             
             要添加一些评论，点击顶部的“编辑”链接。
       labels: 
@@ -3237,8 +3237,8 @@ zh-Hans:
       logout_request_to_idp: LogoutRequest已发送到IdP
       logout_response_from_idp: LogoutResponse发送人IdP
     sso_settings_form: 
-      change_password_url_help: "为默认的 Canvas行为而留空"
-      discovery_url_description: "如果设置了发现 URL，则 Canvas 会将所有需要进行身份验证的用户转至该 URL。该页面需帮助用户确定需要登录的网站。如果没有配置发现 URL，将使用第一个配置尝试对用户进行身份验证。"
+      change_password_url_help: "为空时，为默认Canvas URL"
+      discovery_url_description: "如果设置了探索URL，则 Canvas 会将所有需要进行身份验证的用户转至该URL。该页面需帮助用户确定需要登录的网站。如果没有配置探索URL，Canvas将使用第一个配置尝试对用户进行身份验证。"
       login_handle_name_description: "唯一登录标识符使用的标签。示例：登录、用户名、学生 ID 等。"
       unknown_user_url_description: 当一个已认证的用户无法在Canvas找到时，URL要重新定向。
   authentication_providers_9e8e0e84: 身份验证提供程序
@@ -7956,7 +7956,7 @@ zh-Hans:
         already_used: 该提交文件已包含在您的学习档案中
         feed: "学习档案 Atom 馈送"
         view_submission: 查看提交文件
-      welcome: 如果这是您首次来到这里，您可能希望弹出向导并查看如何快速入门。否则，您可以快速添加最近的提交文件或直接跳转至学习档案。
+      welcome: 如果您是首次来到这里，您可以点击“入门向导”查看如何快速入门。如果不是首次来到这里，您可以快速添加最近的提交文件或直接跳转至学习档案。
       write_only_comments: 此页的评论为私人可见。您可以发表评论，但只有学习档案的所有者能够看到它们。
     show_me: 给我看看
     static_page: 
@@ -9349,7 +9349,7 @@ zh-Hans:
   grades_posting_bc7cfc1a: 正在发布评分
   grades_select_final_grade_for_moderation_c66284f4: "评分 - 选择最终评分以进行审核"
   grades_view_all_grades_8bf9f8d3: "评分 - 查看所有评分"
-  grades_view_audit_trail_db7364b1: "评分 - 查看审核痕迹"
+  grades_view_audit_trail_db7364b1: "评分 - 查看审核记录"
   grades_view_change_logs_6bc1b959: "评分 - 查看更改日志"
   grades_visible_to_students_1584fa83: 学生可以看到的评分
   grades_were_successfully_published_to_the_gradeboo_79203993: 评分已成功发布到成绩单。
@@ -14173,7 +14173,7 @@ zh-Hans:
         outcome: 结果
   outcomes_and_rubrics_account_course_68d0bf1d: 结果和评估表格（帐户/课程）
   outcomes_and_rubrics_f893d141: 结果和评估表格
-  outcomes_are_created_here_to_track_mastery_in_a_co_2f487549: "在此处创建结果以跟踪课程掌握程度。要开始使用，请查看顶部的菜单栏。单击New Outcome(新结果)按钮可创建新结果，或单击New Group(新组)按钮可创建新组，以整理您的结果。使用Find(查找)按钮可使用您所在的州或机构创建的结果。在您创建和使用结果时，您可以使用左侧面板在结果中导航。您可以将结果拖放到不同级别，以创建结构。"
+  outcomes_are_created_here_to_track_mastery_in_a_co_2f487549: "在此处创建结果以跟踪课程掌握程度。要开始使用，请查看顶部的菜单栏。单击“+结果”按钮可创建新结果，或单击“+小组”按钮可创建新组，以整理您的结果。使用“查找”按钮可使用您所在的机构创建的结果。在您创建和使用结果时，您可以使用左侧面板在结果中导航。您可以将结果拖放到不同级别，以创建结构。"
   outcomes_csv_format_9005acfb: 结果CSV格式
   outcomes_d1b18d33: 结果
   outcomes_import_completed_baff5cb0: 结果导入完成
@@ -15207,7 +15207,7 @@ zh-Hans:
         remove_email_address_aria_label: 删除电子邮件地址
       validations: 
         should_be_10_digits: "应为 10 位数字"
-    ways_to_contact_me: 联系、联络
+    ways_to_contact_me: 联系方式
     yo_select: 
       yo: Yo
     you_have_no_services: 没有已注册的服务，您可在*设置*页面上添加一些。
@@ -18127,7 +18127,7 @@ zh-Hans:
         main: 主导航
     profile: 
       add_link_field: 添加其它链接
-      bio: 传记
+      bio: 个人简介
       cancel: 取消
       know_this_person_as: 您知道此人作为...
       links: 链接
@@ -19385,12 +19385,12 @@ zh-Hans:
   the_url_a_sufficiently_priviledged_user_could_use__e6b02c56: 一个有足够优越用户的网站可以用来伪装成同一个页面上的用户报告，以尝试重现该问题。
   the_url_of_the_page_the_user_was_on_when_they_repo_11dfa92f: 当用户报告错误时使用的网站
   the_user_must_also_be_enrolled_as_an_instructor_in_e7e22eea: 用户还必须在他们试图交叉列出的课程中注册为讲师。
-  theme_52404e51: 主题、话题
+  theme_52404e51: 主题
   theme_editor_b7b00f6b: 主题编辑器
   theme_editor_changes_have_been_cancelled_2af5cc5f: 主题编辑器的更改已被取消。
   theme_editor_refactor_f8d8bdfa: 主题编辑器重构
   theme_name_68f46e09: 主题名称
-  themes_89bfe9c4: 主题、话题
+  themes_89bfe9c4: 主题
   there_are_count_associations_906edb03: 
     one: "存在 %{count} 个关联"
     other: "存在 %{count} 个关联"
@@ -21169,7 +21169,7 @@ zh-Hans:
   you_can_fac644aa: 您可以
   you_can_hide_or_show_a_course_s_assignments_by_tog_ec8bdb8e: 您可以隐藏或显示课程的作业，方法是将其切换为打开或关闭。
   you_can_leave_the_page_and_you_will_get_a_notifica_fefe11e8: 您可以离开此页面，同步过程完成后将通知您。
-  you_can_log_in_directly_with_this_provider_by_goin_467d7f66: "通过 %{url}，您可以直接地使用此提供者登录。"
+  you_can_log_in_directly_with_this_provider_by_goin_467d7f66: "通过 %{url}，您可以直接使用此提供者登录。"
   you_can_now_set_regrade_options_for_students_who_h_c1ceb1c4: 您现在可以为已经参加测验的学生设置重新评分选项。
   you_can_publish_your_course_from_the_home_page_whe_a36d49d6: 您准备好将课程分享给学生后，可以随时从首页发布您的课程。发布课程以前，仅讲师可以访问该课程。
   you_can_reply_to_this_comment_by_responding_to_thi_3d130e8c: "您可以通过响应此消息回复此评论，或查看使用此链接所提交的详细信息：%{link}。"
@@ -21273,40 +21273,40 @@ zh-Hans:
   you_will_need_to_create_a_new_app_on_facebook_face_8fe85297: |-
       您将需要创建[新的Facebook应用程序](%{facebook_url})，以及在高级设置启用客户OAuth 登录
       作为有效的OAuth，您应重新定向URI配置 %{callback_url}。
-      在保存您的应用程序后，您记下应用程序的ID和应用程序的密钥，并在此输入它们。
+      在保存您的应用程序后，您记下应用程序的ID和密钥，并在此输入。
   you_will_need_to_create_a_web_application_in_the_g_43f753ec: |-
       您将要在[谷歌开发者控制台]创建网络应用程序 [Google Developer Console](%{google_url})。
       您应该添加 %{callback_url} 作为重新定向URI。
-      当您创建应用程序后，记下客户ID和客户密钥，并在此输入它们。
+      当您创建应用程序后，记下客户ID和密钥，并在此输入。
   you_will_need_to_register_a_new_app_with_microsoft_53e97ced: |-
       您将需要注册一个[带微软的新应用程序](%{ms_app_url})。
       您应该为重新导向的URI配置 %{callback_url}。
-      在保存您的应用程序后，记下申请 ID 与秘密，并在此输入。
+      在保存您的应用程序后，记下申请ID与密钥，并在此输入。
   you_will_need_to_register_an_application_on_clever_ecdb9faf: |-
       您将需要[在Clever注册一个应用程序](%{clever_url})。
       您应该作为重新导向的URI配置 %{callback_url}。
-      在创建您的应用程序后，记下客户ID和客户秘密，并在这里输入。
+      在创建您的应用程序后，记下客户ID和密钥，并在此输入。
   you_will_need_to_register_an_application_on_clever_f412c7b8: |-
       您将需要[在Clever注册一个应用程序](%{clever_url})。
       您应该为重新导向的URI配置 %{callback_url}。
-      在您创建应用程序后，记下客户 ID 和客户秘密，并在此输入。
+      在您创建应用程序后，记下客户ID和密钥，并在此输入。
   you_will_need_to_register_an_application_on_github_3c8f213a: |-
       您将要[在 GitHub 注册一个应用程序](%{github_url})。
       您应该作为认证回调URL配置 %{callback_url}。
-      当您创建应用程序后，记下客户ID和客户密钥，并在此输入它们。
+      当您创建应用程序后，记下客户ID和密钥，并在此输入。
   you_will_need_to_register_an_application_on_linked_26ecb18d: |-
       您必须要[在 LinkedIn 中登记一个应用程序](%{linkedin_url})。
       作为一个OAuth 2.0 授权重新定向URL，您应添加 %{callback_url}， 并设置适用状态到现场
-      当您创建应用程序后，记下客户ID和客户密钥，并在此输入它们。
+      当您创建应用程序后，记下客户ID和密钥，并在此输入。
   you_will_need_to_register_an_application_on_twitte_5ff04bee: |-
       您将要[在Twitter注册一个应用程序](%{twitter_url})。
       您应该作为回调URL配置 %{callback_url}。
-      当您创建应用程序后，记下消费者密钥和消费者秘密，并在此输入它们。
+      当您创建应用程序后，记下消费者关键值和密钥，并在此输入。
   you_will_need_to_register_an_application_on_twitte_95e7b621: |-
       您将要[在Twitter注册一个应用程序](%{twitter_url})。
       您应该作为回调URL配置 %{callback_url}，并设置访问级别到
       读、写和访问直接信息
-      当您创建应用程序后，记下消费者密钥和消费者秘密，并在此输t入它们。
+      当您创建应用程序后，记下消费者关键值和密钥，并在此输入。
   you_will_not_be_able_to_preview_your_changes_f7b868fb: 您将无法预览更改
   your_answer_8dad6ea4: 您的答案：
   your_assignment_list_can_now_be_found_on_the_calen_9785b5ac: "您的作业列表现在可以在 *日历* 页面上找到。"
