@@ -103,7 +103,6 @@
     </td>
   </tr>
 </table>
-<% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
 <div class="content-box-mini">
   <table class="channel_list other_channels ic-Table ic-Table--condensed">
     <thead>
@@ -116,7 +115,7 @@
     <% @other_channels.each do |c| %>
       <tr class="channel <%= "unconfirmed" if c.state == :unconfirmed %> pseudonym_<%= c.pseudonym_id %>" id="channel_<%= c.id %>">
         <td><a href="#" class="path contact_channel_path ellipsis"><%= c.path_description %></a></td>
-        <td><%= c.path_type %></td>
+        <td><%= t("contact_types.#{c.path_type}", c.path_type) %></td>
         <td style="padding: 0; text-align: center;">
           <% if c.bouncing? %>
             <span class="bouncing-channel" data-tooltip="left" title="<%= t('bouncing_channel', 'Canvas was unable to send messages to you using this contact method. Please ensure the contact information is correct to continue receiving messages from Canvas.') %>" aria-label="<%= t('bouncing_channel', 'Canvas was unable to send messages to you using this contact method. Please ensure the contact information is correct to continue receiving messages from Canvas.') %>">
@@ -158,12 +157,11 @@
     </tfoot>
   </table>
 </div>
-<% end %>
 </div>
 <div id="communication_channels" style="display: none;">
 <ul>
   <li><a href="#register_email_address"><%= t('links.email', "Email") %></a></li>
-  <% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
+  <% if Setting.get("sinicized.enable_sms", "true") == "true" %>
   <li><a href="#register_sms_number"><%= t('links.text_sms', "Text (SMS)") %></a></li>
   <% end %>
 </ul>
@@ -191,7 +189,7 @@
       <button type="submit" class="btn btn-primary"><%= t('buttons.register_email', "Register Email") %></button>
     </div>
 <% end %>
-<% if Setting.get("sinicized.enable_sms_and_other_contact", "true") == "true" %>
+<% if Setting.get("sinicized.enable_sms", "true") == "true" %>
 <%= form_tag communication_channels_url, {:id => "register_sms_number", :class => 'form-horizontal'} do %>
     <input type="hidden" name="communication_channel[type]" value="sms"/>
 
