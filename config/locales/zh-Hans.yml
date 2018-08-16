@@ -1765,7 +1765,7 @@ zh-Hans:
   allows_user_to_add_and_remove_other_account_admins_7834ea9a: 允许用户添加和删除其他帐户管理员。
   allows_user_to_add_discussions_in_the_discussions__f5479e2c: |-
       允许用户在“讨论”页面中添加讨论。
-      允许用户关闭评论、移动、固定/取消固定、编辑和删除其他用户创建的讨论主题。
+      允许用户锁定、移动、置顶/取消置顶、编辑和删除其他用户创建的讨论主题。
   allows_user_to_add_edit_and_delete_course_files_an_2cbdc89a: |-
       允许用户添加、编辑和删除课程文件和文件夹。
       允许用户将文件下载到zip文件、导入zip文件以及锁定/解锁文件。
@@ -3739,7 +3739,7 @@ zh-Hans:
       location_address: 地址：
       location_name: 位置：
       new_calendar_event_header: 新日历事件
-      repeat: 复制、重复
+      repeat: 重复
       start_time: 开始时间
     edit_event: 
       tabs: 
@@ -4189,15 +4189,15 @@ zh-Hans:
   close_date_a2f617b3: 关闭日期
   close_details_sidebar_ff8f663d: 关闭详细信息侧边栏
   close_discussion_settings_e6f4b31f: 关闭讨论设置
-  close_discussion_title_for_comments_adde43bc: "关闭评论的讨论%{title}"
-  close_for_comments_37783f56: 关闭评论
-  close_for_comments_ce0e5d00: 关闭评论
+  close_discussion_title_for_comments_adde43bc: "锁定讨论 %{title}"
+  close_for_comments_37783f56: 锁定讨论
+  close_for_comments_ce0e5d00: 锁定
   close_grade_info_58ef5a20: 关闭评分信息
   close_move_tray_8609e988: 关闭移动托盘
   close_picker_256aca8a: 关闭选择器
   close_sidebar_10b0fbb4: 关闭侧边栏
   close_submission_tray_c4988fa8: 关闭提交托盘
-  closed_for_comments_e395b42f: 关闭评论
+  closed_for_comments_e395b42f: 锁定的讨论
   closes_5c6b4367: 关闭：
   code_is_case_sensitive_d8175cad: 代码对大小写敏感。
   cog_icon_69bdffd5: 齿轮图标
@@ -5468,8 +5468,8 @@ zh-Hans:
     one: "显示%{count}个结果"
     other: "显示%{count}个结果"
   count_sections_466dcd5c: 
-    one: "%{count}会话"
-    other: "%{count}会话"
+    one: "1个班"
+    other: "%{count}个班"
   count_sets_of_grading_periods_found_c8857ae9: 
     one: 找出1套评分周期。
     other: "找出 %{count} 套评分周期。"
@@ -7016,7 +7016,7 @@ zh-Hans:
   discovery_url_3dce06d9: 探索URL
   discussion_6719c51d: 讨论
   discussion_assignments_cannot_be_section_specific_93d63843: 不能讨论具体章节的作业
-  discussion_closed_for_comments_successfully_dfaab1d8: 已成功关闭评论的讨论
+  discussion_closed_for_comments_successfully_dfaab1d8: 已成功锁定讨论
   discussion_entries: 
     created_entry_notice: 条目已成功创建。
     deleted_entry_notice: 该条目已删除
@@ -7031,7 +7031,7 @@ zh-Hans:
   discussion_filter_5d68de61: 讨论筛选器
   discussion_group_category_locked: 小组类别无法在讨论作业上直接设置，而应该在讨论上设置
   discussion_opened_for_comments_successfully_b320dc39: 已成功打开评论的讨论
-  discussion_pinned_successfully_f9c03d9f: 已成功固定讨论
+  discussion_pinned_successfully_f9c03d9f: 已成功将讨论置顶
   discussion_settings_2fbf0b95: 讨论设置
   discussion_submission_781d5d33: 提交讨论
   discussion_topic: 
@@ -7068,7 +7068,7 @@ zh-Hans:
     default_discussion_title: 无标题
     deleted_topic_notice: 该主题已删除
     discussion: 
-      close_for_comments: 关闭评论
+      close_for_comments: 锁定讨论
       delete: 删除
       due: 截止时间
       graded_discussion: 评分的讨论：
@@ -7077,14 +7077,14 @@ zh-Hans:
       move: 移动到…
       no_due_date: 无截止时间
       open_for_comments: 公开征求意见
-      pin: 固定
-      unpin: 取消固定
+      pin: 置顶
+      unpin: 取消置顶
       user_subscribed: 您已订阅此主题。单击可取消订阅。
       user_unsubscribed: 您未订阅此主题。单击可订阅。
     discussion_feed_title: "%{title} 讨论馈送"
     discussion_list: 
-      no_pinned_discussions: 您目前没有固定讨论题目
-      pinned_instructions: 要将讨论固定至页面顶部，请将其拖到此处，或者从讨论设置菜单中选择“固定”。
+      no_pinned_discussions: 目前没有置顶讨论
+      pinned_instructions: 要将讨论置顶，请将其拖到此处，或者从讨论设置菜单中选择“置顶”。
       there_are_no_discussions_show: 此班级中没有可显示的讨论。
     discussions_settings_view: 
       allow_student_discussion_editing: 编辑和删除自己的帖子
@@ -7173,13 +7173,13 @@ zh-Hans:
       your_search_did_not_match_any_discussion_topics: 没有符合您搜索条件的讨论主题。
     new_and_total_badge: 
       reply_count_tooltip: 
-        one: "1 个答复。"
-        other: "%{count} 个答复。"
-        zero: 无答复。
+        one: "1 条讨论。"
+        other: "%{count} 条讨论。"
+        zero: 无讨论。
       unread_count_tooltip: 
-        one: "1 个未读答复。"
-        other: "%{count} 个未读答复。"
-        zero: 无未读答复。
+        one: "1 条未读讨论。"
+        other: "%{count} 条未读讨论。"
+        zero: 无未读讨论。
     page_nav: 
       Page: 页
       current_page: 当前
@@ -7199,7 +7199,7 @@ zh-Hans:
       zero: 无答复。
     show: 
       add_rubric: 添加评分标准说明
-      announcement_closed: 此公告已关闭评论
+      announcement_closed: 此公告已锁定
       announcement_locked: "此公告的内容在 %{date} 之前不向用户显示"
       announcement_locked_until: "此公告锁定至 %{time}"
       authors_name: 作者姓名
@@ -7218,8 +7218,8 @@ zh-Hans:
       links: 
         peer_reviews: 同侪审阅
       loading_replies: 载入回复中...
-      lock_topic: 关闭评论
-      locked: 此主题已关闭评论
+      lock_topic: 锁定
+      locked: 此主题已锁定
       manage_announcement: 管理公告
       manage_discussion: 管理讨论
       mark_all_as_read: 全部标记为已读
@@ -7234,21 +7234,21 @@ zh-Hans:
       topic: 主题
       topic_podcast_feed_link: 主题播客动态消息
       topic_subscribe: 订阅
-      topic_subscribe_tooltip: 您已取消订阅，将不再收到新评论的通知
-      topic_subscribed_tooltip: 您已订阅，将收到新评论的通知
+      topic_subscribe_tooltip: 您已取消订阅，将不再收到新讨论的通知
+      topic_subscribed_tooltip: 您已订阅，将收到新讨论的通知
       topic_time_locked: "此主题锁定至 %{time}"
       topic_unsubscribe: 已订阅
-      unlock_topic: 开放评论
+      unlock_topic: 取消锁定
       unread: 未读
     sub_entry: 
       authors_name: 作者姓名
       post_message: 发布消息
     summary_view: 
       attached_file_name: "已附加: %{display_name}"
-      close_for_comments: 关闭评论
+      close_for_comments: 锁定
       delete: 删除
       drag_up_or_down_to_reorder: 向上或向下拖动以重新排序
-      locked: 此主题已关闭评论
+      locked: 此主题已锁定
       manage: 管理
       open_to_comments: 公开评论
       this_topic_is_used_for_grading: 此主题用于评分
@@ -7263,7 +7263,7 @@ zh-Hans:
       manually_mark_as_read: 将帖子手动标记为已读
       my_settings: 我的设置
   discussion_topics_b35ac745: 讨论主题
-  discussion_unpinned_successfully_2cb6d951: 已成功取消固定讨论
+  discussion_unpinned_successfully_2cb6d951: 已成功取消置顶
   discussions: 
     are_your_sure_delete: 是否确定要删除此条目?
     author_link: 
@@ -7271,7 +7271,7 @@ zh-Hans:
       unknown_author: ">未知作者"
     cant_subscribe_not_in_group: 您必须在此小组中才能订阅
     cant_subscribe_not_in_group_set: 您必须在相关小组中才能订阅
-    closed_for_comments: 关闭评论
+    closed_for_comments: 已锁定
     confirm_delete_discussion_topic: 是否确定要删除此讨论主题？
     delete: 删除
     deleted_entry: 
@@ -7313,10 +7313,10 @@ zh-Hans:
       try_different_more_general_or_fewer_keywords: 尝试其它、更常用或更少的关键字。
       try_disabling_the_unread_filter: 尝试禁用“未读”筛选器。
       your_search_did_not_match_any_entries: 您的搜索不匹配任何条目。
-    ordered_by_recent_activity: 按最近活动排序
-    participant: 
+    ordered_by_recent_activity: 按最近更新排序
+    participant:
       anonymous_user: 匿名
-    pinned_discussions: 固定讨论题目
+    pinned_discussions: 置顶讨论
     reply: 
       saving_reply: 正在保存答复...
     reply_attachment: 
@@ -7463,7 +7463,7 @@ zh-Hans:
   due_no_due_date_3c1d1651: 截止日期：没有截止日期
   due_on_date_5ffb2182: 截止日期为
   due_time_9acd6b69: "截止时间 %{time}"
-  duplicate_31cec192: 复制、重复
+  duplicate_31cec192: 复制
   duplicate_assignment_name_3ca7d753: "复制作业%{name}"
   duplicate_discussion_title_43b39959: "重复讨论%{title}"
   duplicate_discussion_title_6537ef4d: "复制讨论%{title}"
@@ -8330,7 +8330,7 @@ zh-Hans:
   failed_loading_unsynced_changes_component_is_your__89f863d6: 加载未同步更改组件失败。你的网络连接正常吗？
   failed_to_add_new_feed_ee1c5ea: 添加新源失败
   failed_to_change_last_attended_date_1e340ba6: 更改上次出勤日期失败
-  failed_to_close_discussion_for_comments_28603bca: 关闭评论的讨论失败
+  failed_to_close_discussion_for_comments_28603bca: 锁定讨论失败
   failed_to_create_new_role_e336e461: 创建新角色失败
   failed_to_create_webhook_b766cf5c: 无法创建webhook。
   failed_to_create_zip_file_1a943d06: 无法创建压缩文件
@@ -8343,12 +8343,12 @@ zh-Hans:
   failed_to_log_in_7ceec561: 登录失败
   failed_to_move_items_e043da6: 无法移动项目
   failed_to_open_discussion_for_comments_87412434: 打开评论的讨论失败
-  failed_to_pin_discussion_38a60900: 固定讨论失败
+  failed_to_pin_discussion_38a60900: 置顶失败
   failed_to_publish_draft_comment_853761e9: 发布草稿评论失败
   failed_to_save_dashboard_selection_32e71c72: 无法保存仪表板选择
   failed_to_save_please_try_again_later_bb7070fb: 保存失败，请稍后重试
   failed_to_submit_draft_comment_1de83451: 无法提交评论草案
-  failed_to_unpin_discussion_503eab82: 取消固定讨论失败
+  failed_to_unpin_discussion_503eab82: 取消置顶失败
   failed_to_update_discussion_23cc229a: 更新讨论失败
   failed_to_update_permission_33c493f: 更新权限失败
   failed_to_update_role_name_8c7b0119: 更新角色名称失败
@@ -10584,7 +10584,7 @@ zh-Hans:
   last_login_b7bc0479: 最后一次登录：
   last_modified_by_ca4bb5e1: 最后修订者
   last_name_303122f3: 姓氏
-  last_post_at_date_bf77652f: "上次发布时间%{date}"
+  last_post_at_date_bf77652f: "最近更新时间： %{date}"
   last_post_display_last_reply_at_b9896355: "上一次发布%{display_last_reply_at}"
   last_pushed_update_last_export_at_9f634f7c: "上一次推送的更新：%{last_export_at}"
   last_used_f9457313: 上次使用日期：
@@ -13966,8 +13966,8 @@ zh-Hans:
   open_discussion_title_for_comments_6baa3fa: "打开评论的讨论%{title}"
   open_event_menu_e9a21e39: 打开事件菜单
   open_event_menu_for_783510e3: 打开事件菜单
-  open_for_comments_1810648: 开放评论
-  open_for_comments_f8f7641e: 开放评论
+  open_for_comments_1810648: 取消锁定
+  open_for_comments_f8f7641e: 取消锁定
   open_grading_scheme_menu_5f889203: "打开Grading Scheme(评分方案)菜单"
   open_in_theme_editor_156028e2: 打开主题编辑器
   open_message_d7b12975: 打开消息
@@ -14007,7 +14007,7 @@ zh-Hans:
   orbis_report_header_student_name: 学生姓名
   orbis_report_header_student_sis_id: "用户 sis"
   orbis_report_header_submission_score: 提交项分数
-  ordered_by_recent_activity_112d33d5: 按最近活动排序
+  ordered_by_recent_activity_112d33d5: 按最近更新排序
   organize_and_segment_your_course_by_topic_unit_cha_4c38a6b9: 按主题、单元、章节或周对您的课程进行组织和细分。根据界定标准和先决条件按顺序选择模块。
   organize_and_segment_your_course_by_topic_unit_cha_6ac2de91: 按主题、单元、章节或周对您的课程进行组织和细分。根据界定标准和先决条件按顺序选择模块。
   organize_epub_by_content_type_default_is_by_module_6f44ae06: "按内容类型组织epub (通过单元默认)。"
@@ -14323,12 +14323,12 @@ zh-Hans:
   pick_a_name_to_save_this_theme_as_9773cb1a: 选择一个名字以保存这个主题为
   pick_an_endpoint_we_ll_post_your_error_reports_the_71610f47: 选择一个终端，我们将在那发布您的错误报告。
   pick_the_date_and_time_for_the_following_conferenc_e9f91edd: 为以下会议的设置选择日期和时间：
-  pin_cdbc9f8f: 固定
-  pin_discussion_title_67c84658: "固定讨论%{title}"
-  pin_of_discussion_title_failed_6c2c32a5: "固定讨论%{title}失败"
-  pin_of_discussion_title_succeeded_c7d59580: "固定讨论%{title}成功"
+  pin_cdbc9f8f: 置顶
+  pin_discussion_title_67c84658: "置顶 %{title}"
+  pin_of_discussion_title_failed_6c2c32a5: "置顶 %{title} 失败"
+  pin_of_discussion_title_succeeded_c7d59580: "置顶 %{title} 成功"
   pink_68ad45cb: 粉红色
-  pinned_discussions_a55c0cea: 已固定的讨论
+  pinned_discussions_a55c0cea: 置顶的讨论
   place_b128fa94: 放在
   place_item_2acc18b9: "放置“%{item}”"
   place_section_before_5b45714e: "将“%{section}”放在前面："
@@ -17441,7 +17441,7 @@ zh-Hans:
   search_courses_by_teacher_e9760a48: 由教师搜索课程...
   search_discussion_by_title_30466604: 按标题搜索讨论
   search_endpoints_d5abf37f: 搜索端点
-  search_entries_or_author_63fb0a86: 搜索条目或作者
+  search_entries_or_author_63fb0a86: 搜索内容或作者
   search_flickr_6f28b02e: "搜索 Flickr"
   search_for_a_deleted_course_by_id_f553398d: 通过ID搜索已删除的课程
   search_for_files_7541fb28: 搜索文件
@@ -17488,7 +17488,7 @@ zh-Hans:
       removing_crosslisting_of_section: 正在取消交叉列出班级...
   section_84b5391: 班级
   section_c7f66a0d: 板块
-  section_count_sections_42196f3f: "%{section_count}会话"
+  section_count_sections_42196f3f: "%{section_count}个班"
   section_does_not_belong_to_course_for_this_discuss_39fd6808: 会话不属于该讨论主题的课程
   section_ends_at_bb9df3c0: 班级结束在
   section_filter_cde54d0a: 部分过滤器
@@ -19590,8 +19590,8 @@ zh-Hans:
   this_submission_is_not_in_any_grading_period_cbbd2f8: 此提交不处在任何学期内
   this_submission_is_not_in_any_grading_period_d4c728db: 此提交项不位于任何一个评分周期。
   this_tool_has_already_been_installed_in_this_conte_b73ea29c: 该工具已安装在该上下文中。您仍要安装该工具吗？
-  this_topic_is_closed_for_comments_3dd10c00: 此主题已关闭评论。
-  this_topic_is_closed_for_comments_5bacad6: 此主题已关闭评论
+  this_topic_is_closed_for_comments_3dd10c00: 此主题已锁定。
+  this_topic_is_closed_for_comments_5bacad6: 此主题已锁定
   this_topic_is_used_for_grading_efc6ca89: 此主题用于评分
   this_user_has_multiple_roles_in_the_course_changin_8cbd82d4: 该用户在课程中承担多个角色。在此改变自己的角色将覆盖所有他们目前的注册。
   this_user_is_currently_not_able_to_access_the_cour_39cabed1: 此用户目前不能够访问课程
@@ -19897,7 +19897,7 @@ zh-Hans:
   to_be_removed_d4b48586: 待删除
   to_c4c44f4b: 到
   to_change_sis_account_id_the_user_must_have_manage_4b8a37a8: "若要更改 sis_account_id，用户必须具有 manage_sis 权限。"
-  to_close_comments_on_a_discussion_drag_a_discussio_85b27448: "要关闭正在讨论的评论，请将讨论拖至此处，或选择讨论设置菜单中的Close for Comments(关闭评论)。"
+  to_close_comments_on_a_discussion_drag_a_discussio_85b27448: "要锁定讨论，请将讨论拖至此处，或选择讨论设置菜单中的“锁定”。"
   to_configure_an_openid_connect_provider_you_need_t_5c937249: |-
       要配置一OpenID连接提供者，您需要授权和令牌的URL，以及
       获到客户ID和客户密钥。
@@ -19957,7 +19957,7 @@ zh-Hans:
   to_moderate_a_quiz_assignments_and_quizzes_add_edi_9747d5fb: "要审核测验，还必须启用“作业和测验 - 添加/编辑/删除”。"
   to_moderate_a_quiz_assignments_and_quizzes_add_edi_ebdecaf8: "要审核测验，还必须启用“作业和测验 - 添加/编辑/删除”。"
   to_moderate_a_quiz_grades_edit_must_also_be_enable_72ca6ca1: "要审核测验，还必须启用“评分 - 编辑”。"
-  to_pin_a_discussion_to_the_top_of_the_page_drag_a__bfe476c3: 要将讨论固定至页面顶部，请将其拖到此处，或者从讨论设置菜单中选择“固定”。
+  to_pin_a_discussion_to_the_top_of_the_page_drag_a__bfe476c3: 要将讨论置顶，请将其拖到此处，或者从讨论设置菜单中选择“置顶”。
   to_preview_theme_editor_branding_you_will_need_to__462dda1a: 要预览主题编辑器的品牌，您将需要*关闭高对比度的用户界面*。
   to_publish_and_unpublish_module_content_courses_ad_4c7fc3c9: |-
       要发布和取消发布模块内容，还必须启用“课程 - 添加/编辑/删除”和“课程内容 - 查看”。
@@ -20206,10 +20206,10 @@ zh-Hans:
   unnamed_account_id_e688ad87: "无名帐号 (%{id})"
   unnamed_tool_961cb95b: 未命名的工具
   unnamed_tool_logo_410f37d0: 未命名的工具标志
-  unpin_a318452a: 取消固定
-  unpin_discussion_title_8c2a0942: "取消固定讨论%{title}"
-  unpin_of_discussion_title_failed_852116d4: "取消固定讨论%{title}失败"
-  unpin_of_discussion_title_succeeded_ce315adb: "取消固定讨论%{title}成功"
+  unpin_a318452a: 取消置顶
+  unpin_discussion_title_8c2a0942: "取消置顶 %{title}"
+  unpin_of_discussion_title_failed_852116d4: "取消置顶 %{title} 失败"
+  unpin_of_discussion_title_succeeded_ce315adb: "取消置顶 %{title} 成功"
   unposted_8d9932ec: 未发布
   unposted_current_score_c1dd3879: 已取消发布当前分数
   unposted_final_score_c19c35b3: 已取消发布最终分数
@@ -21199,8 +21199,8 @@ zh-Hans:
   you_cannot_set_a_grouped_discussion_as_a_student_a20f363: 您无法将分组讨论设置为学生。
   you_cannot_use_a_number_greater_than_the_number_of_af33e220: 您不能使用大于作业数的数字。
   you_created_an_announcement_in_course_c49e3d70: "您在 %{course} 创建了公告"
-  you_currently_have_no_discussions_with_closed_comm_366a9dab: 已关闭的评论目前没有讨论
-  you_currently_have_no_pinned_discussions_6f0078b8: 您目前没有固定讨论题目
+  you_currently_have_no_discussions_with_closed_comm_366a9dab: 目前没有锁定的讨论
+  you_currently_have_no_pinned_discussions_6f0078b8: 您目前没有置顶的讨论
   you_do_not_have_access_to_the_requested_announceme_a774d80a: 您没有对请求的公告的访问权限。
   you_do_not_have_access_to_the_requested_discussion_90d8ec99: 您没有访问所要求的讨论。
   you_do_not_have_access_to_the_requested_quiz_d3659e4b: 您无需测验的访问权限。
