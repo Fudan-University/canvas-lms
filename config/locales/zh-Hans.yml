@@ -2335,8 +2335,8 @@ zh-Hans:
     grading_type_options: 
       gpa_scale: "GPA 分数"
       letter_grade: 字母评分
-      not_graded: 未评分
-      pass_fail: 完成/未完成
+      not_graded: 不评分
+      pass_fail: 通过/不通过
       percent: 百分数
       points: 得分
     group_assignment_must_have_group_set: 请为此作业选择小组集
@@ -2920,7 +2920,7 @@ zh-Hans:
       submission_type: 提交类型
       submission_types: 
         external_tool: 外部工具
-        no_submission: 无提交
+        no_submission: 无需提交
         on_paper: 书面
         online: 在线
     submit_assignment: 
@@ -13261,7 +13261,7 @@ zh-Hans:
   move_this_module_4a262aaf: 移动此单元
   move_this_page_4a05c813: 移动此页面
   move_this_section_890bee38: 移动此班级
-  move_to_25d7ef11: 移动到
+  move_to_25d7ef11: 移动
   move_to_9b91c6e0: 移到...
   move_to_dde1a5e1: 移至……
   move_to_end_c6bfbcf5: 移动至结束
