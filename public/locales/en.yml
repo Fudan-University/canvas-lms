@@ -9167,9 +9167,11 @@ en:
         body: "An alert has been triggered for %{student}"
         body_student: "An alert has been triggered for you"
     announcement_created_by_you: 
-      email: 
+      email:
+        body:  "You created this Announcement: %{title}, %{course}."
         html: 
           attached_file: "Attached File"
+          body: "You created this Announcement: %{title}, %{course}."
           download: download
           link: "View Announcement"
         labels: 

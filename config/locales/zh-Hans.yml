@@ -11308,13 +11308,15 @@ zh-Hans:
         body: "已触发针对 %{student} 的警报"
         body_student: 已触发针对您的警报
     announcement_created_by_you: 
-      email: 
+      email:
+        body: "您于站点 “%{course}” 中创建了公告： %{title}"
         html: 
-          attached_file: 附件文件
+          attached_file: 附件
+          body: "您于站点 “%{course}” 中创建了公告： %{title}"
           download: 下载
           link: 查看公告
         labels: 
-          file_included: 包括的文件
+          file_included: 附件
       sms: 
         details: "更多信息请访问 %{url}"
         subject: "您创建了此通告：%{title}，%{course}"
@@ -13576,9 +13578,9 @@ zh-Hans:
         作业（不包括测验）提交/重新提交
     all_submissions_display: 所有提交文件
     announcement_created_by_you_description: |-
-        * 您所创建的公告
-        * 您所创建公告的回复
-    announcement_created_by_you_display: 您所创建的公告
+        * 您创建的公告
+        * 您创建公告的回复
+    announcement_created_by_you_display: 您创建的公告
     announcement_description: 您课程中的新公告
     announcement_display: 公告
     appointment_availability_description: |-
@@ -13678,8 +13680,8 @@ zh-Hans:
       account_user_registration: 帐户用户注册
       added_to_conversation: 添加到会话
       alert: 警报
-      announcement_created_by_you: 您所创建的公告
-      announcement_reply: 公告回复
+      announcement_created_by_you: 您创建的公告
+      announcement_reply: 您创建公告的回复
       appointment_canceled_by_user: 取消预约的用户
       appointment_deleted_for_user: 预约删除操作针对的用户
       appointment_group_deleted: 已删除预约组
