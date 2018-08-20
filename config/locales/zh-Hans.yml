@@ -11992,7 +11992,7 @@ zh-Hans:
     dialog: 
       title: 发送回复邮件
     email: 
-      footer: "您收到此电子邮件的原因是您使用 Canvas 参加了一个或多个课程。要更改或关闭电子邮件通知，请访问：⏎ %{url}"
+      footer: "您收到此电子邮件的原因是您通过 Canvas 参与了课程活动。要更改或关闭消息通知，请访问：⏎ %{url}"
     enrollment_accepted: 
       email: 
         body_designer: "%{user} 刚刚接受了作为设计者参与课程 %{course} 的邀请。"
@@ -12330,7 +12330,7 @@ zh-Hans:
     layout: 
       email: 
         html: 
-          click_to_preferences: 更新您的通知设置
+          click_to_preferences: 编辑通知设置
     merge_email_communication_channel: 
       email: 
         body: "已在 %{host} 上为您创建一个帐户，但您已有 Canvas 帐户。如果想要将其合并在一起，请访问以下 url："
