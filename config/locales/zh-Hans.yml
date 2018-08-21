@@ -1529,7 +1529,7 @@ zh-Hans:
   add_email_address_aef3b61: 添加电子邮件地址
   add_existing_content_7e36da66: 添加现有内容
   add_external_feed_6d437a28: 添加外部源
-  add_feed_49ed1cb2: 添加源
+  add_feed_49ed1cb2: 添加RSS源
   add_files_to_the_course_da6ffd32: 向课程添加文件
   add_folder_ba50d107: 添加文件夹
   add_grading_period_6f774dc3: 添加评分周期
@@ -5450,9 +5450,9 @@ zh-Hans:
     one: "%{count} 分数"
     other: "%{count} 分"
   count_posts_added_fa55ce4: 
-    one: "%{count}添加的帖子"
-    other: "%{count}添加的帖子"
-    zero: "%{count}添加的帖子"
+    one: "已添加 %{count} 条"
+    other: "已添加 %{count} 条"
+    zero: "已添加 %{count} 条"
   count_pushed_changes_6fe7fba: "%{count} 推送的更改"
   count_quizzes_found_e5e29bb4: 
     one: "找到 1 个测验。"
@@ -7760,7 +7760,7 @@ zh-Hans:
   enter_canvas_user_id_to_substitute_the_user_s_uniq_b2a75735: "输入\"{{CANVAS_USER_ID}}\" 来代替用户独特的Canvas ID"
   enter_grades_as_e113e606: 将评分输入为
   enter_or_find_an_external_tool_url_6aebbd0d: "输入或找出外部工具 URL"
-  enter_specific_phrase_9b686755: 输入特定词语
+  enter_specific_phrase_9b686755: 输入特定短语
   enter_the_access_token_for_your_organization_from__cc77493d: "在 *eduappcenter.com* 输入您的机构的访问令牌。一旦适用，只有您的机构在EduAppCenter批准的应用程序才会在外部应用程序的页面中列出。了解如何**生成一个访问令牌**。"
   enter_the_email_addresses_of_the_users_you_would_l_17cef6a0: 输入您要添加的用户的电子邮件地址，用逗号隔开
   enter_the_email_addresses_of_the_users_you_would_l_f76448a6: 输入您要添加的用户的电子邮件地址，用逗号或换行符隔开
@@ -8176,7 +8176,7 @@ zh-Hans:
       retrieving_content: 正在检索内容...
   external_feed: 
     original_article: 原创文章
-    short_feed_title: "%{short_url} 馈送"
+    short_feed_title: "%{short_url} RSS"
   external_feed_deleted_successfully_33209dbc: 已成功删除外部源
   external_feed_successfully_added_e0ce0784: 已成功添加外部源
   external_feed_was_added_d6d16a0: 已添加外部馈送
@@ -8199,11 +8199,11 @@ zh-Hans:
         content_to_post: 要发布的内容
         full_article: 全文
         link_only: 仅链接
-        truncated: 已省略
+        truncated: 部分内容
       phrase_to_look_for: 要查找的短语
       posts_added: 帖子已添加
       remove_feed: "删除 %{display_name}"
-  external_feeds_77f57c7d: 外部提要
+  external_feeds_77f57c7d: 外部RSS摘要
   external_integration_keys_8b4f4548: 外部集成密钥
   external_tool_c5a6410a: 外部工具
   external_tool_url_cannot_be_left_blank_a34b6bb2: 外部工具的网站不能留空
@@ -13952,7 +13952,7 @@ zh-Hans:
   online_url_37830a72: 在线网址
   only_a_maximum_of_100_events_can_be_created_ad703982: 仅可创建最多100个事件
   only_a_maximum_of_limit_events_can_be_created_b81c405e: "最多可创建%{limit}个事件"
-  only_add_posts_with_a_specific_phrase_in_the_title_b8b7b04e: 只添加标题中具有特定短语的发布内容
+  only_add_posts_with_a_specific_phrase_in_the_title_b8b7b04e: 只添加标题中包含特定短语的内容
   only_after_their_last_attempt_3593d101: 只有在他们的最后一次尝试之后
   only_announcements_can_be_section_specific_1ff992a: 只有公告可以特定于会话
   only_available_to_students_with_link_not_visible_i_b21ec391: 只适用于链接学生，在学生档案里不可见。
@@ -20103,7 +20103,7 @@ zh-Hans:
   tree_browser: 
     folder_tree_instructions: 使用上下箭头键在树中导航。按右箭头键展开文件夹，按左箭头键折叠文件夹，进入可选择选定项。
   trinidad_and_tobago_1_fc2d8d1c: "特立尼达和多巴哥 (+1)"
-  truncated_56b1a661: 已省略
+  truncated_56b1a661: 部分内容
   turn_on_rtl_even_for_non_rtl_languages_8a1a8bc2: "对非 RTL 语言启用 RTL"
   turning_off_this_tutorial_will_remove_the_tutorial_dfd81b3a: 关闭此教程后，教程托盘将从您的所有课程的视图中移除。在您的用户设置的功能选项下可以重新打开它。
   turnitin: 
