@@ -11313,15 +11313,15 @@ zh-Hans:
           attached_file: 附件
           download: 下载
           link: 查看公告
-          subject: "您于站点《%{course}》中创建了公告： “%{title}”"
+          subject: "您在《%{course}》中创建了公告： “%{title}”"
         labels: 
           file_included: 附件
-        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
+        subject: "您在《%{course}》中创建了公告： “%{title}”"
       sms: 
         details: "更多信息请访问 %{url}"
-        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
+        subject: "您在《%{course}》中创建了公告： “%{title}”"
       summary:
-        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
+        subject: "您在《%{course}》中创建了公告： “%{title}”"
       twitter: 
         body: "Canvas 警报 - 您创建了此公告：%{title}，%{course}。"
     announcement_reply: 
