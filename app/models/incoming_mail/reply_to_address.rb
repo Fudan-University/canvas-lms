@@ -38,6 +38,7 @@ class IncomingMail::ReplyToAddress
   def address
     return nil if message.path_type == 'sms'
     return message.from if message.context_type == 'ErrorReport'
+    return nil unless IncomingMailProcessor::MailboxAccount.reply_to_enabled
 
     address, domain = self.class.address_from_pool(message).split('@')
     "#{address}+#{secure_id}-#{Shard.short_id_for(message.global_id)}@#{domain}"
