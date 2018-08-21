@@ -9168,16 +9168,19 @@ en:
         body_student: "An alert has been triggered for you"
     announcement_created_by_you: 
       email:
-        body:  "You created this Announcement: %{title}, %{course}."
         html: 
           attached_file: "Attached File"
-          body: "You created this Announcement: %{title}, %{course}."
           download: download
           link: "View Announcement"
+          subject: "You created this Announcement: %{title}, %{course}."
         labels: 
           file_included: "File Included"
+        subject:  "You created this Announcement: %{title}, %{course}."
       sms: 
         details: "More info at %{url}"
+        subject:  "You created this Announcement: %{title}, %{course}."
+      summary:
+        subject:  "You created this Announcement: %{title}, %{course}."
       twitter: 
         body: "Canvas Alert - You created this Announcement: %{title}, %{course}."
     announcement_reply: 

@@ -11309,17 +11309,19 @@ zh-Hans:
         body_student: 已触发针对您的警报
     announcement_created_by_you: 
       email:
-        body: "您于站点 “%{course}” 中创建了公告： %{title}"
         html: 
           attached_file: 附件
-          body: "您于站点 “%{course}” 中创建了公告： %{title}"
           download: 下载
           link: 查看公告
+          subject: "您于站点《%{course}》中创建了公告： “%{title}”"
         labels: 
           file_included: 附件
+        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
       sms: 
         details: "更多信息请访问 %{url}"
-        subject: "您创建了此通告：%{title}，%{course}"
+        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
+      summary:
+        subject: "您于站点《%{course}》中创建了公告： “%{title}”"
       twitter: 
         body: "Canvas 警报 - 您创建了此公告：%{title}，%{course}。"
     announcement_reply: 
