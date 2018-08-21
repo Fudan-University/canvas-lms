@@ -10538,7 +10538,7 @@ zh-Hans:
   join_6cafecca: 加入
   join_course_511e6cb3: "加入%{course}"
   join_group_group_name_871a5e3f: "加入组 %{group_name}"
-  join_the_conversation_using_the_link_below_54ab1f0e: 使用下方链接加入对话。
+  join_the_conversation_using_the_link_below_54ab1f0e: 您可以通过下面的链接参与交流。
   join_the_conversation_using_this_link_link_9017499: "使用此链接加入对话：%{link}。"
   joined_group_group_name_e3802c04: "已加入组 %{group_name}"
   joining_81f8b6c9: 加入
@@ -11326,19 +11326,18 @@ zh-Hans:
         body: "Canvas 警报 - 您创建了此公告：%{title}，%{course}。"
     announcement_reply: 
       email: 
-        body: "%{user} 在公告上发布了一条新评论：关于%{course} 的 %{discussion_topic}："
+        body: "%{user} 在《%{course}》回复了公告 “%{discussion_topic}”"
         discussion_entry_reply_message: 使用下面的链接加入对话，或者通过回复此邮件进行评论。
         html: 
-          body: "%{user} 在公告上发布了一条新评论：关于%{course} 的 %{discussion_topic}："
-          discussion_entry_reply_message: "使用下面的链接加入会话，或者通过直接回复此邮件进行评论。在允许的情况下，如果您需要添加附件，请登录到 Canvas 并回复公告。"
-          link: 单击此处可加入查看公告
-          subject: "公告 %{discussion_topic} 上的新评论：%{course}"
-        subject: "公告 %{discussion_topic} 上的新评论：%{course}"
+          body: "%{user} 在《%{course}》回复了公告 “%{discussion_topic}”"
+          discussion_entry_reply_message: "使用下面的链接加入会话，或者通过直接回复此邮件进行评论。如果您需要添加附件，请登录到 Canvas 并回复公告。"
+          link: 查看公告详情
+          subject: "《%{course}》中的公告“%{discussion_topic}”有了新回复"
+        subject: "《%{course}》中的公告“%{discussion_topic}”有了新回复"
       sms: 
-        body: "通告 %{discussion_topic} 上的新评论：%{course}"
         details: "更多信息请访问 %{url}"
       summary: 
-        subject: "公告上的新评论：%{discussion_topic}：%{course}"
+        subject: "《%{course}》中的公告“%{discussion_topic}”有了新回复"
       twitter: 
         body: "Canvas 警报 - 公告评论：%{discussion_topic}，%{course}。"
     appointment_canceled_by_user: 
@@ -13396,7 +13395,7 @@ zh-Hans:
   new_assignment_2a984756: 新作业
   new_assignment_for_course_name_f71dd337: "为 %{course_name}的新作业"
   new_comment_for_discussion_topic_course_38febf3b: "%{course}，%{discussion_topic} 的新评论"
-  new_comment_on_announcement_discussion_topic_cours_7905b782: "%{course} ， %{discussion_topic} 的公告中的新评论"
+  new_comment_on_announcement_discussion_topic_cours_7905b782: "《%{course}》的公告 “%{discussion_topic}” 有新回复"
   new_conference_8b483024: 新会议
   new_conferences_a020a8a9: 新会议
   new_course_role_6a7bb75f: 新建课程角色
