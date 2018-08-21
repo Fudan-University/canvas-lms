@@ -7117,10 +7117,10 @@ zh-Hans:
       save: 保存
       saving: 正在保存...
       sort_by_likes: 按赞数排序
-      topic_title: 主题标题
+      topic_title: 标题
       until: 结束时间
       use_for_grading: 已计分
-      users_must_post_before_seeing_replies: 用户必须先发布本人信息才能阅读他人回复
+      users_must_post_before_seeing_replies: 用户自己回复后，才能查看他人回复
     entry: 
       authors_name: 作者姓名
       delete_message: 删除此消息
