@@ -10284,8 +10284,8 @@ zh-Hans:
   include_scores_when_alerting_about_grade_changes_623ec201: 提醒评分变化时，包括分数。
   include_scores_when_alerting_about_grades_89728ae1: 当提示有关成绩时，包括分数在内。
   include_scores_when_alerting_about_grades_if_your__b221c2c8: |-
-      提醒评分时包括分数。
-      如果您的电子邮件地址不是单位或机构的电子邮件地址，则意味着敏感信息将被发送到单位或机构之外。
+      发送评分消息时包含分数。
+      如果您使用的不是学校邮箱，则意味着相关敏感信息将被发送到学校之外。
   include_this_assignment_s_grades_when_posting_to_y_6bff3323: 当发布到您学校的学生信息系统时，包括此作业的评分
   include_this_assignment_s_grades_when_syncing_to_y_55bfa487: 同步到您学校的学生信息系统时包括此作业评分
   include_unpublished_assignments_83ebbaec: 包括未发布的作业
@@ -13573,34 +13573,34 @@ zh-Hans:
   notice_inactive_student_bcc4248a: 注意：非活跃学生
   notice_the_grading_period_is_closed_for_this_stude_6c3ce0f9: 注意：学期对该学生已关闭
   notification: 
-    added_to_conversation_description: 已将您添加到会话
-    added_to_conversation_display: 添加到会话
+    added_to_conversation_description: 您被添加到会话
+    added_to_conversation_display: 被添加到会话
     all_submissions_description: |-
-        *仅讲师和管理员：*
+        *仅适用于教师和管理员:*
         
-        作业（不包括测验）提交/重新提交
-    all_submissions_display: 所有提交文件
+        作业（不包括测验）的提交或重新提交
+    all_submissions_display: 所有作业提交
     announcement_created_by_you_description: |-
-        * 您创建的公告
-        * 您创建公告的回复
-    announcement_created_by_you_display: 您创建的公告
-    announcement_description: 您课程中的新公告
+        * 您发布了公告
+        * 您发布的公告有新回复
+    announcement_created_by_you_display: 您发布了公告
+    announcement_description: 课程发布新公告
     announcement_display: 公告
     appointment_availability_description: |-
-        *仅适用于导师和管理员:*
+        *仅适用于教师和管理员:*
         
         更改约会时段
-    appointment_availability_display: 预约可用性
+    appointment_availability_display: 预约是否可申请
     appointment_cancelations_description: 预约取消
     appointment_cancelations_display: 预约取消
-    appointment_signups_description: 日历上的新预约
+    appointment_signups_description: 您提供的预约被申请
     appointment_signups_display: 预约注册
     blueprint_description: |-
-        *仅讲师和管理员：*
+        *仅适用于教师和管理员:*
         
-        已将模板课程中的内容同步到关联课程
+        成功将模板课程中的内容同步到关联课程
     blueprint_display: 模板同步
-    calendar_description: 课程日历上的新项目和更改项目
+    calendar_description: 课程日历上的新项目或变更
     calendar_display: 日历
     categories: 
       all_submissions: 所有提交文件
@@ -13628,34 +13628,34 @@ zh-Hans:
       reminder: 提醒
       student_appointment_signups: 学生预约注册
       submission_comment: 提交评论
-    conversation_created_description: 您所创建的对话
-    conversation_created_display: 我所创建的对话
-    conversation_message_description: 收件箱新邮件
+    conversation_created_description: 您创建了会话
+    conversation_created_display: 我发起的会话
+    conversation_message_description: 收件箱有新消息
     conversation_message_display: 会话消息
     course_content_description: |-
-        切换到课程内容：
+        以下课程内容的更新：
         
-        *页面内容
+        * 页面内容
         * 测验内容
         * 作业内容
     course_content_display: 课程内容
-    discussion_description: 课程中的新讨论主题
-    discussion_display: 讨论
-    discussion_post_description: 您订阅的主题中的新讨论帖
-    discussion_post_display: 讨论帖
-    due_date_description: 作业截止时间更改
+    discussion_description: 课程中有新讨论主题
+    discussion_display: 新主题
+    discussion_post_description: 您订阅的讨论主题中有新回复
+    discussion_post_display: 主题回复
+    due_date_description: 作业截止时间更新
     due_date_display: 截止时间
     files_description: 课程添加了新文件
     files_display: 文件
     grading_description: |-
         包括：
         
-        * 作业/提交评分输入/改变
-        * 取消静音作业评分
-        * 评分加权的改变
+        * 作业被评分或被更改评分
+        * 分数公布
+        * 成绩权重发生改变
     grading_display: 评分
     grading_notify_include_grade: 报警评分更改时包括分数。
-    grading_policies_description: 课程评分政策更改
+    grading_policies_description: 课程评分政策更新
     grading_policies_display: 评分政策
     invitation_description: |-
         邀请：
@@ -13663,18 +13663,18 @@ zh-Hans:
         * Web 会议
         * 小组
         * 协作
-        * 同行评估和提醒
+        * 互评和提醒
     invitation_display: 邀请
     late_grading_description: |-
-        *仅适用于导师和管理员：*⏎
-        ⏎
-        上次作业提交文件
-    late_grading_display: 最近评分
+        *仅适用于教师和管理员:*
+
+        有作业迟交
+    late_grading_display: 迟交评分
     membership_update_description: |-
-        *仅适用于管理员：已激活的待处理注册*⏎
-        ⏎
-        * 组注册⏎
-        * 已接受/已拒绝
+        *仅适用于管理员：待处理注册被激活*
+
+        * 小组注册
+        * 被接受/被拒绝
     membership_update_display: 成员资格更新
     missing_description_description: "有关 %{category} 通知"
     missing_display_display: "有关 %{category} 通知"
@@ -13685,13 +13685,13 @@ zh-Hans:
       alert: 警报
       announcement_created_by_you: 您创建的公告
       announcement_reply: 您创建公告的回复
-      appointment_canceled_by_user: 取消预约的用户
-      appointment_deleted_for_user: 预约删除操作针对的用户
-      appointment_group_deleted: 已删除预约组
-      appointment_group_published: 已发布预约组
-      appointment_group_updated: 已更新预约组
-      appointment_reserved_by_user: 预订预约的用户
-      appointment_reserved_for_user: 预约预订操作针对的用户
+      appointment_canceled_by_user: 用户取消预约
+      appointment_deleted_for_user: 删除用户的预约
+      appointment_group_deleted: 删除预约组
+      appointment_group_published: 发布预约组
+      appointment_group_updated: 更新预约组
+      appointment_reserved_by_user: 预约被用户保留
+      appointment_reserved_for_user: 为用户保留预约
       assignment_changed: 作业已更改
       assignment_created: 作业已创建
       assignment_due_date_changed: 作业截止期日期更改
@@ -13753,25 +13753,25 @@ zh-Hans:
       web_conference_recording_ready: 网络会议录制准备
     no_subject: 无主题
     other_description: |-
-        *仅适用于导师和管理员：*
+        *仅适用于教师和管理员：*
         
         * 课程注册
-        * 已生成的报告
+        * 报告生成完毕
         * 内容导出
         * 迁移报告
         * 新帐户用户
         * 新学生组
     other_display: 管理通知
-    recording_ready_display: 录制准备
+    recording_ready_display: 录制就绪
     reminder_display: 提醒
     student_appointment_description: |-
-        *仅适用于导师和管理员：*⏎
-        ⏎
+        *仅适用于教师和管理员：*
+
         学生预约注册
     student_appointment_display: 学生预约注册
-    submission_comment_description: 作业提交评论
-    submission_comment_display: 提交评论
-    web_conference_recording_ready: 一个会议的录制准备
+    submission_comment_description: 作业、测验得到评语
+    submission_comment_display: 作业、测验评语
+    web_conference_recording_ready: 视频会议录制就绪
   notification_preferences: 
     communication: 
       email: 
@@ -13791,15 +13791,15 @@ zh-Hans:
       immediately: 尽快
       never: 从不
       title: 
-        daily: 发送每日摘要
-        never: 不发送任何内容
-        right_away: 立即通知我
-        weekly: 发送每周摘要
+        daily: 每日发送摘要
+        never: 不发送
+        right_away: 立即发送
+        weekly: 每周发送摘要
       weekly: 每周
     groups: 
       admin: 管理
       alerts: 警报
-      communication: 会话
+      communication: 收件箱会话
       conferences: 会议
       course: 课程活动
       discussions: 讨论
@@ -13807,7 +13807,7 @@ zh-Hans:
       one: 其它
       other: 其它
       parent: 父电子邮件
-      scheduling: 正在计划
+      scheduling: 预约
   notification_preferences_cf47083d: 通知首选项
   notifications_cbfa7704: 通知
   notifications_search_results_80a0b06f: 通知搜索结果
@@ -18936,7 +18936,7 @@ zh-Hans:
   submission_added_title_50ebdc85: "已添加提交项：%{title}"
   submission_comment: 
     unknown_author: 某人
-  submission_comments_4fa03a17: 提交评论
+  submission_comments_4fa03a17: 作业、测验评语
   submission_date_a7920dac: 提交日期
   submission_detail: 
     go_to_submission_url: "转至提交 URL"
