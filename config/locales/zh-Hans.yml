@@ -7537,8 +7537,8 @@ zh-Hans:
   edit_outcome_group_f82e0210: 编辑结果小组
   edit_pagetitle_cd8abab9: "编辑%{pageTitle}"
   edit_permissions_for_count_items_d65e3855: 
-    one: "编辑 %{count} 项的权限"
-    other: "编辑 %{count} 项的权限"
+    one: "编辑权限：%{itemName}"
+    other: "编辑 %{count} 个项目的权限"
   edit_quiz_ededddd8: 编辑测验
   edit_rating_c2ac31e5: 编辑评分
   edit_role_1e96ad20: 编辑角色
@@ -8520,7 +8520,7 @@ zh-Hans:
         folder_locked: "包含此文件的文件夹 \"%{folder},\" 已锁定。"
     text_show: 
       page_title: 文件预览
-  files_and_folder_contents_only_available_to_studen_944f9166: 只能通过链接向学生提供文件和文件夹内容。在学生文件中不显示。
+  files_and_folder_contents_only_available_to_studen_944f9166: 学生只能通过链接访问文件和文件夹。在学生的文件列表中不显示。
   files_c300e900: 文件
   files_quota_percentused_of_bytesavailable_used_7f62792c: "已使用%{bytesAvailable}中的%{percentUsed}"
   files_quota_percentused_of_bytesavailable_used_d208857a: "文件配额: %{percentUsed}% of %{bytesAvailable} 被使用"
@@ -10063,7 +10063,7 @@ zh-Hans:
   hidden_14a032a7: 隐藏
   hidden_available_with_a_link_65ef2bda: 隐藏。含有可用链接
   hidden_available_with_a_link_click_to_modify_184990e7: "隐藏提供的链接 - 点击修改"
-  hidden_files_inside_will_be_available_with_links_9bdf702b: 已隐藏。可通过链接提供其中的文件。
+  hidden_files_inside_will_be_available_with_links_9bdf702b: 隐藏文件夹，文件夹中的文件可以通过链接访问。
   hide_account_navigation_menu_ccdf9480: 隐藏帐户导航菜单
   hide_admin_navigation_menu_5cab9c9e: 隐藏管理员导航菜单
   hide_all_artifacts_d654fbd5: 隐藏所有教具
@@ -13956,7 +13956,7 @@ zh-Hans:
   only_add_posts_with_a_specific_phrase_in_the_title_b8b7b04e: 只添加标题中包含特定短语的内容
   only_after_their_last_attempt_3593d101: 只有在他们的最后一次尝试之后
   only_announcements_can_be_section_specific_1ff992a: 只有公告可以特定于会话
-  only_available_to_students_with_link_not_visible_i_b21ec391: 只适用于链接学生，在学生档案里不可见。
+  only_available_to_students_with_link_not_visible_i_b21ec391: 学生只能通过链接访问。在学生的文件列表中不显示。
   only_course_announcements_and_discussions_can_be_s_924d4386: 只有课程公告和讨论可以针对具体章节
   only_course_announcements_can_be_section_specific_eabcd6e0: 仅课程公告可以针对特定分组
   only_once_after_each_attempt_cc842738: 只有当每次尝试之后
@@ -15310,7 +15310,7 @@ zh-Hans:
   public_course_index_59270e80: 公开课程索引
   public_courses_title: 公共课程
   public_domain_112ed397: 公共域
-  publish_5211dca3: 发布、出版
+  publish_5211dca3: 已发布
   publish_aa888e3c: 发布：
   publish_announcement_fec6d7e2: 发布公告
   publish_btn_module: 
@@ -16801,8 +16801,8 @@ zh-Hans:
     modified_by: 修改人
     move: 移动
     move_question: 
-      one: "您希望将这 %{count} 个项目移到何处？"
-      other: "您希望将这 %{count} 个项目移到何处？"
+      one: "您希望将 %{item} 移到哪里？"
+      other: "您希望将这 %{count} 个项目移到哪里？"
     move_success: 
       one: "%{count} 个项目已移到 %{destinationFolder}"
       other: "%{count} 个项目已移到 %{destinationFolder}"
@@ -17281,7 +17281,7 @@ zh-Hans:
   saving_d55dd90e: 正在保存...
   saving_new_role_458f4ba8: 正在保存新角色
   saving_recording_e111cb05: 保存录制...
-  schedule_student_availability_332154a: 学生时间表的可用性
+  schedule_student_availability_332154a: 设定学生可以访问的时间
   scheduler_65b5ac91: 计划程序
   scheduler_must_be_enabled_by_your_canvas_admin_7508c8c2: 必须由Canvas管理员启用计划程序。
   scheduler_must_be_enabled_for_your_account_e6e53972: 必须为您的帐户启用计划程序。
@@ -18105,7 +18105,7 @@ zh-Hans:
         name: 课程名称
       new_course_name_placeholder: 课程名称
       sample_course_code: 基础课程-101
-      start_a_new_course: 开始一个新课程
+      start_a_new_course: 开始新课程
     new_nav_header: 
       links: 
         dashboard: 控制面板
