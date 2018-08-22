@@ -12380,10 +12380,12 @@ zh-Hans:
         html: 
           attached_file: 附件文件
           link: 查看公告
+          subject: "《%{course}》有新公告：“%{title}”"
         labels: 
           file_included: 包括的文件
+        subject: "《%{course}》有新公告：“%{title}”"
       sms: 
-        details: "更多信息请访问 %{url}"
+        details: "了解更多信息请访问 %{url}"
         subject: "新通告:%{title}，%{course}"
       twitter: 
         body: "Canvas 警报 - 公告:%{title}，%{course}。"
@@ -13390,7 +13392,7 @@ zh-Hans:
   new_account_role_6e5c4964: 新建帐户角色
   new_annotations_66932016: 新注解
   new_announcement_23af4598: 新公告
-  new_announcement_title_course_da7c0ca6: "新公告:%{title}，%{course}"
+  new_announcement_title_course_da7c0ca6: "《%{course}》有新公告：“%{title}”"
   new_appointment_timeslots_are_available_for_signup_a3e3f964: 新的预约时段接受登记
   new_assignment_2a984756: 新作业
   new_assignment_for_course_name_f71dd337: "为 %{course_name}的新作业"
