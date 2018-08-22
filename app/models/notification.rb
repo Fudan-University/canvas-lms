@@ -206,8 +206,9 @@ class Notification < ActiveRecord::Base
     end
   end
 
-  def default_frequency(_user = nil)
+  def default_frequency(_user = nil, cc_path_type = CommunicationChannel::TYPE_EMAIL)
     # user arg is used in plugins
+    frequency_for_email =
     case category
     when 'All Submissions'
       FREQ_NEVER
@@ -276,6 +277,8 @@ class Notification < ActiveRecord::Base
     else
       FREQ_DAILY
     end
+    return frequency_for_email if cc_path_type == CommunicationChannel::TYPE_EMAIL
+    frequency_for_email == FREQ_IMMEDIATELY ? FREQ_IMMEDIATELY : FREQ_NEVER
   end
 
   # TODO i18n: show the localized notification name in the dashboard (or

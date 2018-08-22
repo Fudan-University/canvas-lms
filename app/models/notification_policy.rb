@@ -139,7 +139,7 @@ class NotificationPolicy < ActiveRecord::Base
           np = communication_channel.notification_policies.build(notification: notification)
           frequency ||= begin
             if communication_channel == communication_channel.user.communication_channel
-              notification.default_frequency(communication_channel.user)
+              notification.default_frequency(communication_channel.user, communication_channel.path_type)
             else
               'never'
             end
@@ -175,7 +175,7 @@ class NotificationPolicy < ActiveRecord::Base
             np.frequency = if frequencies[notification]
                              frequencies[notification]
                            elsif communication_channel == communication_channel.user.communication_channel
-                             notification.default_frequency(communication_channel.user)
+                             notification.default_frequency(communication_channel.user, communication_channel.path_type)
                            else
                              'never'
                            end
