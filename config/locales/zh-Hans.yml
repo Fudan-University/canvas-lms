@@ -12531,36 +12531,36 @@ zh-Hans:
         subject: "Canvas 警报 - 活动:%{event_title}，%{course_name}"
     new_file_added: 
       email: 
-        body: "已添加课程 %{name} 的新文件:"
+        body: "《%{name}》的新文件:"
         html: 
-          body: "已添加课程 %{name} 的新文件:"
-          link: 单击查看
-          subject: "添加的新文件: %{title}，%{name}"
-        subject: "添加的新文件: %{title}，%{name}"
+          body: "《%{name}》的新文件:"
+          link: 查看文件
+          subject: "《%{name}》有新文件: %{title}"
+        subject: "《%{name}》有新文件: %{title}"
         view: 您可在此处进行查看
       sms: 
         body: "为 %{name} 添加的新文件: "
         link: "更多信息请访问 %{link}"
       summary: 
-        subject: "添加的新文件: %{title}，%{name}"
+        subject: "《%{name}》有新文件: %{title}"
       twitter: 
         body: "Canvas 警报 - 新文件: %{title} (%{size})，%{name}:"
     new_files_added: 
       email: 
-        body: "已添加课程 %{name} 的 %{count} 个新文件:"
+        body: "《%{name}》有 %{count} 个新文件"
         html: 
-          body: "已添加课程 %{name} 的 %{count} 个新文件:"
-          see_details: 您可在此处进行查看
-          subject: "为课程 %{name} 添加的 %{count} 个新文件:"
-        link: 您可在此处进行查看
-        subject: "为课程 %{count} 添加的 %{name} 个新文件:"
+          body: "《%{name}》有 %{count} 个新文件"
+          see_details: 查看文件
+          subject: "《%{name}》有 %{count} 个新文件"
+        link: 查看文件
+        subject: "《%{name}》有 %{count} 个新文件"
       sms: 
-        body: "添加了 %{name} 的 %{count} 个新文件。"
+        body: "《%{name}》有 %{count} 个新文件"
         link: "更多信息请访问 %{link}"
       summary: 
-        body: "添加了课程 %{name} 的 %{count} 个新文件。"
-        link: 您可在此处进行查看
-        subject: "添加了课程 %{name} 的 %{count} 个新文件:"
+        body: "《%{name}》有 %{count} 个新文件"
+        link: 查看文件
+        subject: "《%{name}》有 %{count} 个新文件"
       twitter: 
         body: "Canvas 警报 - %{name} 的 %{count} 个新文件"
     new_student_organized_group: 
@@ -13645,7 +13645,7 @@ zh-Hans:
     discussion_post_display: 讨论帖
     due_date_description: 作业截止时间更改
     due_date_display: 截止时间
-    files_description: 添加到课程的新文件
+    files_description: 课程添加了新文件
     files_display: 文件
     grading_description: |-
         包括：
