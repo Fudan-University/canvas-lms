@@ -18739,6 +18739,10 @@ zh-Hans:
     online_url: "在线 URL"
     previous_object: "上一个 %{type}"
     student_hidden_name: "学生 %{position}"
+    type:
+      assignment: 作业
+      outcome: 结果
+      student: 学生
   sso_settings_ebf98263: "SSO 设置"
   star_conversation_2e2ba614: 标记会话
   starred_5a9efa8a: 已标记

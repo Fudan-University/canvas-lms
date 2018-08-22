@@ -32,13 +32,23 @@ define [
     ).property('type')
 
     previousLabel:(->
-      type = @get('type').capitalize()
-      I18n.t("previous_object", "Previous %{type}", {type: type})
+      type = @get('type')
+      type_label = switch type
+        when 'assignment' then I18n.t("type.assignment", "Assignment")
+        when 'outcome' then I18n.t("type.outcome", "Outcome")
+        when 'student' then I18n.t("type.student", "Student")
+        else type.capitalize()
+      I18n.t("previous_object", "Previous %{type}", {type: type_label})
     ).property('type')
 
     nextLabel: (->
-      type = @get('type').capitalize()
-      I18n.t("next_object", "Next %{type}", {type: type})
+      type = @get('type')
+      type_label = switch type
+        when 'assignment' then I18n.t("type.assignment", "Assignment")
+        when 'outcome' then I18n.t("type.outcome", "Outcome")
+        when 'student' then I18n.t("type.student", "Student")
+        else type.capitalize()
+      I18n.t("next_object", "Next %{type}", {type: type_label})
     ).property('type')
 
     disablePreviousButton: Ember.computed.lte('currentIndex', 0)

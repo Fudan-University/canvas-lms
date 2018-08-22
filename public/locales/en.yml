@@ -15447,6 +15447,10 @@ en:
     online_url: "Online URL"
     previous_object: "Previous %{type}"
     student_hidden_name: "Student %{position}"
+    type:
+      assignment: Assignment
+      outcome: Outcome
+      student: Student
   sso_settings_ebf98263: "SSO Settings"
   star_conversation_2e2ba614: "Star conversation"
   starred_5a9efa8a: Starred
