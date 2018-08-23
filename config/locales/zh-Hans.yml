@@ -59,7 +59,7 @@ zh-Hans:
   a_message_is_required_129e1814: 需要消息
   a_name_for_this_set_is_required_222bad23: 此集需要一个名称
   a_name_is_required_b5df38a9: 需要填写名称
-  a_new_assignment_has_been_created_for_your_course__12b72639: "已为您的课程创建了新作业，%{course_name}。"
+  a_new_assignment_has_been_created_for_your_course__12b72639: "已为课程《%{course_name}》新建作业。"
   a_partner_id_is_required_to_use_academic_benchmark_adba3df0: "需要合作伙伴 ID 才能使用学术基准"
   a_partner_key_is_required_to_use_academic_benchmar_da9f31bd: 需要合作伙伴密钥才能使用学术基准
   a_problem_occurred_adding_reviewers_57b083d9: 添加审阅者时出错。
@@ -2363,11 +2363,11 @@ zh-Hans:
       grading_scheme_info: 查看/编辑评分方案
     vericite_submission_types_validation: "VeriCite 仅支持文件提交和文本输入"
   assignment_976578a8: 作业
-  assignment_assignment_submission_paper_view_8a4c9776: "作业%{assignment}提交项纸张视图"
-  assignment_assignment_submission_plain_text_view_b217d372: "作业%{assignment}提交项纯文本视图"
+  assignment_assignment_submission_paper_view_8a4c9776: "作业“%{assignment}”提交项纸张视图"
+  assignment_assignment_submission_plain_text_view_b217d372: "作业“%{assignment}”提交项纯文本视图"
   assignment_comments_e43ed898: 作业评论
   assignment_configuration_4153cb88: 作业配置
-  assignment_created_assignment_name_course_name_324a5639: "作业已创建 - %{assignment_name}, %{course_name}"
+  assignment_created_assignment_name_course_name_324a5639: "《%{course_name}》新建作业“%{assignment_name}”"
   assignment_d8387b78: 作业
   assignment_details: 
     no_graded_submissions: 无已评分作业
@@ -2381,14 +2381,14 @@ zh-Hans:
     low_score: "低分:"
     no_one_scored_higher: "没有分数高于 %{max}"
     no_one_scored_lower: "没有分数低于 %{min}"
-    scores_higher_than_the_average: "高于平均分 %{average} 的分数"
-    scores_lower_than_the_average: "低于平均分 %{average} 的分数"
+    scores_higher_than_the_average: "高于平均分(%{average})的分数"
+    scores_lower_than_the_average: "低于平均分(%{average})的分数"
     total_graded_submissions: 已评分的提交项总数：
   assignment_details_expanded_20c6f0c7: 作业详情已展开
   assignment_does_not_exist_74178c34: 作业不存在
   assignment_excused_eb6c08fa: 已免除的作业
-  assignment_graded_grade_on_assignment_name_in_cour_5082fd1: "作业评分：%{grade}%{assignment_name} 分%{course_code}"
-  assignment_graded_score_on_assignmentname_in_cours_1acbf85f: "作业评分：%{score}%{assignmentName} 分%{courseName}"
+  assignment_graded_grade_on_assignment_name_in_cour_5082fd1: "作业评分：在课程码%{course_code}中，作业“{assignment_name}”是%{grade}%分"
+  assignment_graded_score_on_assignmentname_in_cours_1acbf85f: "作业评分：在课程《%{courseName}》中，作业“%{assignmentName}”是%{score}分"
   assignment_grades_have_already_been_published_ff2d84c6: 作业成绩已经公布。
   assignment_group: 
     default_name: 作业
@@ -2396,8 +2396,8 @@ zh-Hans:
   assignment_group_1a781505: 作业小组
   assignment_group_filter_c03f8a1d: 作业组筛选器
   assignment_group_was_saved_successfully_5caa27d3: 作业组已成功保存
-  assignment_group_weights_and_drop_rules_can_t_be_e_7b5f305d: 作业组的权值和删除规则无法编辑，因为一个群组的到期日已关闭。
-  assignment_group_weights_can_t_be_edited_because_t_b6b591ae: 作业组的权值无法编辑，因为一个群组的到期日已关闭。
+  assignment_group_weights_and_drop_rules_can_t_be_e_7b5f305d: 无法编辑作业组的权值和删除规则，因为其中一个组的作业截止日期已关闭。
+  assignment_group_weights_can_t_be_edited_because_t_b6b591ae: 无法编辑作业组的权值，因为其中一个组的作业截止日期已关闭。
   assignment_group_weights_dialog: 
     buttons: 
       save: 保存
@@ -2421,8 +2421,8 @@ zh-Hans:
   assignment_id_96baa1b7: "作业 id"
   assignment_id_b040cee0: 作业ID
   assignment_menu_91fe3716: 作业菜单
-  assignment_missing_assignment_name_in_course_code_7f940b35: "作业缺失%{assignment_name}分%{course_code}"
-  assignment_missing_assignment_name_in_course_name_680a8338: "作业缺失%{assignment_name}分%{course_name}"
+  assignment_missing_assignment_name_in_course_code_7f940b35: "课程码%{course_code}缺失作业“%{assignment_name}”"
+  assignment_missing_assignment_name_in_course_name_680a8338: "课程《%{course_name}》缺失作业“%{assignment_name}”"
   assignment_muted_4cb590a4: 作业已静音
   assignment_muted_8d74bfa0: 已屏蔽的作业
   assignment_muter: 
@@ -2430,29 +2430,29 @@ zh-Hans:
     muting_assignment: 正在屏蔽作业...
     unmute_assignment: 取消屏蔽作业
     unmute_button: 取消屏蔽作业
-    unmute_dialog: 此作业当前被屏蔽。这意味着学生无法看到其计分和反馈。是否要立即取消屏蔽?
+    unmute_dialog: 该作业当前被屏蔽，学生无法查看分数和反馈。是否现在取消屏蔽?
     unmuting_assignment: 正在取消屏蔽作业...
   assignment_name_a_z_aeefaa36: "作业名称 - A-Z"
   assignment_name_b2d87383: 作业名称
-  assignment_name_course_name_is_now_due_55613e9b: "%{assignment_name}，%{course_name}，现在截止"
-  assignment_name_course_name_no_longer_has_a_due_da_a37b6a7c: "%{assignment_name}， %{course_name}，再没有截止日期"
-  assignment_name_course_name_override_is_now_due_ed5ce1e: "%{assignment_name}，%{course_name} (%{override})现在截止"
-  assignment_name_course_name_override_no_longer_has_5a94da2b: "%{assignment_name}，%{course_name} (%{override}) 再没有截止日期"
-  assignment_name_grade_history_b506426c: "%{assignment_name} 评分历史"
+  assignment_name_course_name_is_now_due_55613e9b: "课程《%{course_name}》的作业“%{assignment_name}”现在到期"
+  assignment_name_course_name_no_longer_has_a_due_da_a37b6a7c: "课程《%{course_name}》的作业“%{assignment_name}”不再有截止日期"
+  assignment_name_course_name_override_is_now_due_ed5ce1e: "课程《%{course_name}》(%{override})的作业“%{assignment_name}”现在到期"
+  assignment_name_course_name_override_no_longer_has_5a94da2b: "课程《%{course_name}》(%{override})的作业“%{assignment_name}”不再有截止日期"
+  assignment_name_grade_history_b506426c: "作业“%{assignment_name}”评分历史"
   assignment_name_z_a_34f92f4b: "作业名称 - Z-A"
   assignment_options_1e5b7074: 作业选项
   assignment_override: 
     student_count: 
       one: "%{count} 学生"
       other: "%{count} 学生"
-  assignment_path_selected_e80191d1: 作业路径已选择
+  assignment_path_selected_e80191d1: 已选择作业路径
   assignment_preview_3833e819: "%{assignment} 预览"
   assignment_selection_6bff05c4: 作业选项
   assignment_title_82b4422e: 作业标题：
   assignment_title_8a707dd2: 作业标题
   assignment_url_37c849c6: "作业 url"
-  assignment_was_deleted_8320d26d: 作业被删除
-  assignment_weights_d4bcf9ab: 作业重量
+  assignment_was_deleted_8320d26d: 作业已删除
+  assignment_weights_d4bcf9ab: 作业权重
   assignments: 
     assignment_count: 
       one: "%{count} 份作业"
@@ -2460,7 +2460,7 @@ zh-Hans:
     assignment_group_create_dialog: 
       assignment_group: 
         labels: 
-          name: 姓名
+          name: 作业组名
       buttons: 
         add_group: 添加小组
         cancel: 取消
@@ -2504,7 +2504,7 @@ zh-Hans:
       assignment_not_yet_graded_screenreader: "作业尚未计分。%{pointsPossible} 最高得分。"
       empty_points_possible: "-/%{pointsPossible} 分"
       no_submission: 无提交
-      no_submission_for_assignment_screenreader: "此作业无提交。%{pointsPossible} 最高得分。"
+      no_submission_for_assignment_screenreader: "该作业无提交。%{pointsPossible} 最高得分。"
       not_yet_graded: "*尚未计分*"
       score_with_points_possible: "*%{score}*/%{pointsPossible} 分"
       score_with_points_possible_screenreader: "分数: %{score}，满分 %{pointsPossible} 分。"
@@ -2518,7 +2518,7 @@ zh-Hans:
         manage_assignments: 管理作业
         see_current_grades: 查看我目前的计分
       titles: 
-        show_only_assignments_from: 只显示下列来源的作业
+        show_only_assignments_from: 只显示作业的来源
         upcoming_assignments: 即将到来的作业
     available_date_description: 
       available_until: 可供使用的截止日期
@@ -2529,7 +2529,7 @@ zh-Hans:
       delete_group: 删除小组
       submit_assignment: 提交作业
     cannot_delete_group: 您必须至少有一个作业小组
-    cant_unpublish_when_students_submit: 如有学生提交文件，则无法取消发布
+    cant_unpublish_when_students_submit: 有学生提交文件的情况下，无法取消发布
     complete: 完成
     confirm: 
       delete_assignment: 是否确定要删除此作业?
@@ -11559,117 +11559,117 @@ zh-Hans:
             单击此处查看作业:
             %{url}
         html: 
-          body: "%{title} 的作业“%{course}”已更改。"
+          body: "《%{course}》更改作业“%{title}”。"
           link: 单击此处查看作业
-          subject: "作业已更改:%{title}，%{course}"
-        subject: "作业已更改:%{title}，%{course}"
+          subject: "《%{course}》更改作业“%{title}”"
+        subject: "《%{course}》更改作业“%{title}”"
       sms: 
         body: |-
-            %{title}，%{course} 已更改。
+            《%{course}》更改“%{title}”。
             
             更多信息请访问 %{website}
       summary: 
-        subject: "作业已更改:%{title}，%{course}"
+        subject: "《%{course}》更改作业“%{title}”"
       twitter: 
-        assignment_change: "Canvas 警报 - 更改:%{assignment_name}，%{course_name}"
+        assignment_change: "Canvas 警报 - 《%{course_name}》更改作业“%{assignment_name}”"
     assignment_created: 
       email: 
-        assignment_created: "作业已创建 - %{assignment_name}，%{course_name}"
+        assignment_created: "《%{course_name}》新建作业 - %{assignment_name}"
         due_at: "截止时间: %{assignment_due_date_time}"
         html: 
-          assignment_created: "作业已创建 - %{assignment_name}，%{course_name}"
+          assignment_created: "《%{course_name}》新建作业 - %{assignment_name}"
           due_at: "截止时间：%{assignment_due_date_time}"
           link_text: 查看作业
           multiple_due_dates: 截止时间：多个日期
-          new_assignment: "已创建针对您的课程 %{course_name} 的新作业"
+          new_assignment: "课程《%{course_name}》新建作业"
           no_due_date: 无截止时间
         labels: 
           click_to_see_assignment: 单击此处查看作业
         multiple_due_dates: "截止时间: 多个日期"
-        new_assignment: "已创建针对您的课程 %{course_name} 的新作业"
+        new_assignment: "课程《%{course_name}》新建作业"
         no_due_date: "截止时间: 无截止时间"
       sms: 
         due_at: "截止时间: %{assignment_due_date_time}"
-        more_info: "更多信息请访问 %{course_name}"
+        more_info: "更多信息请访问《%{course_name}》"
         multiple_due_dates: "截止时间: 多个日期"
-        new_assignment: "%{course_name} 的新作业"
+        new_assignment: "《%{course_name}》的新作业"
         no_due_date: "截止时间: 无截止时间"
       summary: 
-        assignment_created: "作业已创建 - %{assignment_name}，%{course_name}"
+        assignment_created: "《%{course_name}》新建作业 - %{assignment_name}"
         due_at: "截止日期: %{assignment_due_date_time}"
         multiple_due_dates: "截止时间: 多个日期"
         no_due_date: "截止时间: 无截止时间"
       twitter: 
-        assignment_change: "Canvas 警报 - 更改:%{assignment_name}，%{course_name}"
+        assignment_change: "Canvas 警报 - 《%{course_name}》更改作业“%{assignment_name}”"
         due_at: "截止时间: %{assignment_due_date_time}"
         multiple_due_dates: "截止时间: 多个日期"
         no_due_date: "截止时间: 无截止时间"
     assignment_due_date_changed: 
       email: 
-        assignment_due_date_changed: "作业截止时间更改:%{assignment_name}，%{course_name}"
-        assignment_due_date_changed_sentence: "课程 %{course_name} 的作业 %{assignment_name} 的截止时间已更改为:"
+        assignment_due_date_changed: "《%{course_name}》作业“%{assignment_name}”更改截止时间"
+        assignment_due_date_changed_sentence: "课程《%{course_name}》的作业“%{assignment_name}”的截止时间已更改为:"
         html: 
-          assignment_due_date_changed: "作业截止时间更改: %{assignment_name}，%{course_name}"
-          assignment_due_date_changed_sentence: "课程 %{course_name} 的作业 %{assignment_name} 的截止时间已更改为:"
+          assignment_due_date_changed: "《%{course_name}》作业“%{assignment_name}”更改截止时间"
+          assignment_due_date_changed_sentence: "课程《%{course_name}》的作业“%{assignment_name}”的截止时间已更改为:"
           link_text: 查看作业
           no_due_date: 无截止时间
         labels: 
           click_to_see_assignment: 单击此处查看作业
         no_due_date: 无截止时间
       sms: 
-        assignment_due_date_changed: "%{assignment_name}，%{course_name} 现在的截止时间为:"
+        assignment_due_date_changed: "课程《%{course_name}》作业“%{assignment_name}”现在的截止时间为:"
         more_info_at_url: "更多信息请访问 %{web_address}"
         no_due_date: 无截止时间
       summary: 
-        assignment_due_date_changed: "作业截止时间更改: %{assignment_name}，%{course_name}"
+        assignment_due_date_changed: "课程《%{course_name}》作业“%{assignment_name}”更改截止时间"
         due_at: "截止时间: %{assignment_due_date_time}"
         no_due_date: "截止时间: 无截止时间"
       twitter: 
-        assignment_change: "Canvas 警报 - 日期更改:%{assignment_name}，%{course_name}"
+        assignment_change: "Canvas 警报 - 课程《%{course_name}》作业“%{assignment_name}”更改日期"
         due_at: "截止时间: %{assignment_due_date_time}"
         no_due_date: "截止时间: 无截止时间"
     assignment_due_date_override_changed: 
       email: 
-        assignment_due_date_changed: "作业截止日已更改: %{assignment_name}，%{course_name} (%{override})"
-        assignment_due_date_changed_sentence: "课程 %{course_name} (%{override}) 的作业 %{assignment_name} 的截止时间已更改为:"
+        assignment_due_date_changed: "课程《%{course_name}》(%{override})更改作业“%{assignment_name}”截止时间"
+        assignment_due_date_changed_sentence: "课程《%{course_name}》(%{override})的更改作业“%{assignment_name}”截止时间为:"
         html: 
-          assignment_due_date_changed: "作业截止时间已更改：%{assignment_name}， %{course_name}(%{override})"
-          assignment_due_date_changed_sentence: "课程 %{course_name} (%{override}) 的作业 %{assignment_name} 的截止时间已更改为："
+          assignment_due_date_changed: "课程《%{course_name}》(%{override})更改作业“%{assignment_name}”截止时间"
+          assignment_due_date_changed_sentence: "课程《%{course_name}》(%{override})更改作业“%{assignment_name}”截止时间为："
           link: 单击此处查看作业
           no_due_date: 无截止时间
         labels: 
           click_to_see_assignment: 单击此处查看作业
         no_due_date: 无截止时间
       sms: 
-        assignment_due_date_changed: "%{assignment_name}，%{course_name} (%{override}) 现在已截止:"
+        assignment_due_date_changed: "课程《%{course_name}》(%{override})作业“%{assignment_name}”现在已截止"
         more_info_at_url: "更多信息请访问 %{web_address}"
         no_due_date: 无截止时间
       summary: 
-        assignment_due_date_changed: "作业截止时间已更改: %{assignment_name}，%{course_name} (%{override})"
+        assignment_due_date_changed: "课程《%{course_name}》(%{override})更改作业“%{assignment_name}”截止时间"
         due_at: "截止时间: %{assignment_due_date_time}"
         no_due_date: "截止时间: 无截止时间"
       twitter: 
-        assignment_change: "Canvas 警报 - 日期更改: %{assignment_name}，%{course_name} (%{override})"
+        assignment_change: "Canvas 警报 - 课程《%{course_name}》(%{override})更改作业“%{assignment_name}”日期"
         due_at: "截止时间: %{assignment_due_date_time}"
         no_due_date: "截止时间: 无截止时间"
     assignment_graded: 
       email: 
-        assignment_graded: "作业已计分: %{assignment_name}，%{course_name}"
+        assignment_graded: "课程《%{course_name}》作业“%{assignment_name}”已计分"
         html: 
-          assignment_graded: "作业已计分:%{assignment_name}，%{course_name}"
+          assignment_graded: "课程《%{course_name}》作业“%{assignment_name}”已计分"
           link: 单击此处查看作业
-          the_assignment_is_graded: "作业 %{assignment_name} 已计分。"
+          the_assignment_is_graded: "作业“%{assignment_name}”已计分。"
         labels: 
           view_here: 您可在此处进行查看
-        the_assignment_is_graded: "作业 %{assignment_name} 已计分。"
+        the_assignment_is_graded: "作业“%{assignment_name}”已计分。"
       sms: 
-        assignment_is_graded: "%{assignment_name}，%{course_name} 已计分。"
+        assignment_is_graded: "课程《%{course_name}》作业“%{assignment_name}”已计分。"
         more_info_at: "更多信息请访问 %{web_address}"
       summary: 
-        assignment_graded: "作业已计分:%{assignment_name}，%{course_name}"
-        the_assignment_is_graded: "作业 %{assignment_name} 已计分。"
+        assignment_graded: "课程《%{course_name}》作业“%{assignment_name}”已计分"
+        the_assignment_is_graded: "作业“%{assignment_name}”已计分。"
       twitter: 
-        assignment_graded: "Canvas 警报 - 已计分:%{assignment_name}，%{course_name}"
+        assignment_graded: "Canvas 警报 - 课程《%{course_name}》作业“%{assignment_name}”已计分"
     assignment_locked: 此作业当前锁定。
     assignment_locked_at: "此作业锁定于 %{at}。"
     assignment_locked_module: "此作业是单元 *%{module}* 的一部分，尚未解锁。"
@@ -11679,66 +11679,66 @@ zh-Hans:
       email: 
         html: 
           link: 单击此处查看提交项
-          user_resubmitted: "重新提交文件:%{user_name}，%{assignment_name}"
-          user_resubmitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的重新提交文件"
+          user_resubmitted: "%{user_name}在作业“%{assignment_name}”重新提交文件"
+          user_resubmitted_sentence: "%{user_name} 刚刚在课程《%{course_name}》中重新提交作业“%{assignment_name}”文件"
         labels: 
-          view_submission: 您可在此处查看提交文件
-        user_resubmitted: "重新提交文件:%{user_name}，%{assignment_name}"
-        user_resubmitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的重新提交文件"
+          view_submission: 查看提交文件
+        user_resubmitted: "%{user_name}重新提交作业“%{assignment_name}”文件"
+        user_resubmitted_sentence: "%{user_name} 刚刚在课程《%{course_name}》中重新提交作业“%{assignment_name}”的文件"
       sms: 
         more_info_at: "更多信息请访问 %{web_address}"
-        user_resubmitted: "%{user_name} 刚刚再次提交其作业 %{assignment_name}"
+        user_resubmitted: "%{user_name} 刚刚再次提交作业“%{assignment_name}”"
       summary: 
         turned_in_at: "提交日期: %{submission_date}"
-        user_resubmitted: "重新提交文件:%{user_name}，%{assignment_name}"
+        user_resubmitted: "%{user_name}重新提交作业“%{assignment_name}”文件"
       twitter: 
-        user_resubmitted: "Canvas 警报 - 重新提交文件:%{user_name}，%{assignment_name}"
+        user_resubmitted: "Canvas 警报 - %{user_name}重新提交作业“%{assignment_name}”文件"
     assignment_submitted: 
       email: 
         html: 
           link: 单击此处查看提交项
-          user_submitted: "提交文件:%{user_name}，%{assignment_name}"
-          user_submitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的提交文件"
+          user_submitted: "%{user_name}提交作业“%{assignment_name}”文件"
+          user_submitted_sentence: "%{user_name}刚刚在课程《%{course_name}》中提交作业“ %{assignment_name}”文件"
         labels: 
           view_submission: 您可在此处查看提交文件
-        user_submitted: "提交文件:%{user_name}，%{assignment_name}"
-        user_submitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的提交文件"
+        user_submitted: "%{user_name}提交作业“%{assignment_name}”文件"
+        user_submitted_sentence: "%{user_name}刚刚在课《%{course_name}》中提交作业“ %{assignment_name}”文件"
       sms: 
         more_info_at: "更多信息请访问 %{web_address}"
-        user_submitted: "%{user_name} 刚刚提交其作业 %{assignment_name}"
+        user_submitted: "%{user_name}刚刚提交作业“%{assignment_name}”"
       summary: 
         turned_in_at: "提交日期: %{submission_date}"
-        user_submitted: "提交文件:%{user_name}，%{assignment_name}"
+        user_submitted: "%{user_name}提交作业“%{assignment_name}”文件"
       twitter: 
-        user_submitted: "Canvas 警报 - 提交文件:%{user_name}，%{assignment_name}"
+        user_submitted: "Canvas 警报 - %{user_name}提交作业“%{assignment_name}”文件"
     assignment_submitted_late: 
       email: 
         html: 
           link: 单击此处查看提交项
-          user_resubmitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的最近提交的作业"
-          user_submitted: "最近作业:%{user_name}，%{assignment_name}"
+          user_resubmitted_sentence: "%{user_name}在课程《%{course_name}》中迟交作业“%{assignment_name}”"
+          user_submitted: "%{user_name}迟交作业“%{assignment_name}”"
         labels: 
-          view_submission: 您可在此处查看提交文件
-        user_resubmitted_sentence: "%{user_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的最近提交的作业"
-        user_submitted: "最近作业:%{user_name}，%{assignment_name}"
+          view_submission: 查看提交文件
+        user_resubmitted_sentence: "%{user_name}在课程《%{course_name}》中迟交作业“%{assignment_name}”"
+        user_submitted: "%{user_name}迟交作业“%{assignment_name}”"
       sms: 
         more_info_at: "更多信息请访问 %{web_address}"
-        user_submitted: "%{user_name} 刚刚提交其作业（最近） %{assignment_name}"
+        user_submitted: "%{user_name} 刚刚提交作业“ %{assignment_name}”（迟交）"
       summary: 
         turned_in_at: "提交日期: %{submission_date}"
-        user_submitted: "最近作业:%{user_name}，%{assignment_name}"
+        user_submitted: "%{user_name}迟交作业“%{assignment_name}”"
       twitter: 
-        user_submitted: "Canvas 警报 - 最近提交的作业: %{user_name}，%{assignment_name}"
+        user_submitted: "Canvas 警报 - %{user_name}迟交作业“%{assignment_name}”"
     assignment_unmuted: 
       email: 
         body: |-
-            您的教师已发布 %{title} 的评分更改和新评论。这些更改现在可查看。
+            您的教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。
             
-            您可在此处进行查看:
+            此处进行查看:
             %{url}
         html: 
-          body: "您的导师已发布 %{title} 的评分更改和新评论。现在可以查看这些更改。"
-          link: 您可在此处进行查看
+          body: "您的教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。"
+          link: 此处进行查看
           subject: "作业取消静音:%{title}，%{course}"
         subject: "作业取消静音:%{title}，%{course}"
       sms: 
@@ -13693,7 +13693,7 @@ zh-Hans:
       appointment_reserved_by_user: 预约被用户保留
       appointment_reserved_for_user: 为用户保留预约
       assignment_changed: 作业已更改
-      assignment_created: 作业已创建
+      assignment_created: 创建作业
       assignment_due_date_changed: 作业截止期日期更改
       assignment_due_date_override_changed: 覆盖的作业截止时间已更改
       assignment_graded: 作业已计分
@@ -16418,7 +16418,7 @@ zh-Hans:
         filter: "IP 过滤"
         for: 适用人群
         group: 作业小组
-        label: 
+        label:
           time_limit: 时间限制
         multiple_attempts: 多次尝试
         no_time_limit: 无时间限制
