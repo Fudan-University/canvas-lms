@@ -1743,7 +1743,7 @@ zh-Hans:
   allows_creating_discussions_for_a_specific_section_6bf44036: 允许为特定分组创建讨论
   allows_teacher_designer_ta_based_roles_to_access_t_d480279: 允许基于教师/设计者/助教的角色访问聊天工具。
   allows_teacher_ta_based_roles_to_access_the_attend_bf5b2a17: 允许基于教师/助教的角色访问考勤工具。
-  allows_teachers_to_mark_grade_data_to_be_exported__a6bf77cf: 允许讲师标记已批量导出到SIS整合的评分数据。
+  allows_teachers_to_mark_grade_data_to_be_exported__a6bf77cf: 允许教师标记已批量导出到SIS整合的评分数据。
   allows_the_duplicating_of_modules_in_canvas_2e15b444: "允许复制 Canvas 中的单元"
   allows_the_duplicating_of_objects_in_canvas_c86f3665: "允许复制 Canvas 中的对象"
   allows_the_duplication_of_calendar_events_7bb0d6c5: 允许复制日历事件
@@ -2120,12 +2120,12 @@ zh-Hans:
   announcements_tutorial_tray_994287d6: 公告教程托盘
   announcements_unlocked_successfully_1432da9d: 已成功取消锁定公告
   announcements_view_1019d00d: "公告 - 查看"
-  anonymize_all_annotations_made_by_instructors_on_s_4f2b70a5: 隐去讲师对此作业的提交项做出的所有注释的身份信息SpeedGrader
+  anonymize_all_annotations_made_by_instructors_on_s_4f2b70a5: 隐去教师对此作业的提交项做出的所有注释的身份信息SpeedGrader
   anonymous_e1b8ad27: 匿名
   anonymous_grading_cannot_be_enabled_for_group_assi_faa33494: 不能对小组作业启用匿名评分
   anonymous_grading_ccb5045c: 匿名评分
   anonymous_grading_forces_student_names_to_be_hidde_8b46d7e7: 匿名评分强制将学生的名字隐藏于SpeedGrader™
-  anonymous_instructor_annotations_2b6c822: 匿名讲师注释
+  anonymous_instructor_annotations_2b6c822: 匿名教师注释
   anonymous_marking_92a4d623: 匿名打分
   anonymous_mode_on_2dd9b94a: 匿名模式启用
   anonymous_mode_on_feb53729: 匿名模式启用：
@@ -2295,7 +2295,7 @@ zh-Hans:
   arrange_columns_by_points_48da9ba3: 按得分排列各列
   as_you_type_in_this_field_the_list_of_groups_will__16688a5f: 当您在此字段中输入时，组列表将自动过滤，以便仅包括名称与您的输入内容相匹配的组。
   as_you_type_in_this_field_the_list_of_results_will_c1a1a3e4: 当您在该栏输入，结果列表将自动地更新。
-  ask_your_instructor_a_question_a61ca5e9: 向您的讲师提问
+  ask_your_instructor_a_question_a61ca5e9: 向您的教师提问
   assess_and_survey_your_students_ce8172a9: 对您的学生进行评估和调查
   assessment_by_name_7b879a2c: "按%{name}评估"
   assessment_id_9a1476be: "评估 id"
@@ -2650,7 +2650,7 @@ zh-Hans:
       graded_count: "%{graded_count} *共* %{total} 个作业已计分"
       links: 
         download_submissions: 下载作业
-        peer_reviews: 同侪审阅
+        peer_reviews: 互评
         reupload_submissions: 重新上传作业
       resubmission_count: 
         one: "%{count} 个未计分的重新提交作业"
@@ -2785,41 +2785,41 @@ zh-Hans:
     peer_reviews: 
       buttons: 
         add: 添加
-        assign_peer_reviews: 分配同侪审阅
+        assign_peer_reviews: 分配互评人
       descriptions: 
-        automatically_assign_reviews: 可以单击下面的按钮，将同侪审阅分配给已提交作业但尚无审阅任务的用户。
+        automatically_assign_reviews: 可以单击下面的按钮，将互评材料分配给已提交作业但尚无互评任务的用户。
       details: 左边会显示分配到此任务的学生列表，以及已分配进行审阅的学生提交作业（如果有）。
       links: 
         assign_peer_review: "向 %{student} 指定另一个要评估的提交作业"
         back_to_assignment: 返回作业
       messages: 
-        cancel_peer_review: 是否取消此同侪审阅?
+        cancel_peer_review: 是否取消此互评?
         no_students_found: 未找到学生
       none_assigned: 未分配
       not_yet_submitted: 尚未提交
       options: 
         select_student: "[选择学生]"
-      overview: 当学生至少在页面上做一次评论后，学生同侪审阅便视为完成。
-      overview_with_rubric: 当学生至少在页面做一次评论并且填写作业的评分标准说明表时，学生同侪审阅便视为完成。
-      page_title: 同侪审阅
+      overview: 当学生在页面上做至少一次评论后，学生互评便视为完成。
+      overview_with_rubric: 当学生至少在页面做一次评论并且填写作业的评分标准说明表时，学生互评阅便视为完成。
+      page_title: 互评
       reviews_per_user: "每个用户 %{count} 次审阅"
       submitted: 已提交
-      title: "%{assignment} 同侪审阅"
+      title: "%{assignment} 的互评"
       titles: 
         automatically_assign_reviews: 自动分配审阅
         remind: "向 %{assessor} 提醒测验，上次通知时间为 %{time}"
         reminder: "向 %{assessor} 提醒测验，上次通知时间为 %{time}"
     peer_reviews_selector: 
       anonymous_peer_reviews: 匿名
-      how_to_peer_review: 如何分配同侪审阅
+      how_to_peer_review: 如何分配互评人
       labels: 
-        anonymous_peer_reviews: 匿名同侪审阅
-        automatically_assign_peer_reviews: 自动分配同侪审阅
-        manually_assign_peer_reviews: 手动分配同侪审阅
-        require_peer_reviews: 需要同侪审阅
+        anonymous_peer_reviews: 匿名互评
+        automatically_assign_peer_reviews: 自动分配互评人
+        manually_assign_peer_reviews: 手动分配互评人
+        require_peer_reviews: 需要互评
       locked_until: 分配审阅
       peer_reviews_assign_at_explanation: 必须在截止时间之后。如果为空，则使用截止时间。
-      peer_reviews_header: 同侪审阅
+      peer_reviews_header: 互评
       reviews_per_user: 每位用户的审阅次数
     points_possible_number: 满分必须为数字
     positive_number: 您必须使用正数
@@ -2892,7 +2892,7 @@ zh-Hans:
         no_comments: 无评论
         submission_late_timestamp: "%{submitted_at}（逾期）"
       titles: 
-        assigned_peer_reviews: 分配的同侪审阅
+        assigned_peer_reviews: 分配的互评
         comments: "评论:"
         submission: 提交
         submission_not_turned_in: 未提交！
@@ -5644,7 +5644,7 @@ zh-Hans:
   course_grades_22adc27e: 课程评分
   course_grading_schemes_can_be_enabled_disabled_in__26b298b3: 可以在课程设置中启用/禁用课程评分方案。
   course_groups_e8239a1e: 课程组
-  course_has_no_active_instructors_with_this_id_74f1d8a: "课程没有使用此 ID 的活跃讲师"
+  course_has_no_active_instructors_with_this_id_74f1d8a: "课程没有使用此 ID 的活跃教师"
   course_home_4c4c0107: 课程主页
   course_home_page_5c61dba7: 课程主页
   course_home_sub_navigation_b1ee6b03: 课程主页的子导航
@@ -7187,7 +7187,7 @@ zh-Hans:
       last_page: 最后一个
     peer_reviews: 
       due_date: "截止时间 %{date}"
-      peer_review_alert: "已指定您为 %{person} 的同侪审阅者"
+      peer_review_alert: "已指定您为 %{person} 的互评人"
     points_possible_number: 满分必须为数字
     published_button: 
       buttons: 
@@ -7216,7 +7216,7 @@ zh-Hans:
       from_context: "来自 *%{context_name}*"
       initial_post_required: 只有至少发布了一条回复的用户才可看见回复。
       links: 
-        peer_reviews: 同侪审阅
+        peer_reviews: 互评
       loading_replies: 载入回复中...
       lock_topic: 锁定
       locked: 此主题已锁定
@@ -10336,11 +10336,11 @@ zh-Hans:
   instructor_comments_205e0ec8: 导师评论
   instructor_id_ed9c0d8b: "教师 Id"
   instructor_is_working_on_grades_135388d2: 教师正在进行评分
-  instructor_messages_a4c28674: 讲师的留言
+  instructor_messages_a4c28674: 教师的留言
   instructor_name_36bc0f39: 教师姓名
   instructor_sis_id_899dd697: "教师 Sis Id"
   instructors_4b491a07: 导师
-  instructors_cdd595d0: 讲师
+  instructors_cdd595d0: 教师
   instructure: 
     alerts: 
       file_previews_disabled: "此 Canvas 网站已禁用文件预览"
@@ -13028,11 +13028,11 @@ zh-Hans:
   moderated_assignment_12873e87: 已核对的作业
   moderated_grading_allows_multiple_graders_to_grade_5c0d53db: 适度评分允许多个评分者独立评改选择的作业，通过主持提供最终成绩。
   moderated_grading_cannot_be_enabled_for_group_assi_7e947ab7: 调和评分不能启用于小组作业。
-  moderated_grading_cannot_be_enabled_for_peer_revie_6b7eedc1: 调和评分不能启用于同侪评审的作业
+  moderated_grading_cannot_be_enabled_for_peer_revie_6b7eedc1: 调和评分不能启用于互评的作业
   moderated_grading_e6127f72: 适度评分
   moderated_grading_setting_cannot_be_changed_if_gra_ba939ce2: 调和评分设置不能改变如何已评分的提交存在。
   moderated_grading_setting_cannot_be_enabled_for_gr_d81fb43b: 调和评分设置不能启用于小组作业
-  moderated_grading_setting_cannot_be_enabled_for_pe_fc7b5b8b: 调和评分设置不能启用于同侪评审的作业
+  moderated_grading_setting_cannot_be_enabled_for_pe_fc7b5b8b: 调和评分设置不能启用于互评的作业
   moderated_grading_setting_cannot_be_enabled_for_un_e40e6cd4: 调和评分设置不能启用于未评分的作业
   moderation_is_unable_to_occur_at_this_time_due_to__fc2d90c9: 此时无法进行审核，因为未提交评分。
   moderation_page_4061aa2b: 审核页面
@@ -14283,13 +14283,13 @@ zh-Hans:
   paypal: 
     exception: 抱歉，出现错误，请稍后重试。
   pdf_d8236d9a: PDF
-  peer_review_for_assignment_ce72fc52: "同侪评审 %{assignment}"
+  peer_review_for_assignment_ce72fc52: "互评 %{assignment}"
   peer_reviewed_graded_discussion_b339df5b: 互评分讨论：
   peer_reviews_api: 
     errors: 
       delete_reminder_failed: 删除失败
-  peer_reviews_cannot_be_enabled_for_moderated_assig_149d33c4: 同侪评审无法启用于缓和的作业。
-  peer_reviews_e3a55964: 同侪审阅
+  peer_reviews_cannot_be_enabled_for_moderated_assig_149d33c4: 互评无法启用于缓和的作业。
+  peer_reviews_e3a55964: 互评
   penalty_adjusted_707df573: "*%{penalty}* **%{adjusted}**"
   pending_3e506a5b: 审核中
   pending_message_2d9a8796: "审核中：%{message}"
@@ -17696,7 +17696,7 @@ zh-Hans:
   send_a_message_to_the_teacher_1ae115b6: 给教师发送消息
   send_a_message_to_this_student_ec46b8dd: 向此学生发送消息
   send_authorization_url_in_lti2_registration_287fcb33: "发送 LT12 注册中的授权 URL"
-  send_comment_to_instructor_only_4295a109: 仅向讲师发送评论
+  send_comment_to_instructor_only_4295a109: 仅向教师发送评论
   send_comment_to_the_whole_group_8d41e63a: 向整个小组发送评论
   send_comment_to_this_student_only_e3d9ca1: 仅向此学生发送评论
   send_custom_fields_uncheck_unless_using_canvas_zen_67e83666: "发送自定义的栏目(除非取消使用 Canvas zendesk)"
@@ -19009,14 +19009,14 @@ zh-Hans:
       media_comment: 媒体评论
       media_comment_link: 这是一个媒体评论，*单击此处查看*。
       only_see_your_own_comments_muted: 您可能无法立即查看所有评论，原因是作业当前正在计分
-      only_see_your_own_comments_peer: 作为同侪审阅学生，您只能查看您写的评论。
+      only_see_your_own_comments_peer: 作为互评人，您只能查看您写的评论。
       options: 
         new_assessment: "[新测验]"
       out_of_points: "满分 %{points_possible} 分"
-      peer_review: 同侪审阅
-      peer_review_not_done: "**此同侪审阅尚未完成。**要使其被视为已完成，您需要至少留下一个评论。"
-      peer_review_not_done_rubric: "**此同侪审阅尚未完成。**要使其被视为已完成，您需要至少留下一个评论并填写右侧的评分标准说明表。"
-      peer_review_steps_complete: 您已完成此同侪审阅所需的步骤。
+      peer_review: 互评
+      peer_review_not_done: "**此互评尚未完成。**要使其被视为已完成，您需要至少留下一个评论。"
+      peer_review_not_done_rubric: "**此互评尚未完成。**要使其被视为已完成，您需要至少留下一个评论并填写右侧的评分标准说明表。"
+      peer_review_steps_complete: 您已完成此互评所需的步骤。
       see_vericite_results: 查看VeriCite成绩
       sent_to_whole_group: 向整个小组发送评论
       show_rubric: 显示评分标准说明
@@ -19105,7 +19105,7 @@ zh-Hans:
       words_connector: ", "
     help_menu: 
       cisco_netacad_facebook: 支持社区
-      cisco_netacad_facebook_description: "请访问我们的网络学院的 Facebook 页面社区的支持，或咨询您的讲师。"
+      cisco_netacad_facebook_description: "请访问我们的网络学院的 Facebook 页面社区的支持，或咨询您的教师。"
       community_support_description: 与您的同伴进行交流互动并得到帮助。
       community_support_forums: 社区支持论坛
       contact_support: 联系支持
@@ -19393,7 +19393,7 @@ zh-Hans:
   the_unique_id_used_for_representing_the_specific_r_3bdf5870: "独特的 ID 用于表示特定的请求/回应此错误报告发生的周期。"
   the_url_a_sufficiently_priviledged_user_could_use__e6b02c56: 一个有足够优越用户的网站可以用来伪装成同一个页面上的用户报告，以尝试重现该问题。
   the_url_of_the_page_the_user_was_on_when_they_repo_11dfa92f: 当用户报告错误时使用的网站
-  the_user_must_also_be_enrolled_as_an_instructor_in_e7e22eea: 用户还必须在他们试图交叉列出的课程中注册为讲师。
+  the_user_must_also_be_enrolled_as_an_instructor_in_e7e22eea: 用户还必须在他们试图交叉列出的课程中注册为教师。
   theme_52404e51: 主题
   theme_editor_b7b00f6b: 主题编辑器
   theme_editor_changes_have_been_cancelled_2af5cc5f: 主题编辑器的更改已被取消。
@@ -20263,8 +20263,8 @@ zh-Hans:
   up_c553575d: 上
   update_374eb54: 更新
   update_4d8ee62: 更新
-  update_and_view_sections_course_details_navigation_dd10b45e: 更新和查看章节、课程详细信息、导航、功能选择和外部应用集成，全部仅对讲师可见。
-  update_and_view_sections_course_details_navigation_de248be8: 更新和查看班级、课程详细信息、导航、功能选择和外部应用集成，全部仅对讲师可见。
+  update_and_view_sections_course_details_navigation_dd10b45e: 更新和查看章节、课程详细信息、导航、功能选择和外部应用集成，全部仅对教师可见。
+  update_and_view_sections_course_details_navigation_de248be8: 更新和查看班级、课程详细信息、导航、功能选择和外部应用集成，全部仅对教师可见。
   update_comment_8cedb4f0: 更新评论
   update_comments_21991be0: 更新评论
   update_criterion_edcbd330: 更新标准
@@ -20793,7 +20793,7 @@ zh-Hans:
   users_add_remove_teachers_course_designers_or_tas__b480dd9: "用户 - 在课程中添加/删除教师、课程设计者或助教"
   users_and_terms_are_located_at_the_account_so_the__4184557b: |-
       用户和学期位于该帐户，因此SIS端点始终根据帐户确认用户的权限。子帐户只拥有课程和分组的所有权；他们不拥有用户数据。
-      子帐户管理员无法查看SIS信息，除非他们在课程中也被授予讲师角色。子帐户管理员无法在没有课程关联的情况下查看SIS信息，因为讲师角色有权在帐户级别读取SIS数据。
+      子帐户管理员无法查看SIS信息，除非他们在课程中也被授予教师角色。子帐户管理员无法在没有课程关联的情况下查看SIS信息，因为教师角色有权在帐户级别读取SIS数据。
   users_can_access_the_manage_question_banks_link_on_e411d01: "启用“课程内容 - 查看”和“作业和测验 - 添加/编辑/删除”后，用户可以访问“测验”索引页面上的“管理题库”链接。"
   users_d1b60cb0: 用户
   users_generate_observer_pairing_codes_for_students_6975caad: "用户 - 为学生生成观察者配对码"
@@ -20931,7 +20931,7 @@ zh-Hans:
   weighted_grading_periods_ae4edd70: 加权评分周期
   welcome_to_the_canvas_theme_editor_73091d1: "欢迎使用 Canvas 主题编辑器"
   welcome_to_your_courses_to_customize_the_list_of_c_22de652e: 欢迎来到您的课程！如需自定义课程列表，点击进入“所有课程”，并标记要显示的课程。
-  welcome_to_your_courses_to_customize_the_list_of_c_f95e4b2: "欢迎进入您的课程！要自定义课程列表，请单击“All Courses”(所有课程)链接，并标记要显示的课程。"
+  welcome_to_your_courses_to_customize_the_list_of_c_f95e4b2: "欢迎进入您的课程列表！要自定义课程列表，请单击“所有课程”链接，并标记要显示的课程。"
   well_below_mastery_37664bdc: 远低于掌握
   were_errors_27343020: 
     one: 出错
@@ -21180,7 +21180,7 @@ zh-Hans:
   you_can_leave_the_page_and_you_will_get_a_notifica_fefe11e8: 您可以离开此页面，同步过程完成后将通知您。
   you_can_log_in_directly_with_this_provider_by_goin_467d7f66: "通过 %{url}，您可以直接使用此提供者登录。"
   you_can_now_set_regrade_options_for_students_who_h_c1ceb1c4: 您现在可以为已经参加测验的学生设置重新评分选项。
-  you_can_publish_your_course_from_the_home_page_whe_a36d49d6: 您准备好将课程分享给学生后，可以随时从首页发布您的课程。发布课程以前，仅讲师可以访问该课程。
+  you_can_publish_your_course_from_the_home_page_whe_a36d49d6: 您准备好将课程分享给学生后，可以随时从首页发布您的课程。发布课程以前，仅教师可以访问该课程。
   you_can_reply_to_this_comment_by_responding_to_thi_3d130e8c: "您可以通过响应此消息回复此评论，或查看使用此链接所提交的详细信息：%{link}。"
   you_can_reply_to_this_comment_by_responding_to_thi_4fd1379e: "您可以通过回应此消息回复此评论，或使用此链接查看提交项详细信息：%{link}.  在允许的情况下，如果您需要添加附件，请登录到 Canvas 并回复提交项"
   you_can_reply_to_this_message_in_canvas_by_clickin_f5f5f7a3: "您可以在Canvas中单击此链接以回复此消息：%{link}。"
@@ -21271,8 +21271,8 @@ zh-Hans:
   you_ve_been_invited_to_course_course_role_role_typ_b8ab8f22: "您已被邀请到%{course}。课程角色：%{role_type}"
   you_ve_been_invited_to_participate_in_a_class_at_w_b87cd481: "您已被邀请在 %{website} 参加一个课程。此课程被称为 %{course}。课程角色：%{role_type}"
   you_ve_been_invited_to_participate_in_the_course_c_a8d1f6a8: "您已被邀请参加课程，%{course}。课程角色：%{role_type}"
-  you_ve_been_invited_to_peer_review_reviewee_82580fb: "您已被邀请进行同侪评审 %{reviewee}。"
-  you_ve_been_invited_to_peer_review_reviewee_follow_2e71fce2: "您已被邀请进行同侪评审 %{reviewee}。按照此链接对其进行评审：%{link}。"
+  you_ve_been_invited_to_peer_review_reviewee_82580fb: "您已被邀请进行互评 %{reviewee}。"
+  you_ve_been_invited_to_peer_review_reviewee_follow_2e71fce2: "您已被邀请进行互评 %{reviewee}。按照此链接对其进行评审：%{link}。"
   you_ve_been_invited_to_the_course_course_2aac8140: "您已被邀请到课程，%{course}。"
   you_ve_been_invited_to_the_course_course_course_ro_a74d748b: "您已被邀请参加课程，%{course}。课程角色：%{role_type}"
   you_ve_been_reminded_to_assess_rubric_context_70eeb600: "提醒您浏览 %{rubric}，%{context}。"
