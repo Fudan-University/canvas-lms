@@ -6106,8 +6106,8 @@ zh-Hans:
       drag_details: 禁用大部分页面会导致访问这些页面的学生被重定向至课程主页。
       drag_to_hide: 拖动项目到此处可对学生隐藏它们。
       enrollment_count: 
-        one: "%{count} 个用户"
-        other: "%{count} 个用户"
+        one: "%{count} 名成员"
+        other: "%{count} 名成员"
       headings: 
         details: 课程详细信息
         grade_publishing: 评分发布
