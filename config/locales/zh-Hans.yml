@@ -2120,12 +2120,12 @@ zh-Hans:
   announcements_tutorial_tray_994287d6: 公告教程托盘
   announcements_unlocked_successfully_1432da9d: 已成功取消锁定公告
   announcements_view_1019d00d: "公告 - 查看"
-  anonymize_all_annotations_made_by_instructors_on_s_4f2b70a5: 隐去教师对此作业的提交项做出的所有注释的身份信息SpeedGrader
+  anonymize_all_annotations_made_by_instructors_on_s_4f2b70a5: 隐去作业评语中的教师身份信息
   anonymous_e1b8ad27: 匿名
   anonymous_grading_cannot_be_enabled_for_group_assi_faa33494: 不能对小组作业启用匿名评分
   anonymous_grading_ccb5045c: 匿名评分
   anonymous_grading_forces_student_names_to_be_hidde_8b46d7e7: 匿名评分强制将学生的名字隐藏于SpeedGrader™
-  anonymous_instructor_annotations_2b6c822: 匿名教师注释
+  anonymous_instructor_annotations_2b6c822: 教师评语匿名
   anonymous_marking_92a4d623: 匿名打分
   anonymous_mode_on_2dd9b94a: 匿名模式启用
   anonymous_mode_on_feb53729: 匿名模式启用：
@@ -2416,7 +2416,7 @@ zh-Hans:
     errors: 
       frozen_assignments_error: 您无法删除一个含有已锁定作业的小组。
   assignment_groups_bc9cc3c9: 作业小组
-  assignment_groups_weight_2f1a5a7c: 作业组权重
+  assignment_groups_weight_2f1a5a7c: 设置作业组权重
   assignment_has_a_locked_date_due_date_cannot_be_se_2e2e3389: 作业包含锁定日期。截止日期不能设置在锁定的日期范围以外。
   assignment_id_96baa1b7: "作业 id"
   assignment_id_b040cee0: 作业ID
@@ -2560,7 +2560,7 @@ zh-Hans:
       drop_highest: 最高分数：
       drop_lowest: 最低分数：
       example_group_name: "例如，论文组 1"
-      group_name: 小组名称：
+      group_name: 作业组名称：
       never_drop: 不删除：
       percent_of_total: "总评分的 %"
       save: 保存
@@ -2707,7 +2707,7 @@ zh-Hans:
     incomplete: 未完成
     index_view: 
       add_assignment: 作业
-      add_group: 小组
+      add_group: 作业组
       add_quiz_lti: 测验/测试
       assignments: 作业
       assignments_settings: 作业设置
@@ -2716,7 +2716,7 @@ zh-Hans:
       grading_weight_settings_screenreader: 作业组权重
       search_for_assignment: 搜索作业
       title_add_assignment: 添加作业
-      title_add_group: 添加作业小组
+      title_add_group: 添加作业组
       title_add_quiz_lti: 添加测验/测试
     invalid_file_retrieval: 检索通过此工具发送的文件时出现问题。
     invalid_tool_return: 已启动的工具对此次作业返回了无效资源
@@ -2758,7 +2758,7 @@ zh-Hans:
     never_drop_scores: "不删除 %{assignment_name}"
     no_assignments: "[无作业]"
     no_assignments_list_item: 
-      no_assignments_in_this_group: 此小组中无作业
+      no_assignments_in_this_group: 此左右组中无作业
     no_assignments_search: 
       aria_assignments: 作业
       assignments: 作业
@@ -2776,7 +2776,7 @@ zh-Hans:
       other: "%{count} 份作业"
     other_assignments: 其它作业
     overdue_assignments: 逾期作业
-    past_assignments: 以往作业
+    past_assignments: 已经结束的作业
     peer_review_assignment: 
       titles: 
         remind_reviewer: "向 %{user} 用户提醒测验"
@@ -3051,7 +3051,7 @@ zh-Hans:
         settings_exclude_fewer_than_count: "少于 %{wordsInput} 个字"
         settings_exclude_less_than_percent: "少于文档的 %{percentInput}"
     undated_assignments: 无日期作业
-    upcoming_assignments: 即将布置的作业
+    upcoming_assignments: 即将开始的作业
     veri_cite_settings_dialog: 
       buttons: 
         update_settings: 更新设置
@@ -3259,7 +3259,7 @@ zh-Hans:
   available_from_date_43b5e11d: 开始日期
   available_from_date_afc594fa: 开始日期：
   available_from_date_must_precede_available_until_c9f9e533: “开始日期”必须早于“截止日期”
-  available_from_f84e4611: 开始时间
+  available_from_f84e4611: 可访问时间
   available_from_field_for_styleguide_7ced3861: 开始时间的字段格式
   available_from_format_like_yyyy_mm_dd_hh_mm_8b726122: "开始时间的格式 YYYY-MM-DD hh:mm"
   available_to_b7350e02: 可用于
@@ -13338,12 +13338,12 @@ zh-Hans:
   n_a_d6f6c42f: 不适用
   n_contextscount_more_2f708db4: "+ 另外%{n_contextsCount}"
   n_count_alignments_a45bebe7: "*%{n_count}* 对齐"
-  n_groupweight_percentage_of_total_2ae4d996: "%{n_groupWeight_percentage} 总共"
+  n_groupweight_percentage_of_total_2ae4d996: "占总分 %{n_groupWeight_percentage}"
   n_number_of_times_c2e78b72: "n 次数"
   n_points_possible_precision_2_st_points_bc3748df: "%{n_points_possible_precision_2_st} 分"
   n_points_precision_2_strip_insig_points_60ad6f21: "%{n_points_precision_2_strip_insig} 分"
-  n_pointspossible_points_possible_1d098245: "%{n_pointsPossible} 可能得分"
-  n_pointspossible_pts_73274d36: "%{n_pointsPossible} 得分"
+  n_pointspossible_points_possible_1d098245: "总分 %{n_pointsPossible} 分"
+  n_pointspossible_pts_73274d36: "总分 %{n_pointsPossible} 分"
   name: 学术基准导入器
   name_1aed4a1b: 名称
   name_3806192d: 姓名：
@@ -20925,7 +20925,7 @@ zh-Hans:
   week_s_cb1492ee: 星期
   weight_9b308e5b: 权重
   weight_ff579a8e: 加权：
-  weight_final_grade_based_on_assignment_groups_3124161: 根据作业小组加权最终评分
+  weight_final_grade_based_on_assignment_groups_3124161: 按作业组权重计算最终评分
   weight_of_final_abbbe82f: "%{weight} 最终"
   weight_of_grade_dff535d9: "%{weight} 评分"
   weighted_grading_periods_ae4edd70: 加权评分周期
