@@ -120,29 +120,31 @@ class PlannerController < ApplicationController
   #   }
   # ]
   def index
-    # fetch a meta key so we can invalidate just this info and not the whole of the user's cache
-    planner_overrides_meta_key = Rails.cache.fetch(planner_meta_cache_key, expires_in: 120.minutes) do
-      SecureRandom.uuid
+    Shackles.activate(:slave) do
+      # fetch a meta key so we can invalidate just this info and not the whole of the user's cache
+      planner_overrides_meta_key = Rails.cache.fetch(planner_meta_cache_key, expires_in: 120.minutes) do
+        SecureRandom.uuid
+      end
+
+      composite_cache_key = ['planner_items',
+                             planner_overrides_meta_key,
+                             page,
+                             params[:filter],
+                             default_opts,
+                             contexts_cache_key].cache_key
+
+      items_response = Rails.cache.fetch(composite_cache_key, expires_in: 120.minutes) do
+        items = collection_for_filter(params[:filter])
+        items = Api.paginate(items, self, api_v1_planner_items_url)
+        {
+          json: planner_items_json(items, @current_user, session, {due_after: start_date, due_before: end_date}),
+          link: response.headers["Link"].to_s,
+        }
+      end
+
+      response.headers["Link"] = items_response[:link]
+      render json: items_response[:json]
     end
-
-    composite_cache_key = ['planner_items',
-                           planner_overrides_meta_key,
-                           page,
-                           params[:filter],
-                           default_opts,
-                           contexts_cache_key].cache_key
-
-    items_response = Rails.cache.fetch(composite_cache_key, expires_in: 120.minutes) do
-      items = collection_for_filter(params[:filter])
-      items = Api.paginate(items, self, api_v1_planner_items_url)
-      {
-        json: planner_items_json(items, @current_user, session, {due_after: start_date, due_before: end_date}),
-        link: response.headers["Link"].to_s,
-      }
-    end
-
-    response.headers["Link"] = items_response[:link]
-    render json: items_response[:json]
   end
 
   private
@@ -277,7 +279,7 @@ class PlannerController < ApplicationController
     context_codes += @group_ids.map{|id| "group_#{id}"}
     context_codes += @user_ids.map{|id| "user_#{id}"}
     item_collection('calendar_events', @current_user.calendar_events_for_contexts(context_codes, start_at: start_date,
-      end_at: end_date, exclude_assignments: true),
+      end_at: end_date),
       CalendarEvent, [:start_at, :created_at], :id)
   end
 
