@@ -542,4 +542,11 @@ class CommunicationChannel < ActiveRecord::Base
     return nil unless (carrier = CommunicationChannel.sms_carriers[match[:domain]])
     "+#{carrier['country_code']}#{match[:number]}"
   end
+
+  def path_type_display
+    case path_type
+    when 'sms' then I18n.t 'profile.ways_to_contact.contact_types.sms', 'sms'
+    else path_type
+    end
+  end
 end

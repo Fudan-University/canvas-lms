@@ -115,7 +115,7 @@
     <% @other_channels.each do |c| %>
       <tr class="channel <%= "unconfirmed" if c.state == :unconfirmed %> pseudonym_<%= c.pseudonym_id %>" id="channel_<%= c.id %>">
         <td><a href="#" class="path contact_channel_path ellipsis"><%= c.path_description %></a></td>
-        <td><%= t("contact_types.#{c.path_type}", c.path_type) %></td>
+        <td><%= c.path_type_display %></td>
         <td style="padding: 0; text-align: center;">
           <% if c.bouncing? %>
             <span class="bouncing-channel" data-tooltip="left" title="<%= t('bouncing_channel', 'Canvas was unable to send messages to you using this contact method. Please ensure the contact information is correct to continue receiving messages from Canvas.') %>" aria-label="<%= t('bouncing_channel', 'Canvas was unable to send messages to you using this contact method. Please ensure the contact information is correct to continue receiving messages from Canvas.') %>">
