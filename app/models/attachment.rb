@@ -1020,7 +1020,7 @@ class Attachment < ActiveRecord::Base
   end
 
   def disposition_filename
-    ascii_filename = Iconv.conv("ASCII//TRANSLIT//IGNORE", "UTF-8", display_name)
+    ascii_filename = display_name.encode 'ascii', invalid: :replace, undef: :replace, replace: '?'
 
     # response-content-disposition will be url encoded in the depths of
     # aws-s3, doesn't need to happen here. we'll be nice and ghetto http
