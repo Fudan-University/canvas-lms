@@ -1,0 +1,43 @@
+FROM ruby:2.5.3-stretch
+
+ENV APP_HOME /opt/canvas/
+ENV LIB_HOME /opt/lib/
+ENV RAILS_ENV 'production'
+ENV YARN_VERSION '1.12.3'
+ENV NODE_VERSION '8.15.0'
+
+ENV DISABLE_V8_COMPILE_CACHE 1
+
+RUN echo 'deb http://mirrors.tuna.tsinghua.edu.cn/debian stretch main' > /etc/apt/sources.list \
+  && echo 'deb http://mirrors.tuna.tsinghua.edu.cn/debian stretch-updates main' >> /etc/apt/sources.list \
+  && echo 'deb http://mirrors.tuna.tsinghua.edu.cn/debian-security/ stretch/updates main' >> /etc/apt/sources.list \
+  && printf 'path-exclude /usr/share/doc/*\npath-exclude /usr/share/man/*' > /etc/dpkg/dpkg.cfg.d/01_nodoc \
+  && apt-get update -qq \
+  && apt-get upgrade -qqy \
+  && apt-get install -qqy --no-install-recommends \
+       libxmlsec1-dev \
+       python-lxml \
+       libicu-dev \
+       postgresql-client \
+       unzip \
+       fontforge \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/list/* \
+
+WORKDIR $LIB_HOME
+RUN wget -q https://npm.taobao.org/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz \
+  && tar xzf node-v${NODE_VERSION}-linux-x64.tar.gz \
+  && ln -s ${LIB_HOME}node-v${NODE_VERSION}-linux-x64/bin/node /usr/local/bin/node \
+  && ln -s ${LIB_HOME}node-v${NODE_VERSION}-linux-x64/bin/npm /usr/local/bin/npm \
+  && wget -q https://npm.taobao.org/mirrors/yarn/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz \
+  && tar xzf yarn-v${YARN_VERSION}.tar.gz \
+  && ln -s ${LIB_HOME}yarn-v${YARN_VERSION}/bin/yarn /usr/local/bin/yarn \
+  && rm node-v${NODE_VERSION}-linux-x64.tar.gz yarn-v${YARN_VERSION}.tar.gz
+
+COPY build/vendor/woff-code-latest.zip ./
+RUN unzip woff-code-latest.zip -d woff \
+  && cd woff \
+  && make \
+  && cp sfnt2woff /usr/local/bin \
+  && cd - \
+  && rm -rf woff*

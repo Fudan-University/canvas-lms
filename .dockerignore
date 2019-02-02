@@ -37,3 +37,5 @@ Dockerfile
 Dockerfile-production
 Gemfile.lock
 mkmf.log
+
+sinicize/
