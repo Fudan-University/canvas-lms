@@ -113,7 +113,7 @@
   flex-wrap: wrap;
   z-index: 1;
   list-style: none;
-  padding: 6px 6px;
+  padding: 6px;
   border: 1px solid $ic-border-light;
   background-color: $ic-color-light;
   border-radius: 3px;
@@ -227,7 +227,7 @@ $ic-token-padding: 3px 15px;
       padding: 0 11px;
     }
     span {
-      padding: 0 15px 0 4px;
+      padding: direction-sides(0 15px 0 4px);
     }
   }
 

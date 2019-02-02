@@ -51,10 +51,13 @@ class SearchResultsComponent extends Component {
     fetchHistoryStatus: string.isRequired,
     caption: node.isRequired,
     historyItems: arrayOf(shape({
-      anonymous: bool.isRequired,
-      assignment: string.isRequired,
+      assignment: shape({
+        name: string.isRequired,
+        muted: bool.isRequired
+      }),
       date: string.isRequired,
       displayAsPoints: bool.isRequired,
+      gradedAnonymously: bool.isRequired,
       grader: string.isRequired,
       gradeAfter: string.isRequired,
       gradeBefore: string.isRequired,
@@ -153,11 +156,11 @@ class SearchResultsComponent extends Component {
     }
 
     if (this.noResultsFound()) {
-      return (<Text fontStyle="italic">{I18n.t('No results found.')}</Text>);
+      return (<Text>{I18n.t('No results found.')}</Text>);
     }
 
     if (!this.props.requestingResults && !this.props.nextPage && this.hasHistory()) {
-      return (<Text fontStyle="italic">{I18n.t('No more results to load.')}</Text>);
+      return (<Text>{I18n.t('No more results to load.')}</Text>);
     }
 
     return null;

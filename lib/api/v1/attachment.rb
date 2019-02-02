@@ -28,7 +28,7 @@ module Api::V1::Attachment
   end
 
   def attachments_json(files, user, url_options = {}, options = {})
-    if options[:can_view_hidden_files] && options[:context] && master_courses?
+    if options[:can_view_hidden_files] && options[:context]
       options[:master_course_status] = setup_master_course_restrictions(files, options[:context])
     end
     files.map do |f|
@@ -43,21 +43,22 @@ module Api::V1::Attachment
       'folder_id' => attachment.folder_id,
       'display_name' => attachment.display_name,
       'filename' => attachment.filename,
+      'workflow_state' => attachment.workflow_state
     }
     return hash if options[:only] && options[:only].include?('names')
 
-    options.reverse_merge!(submission_attachment: false)
+    options.reverse_merge!(skip_permission_checks: false)
     includes = options[:include] || []
 
     # it takes loads of queries to figure out that a teacher doesn't have
     # :update permission on submission attachments.  we'll handle the
     # permissions ourselves instead of using the usual stuff to save thousands
     # of queries
-    submission_attachment = options[:submission_attachment]
+    skip_permission_checks = options[:skip_permission_checks]
 
     # this seems like a stupid amount of branching but it avoids expensive
     # permission checks
-    hidden_for_user = if submission_attachment
+    hidden_for_user = if skip_permission_checks
                         false
                       elsif !attachment.hidden?
                         false
@@ -67,7 +68,7 @@ module Api::V1::Attachment
                         !can_view_hidden_files?(attachment.context, user)
                       end
 
-    downloadable = !attachment.locked_for?(user, check_policies: true)
+    downloadable = skip_permission_checks || !attachment.locked_for?(user, check_policies: true)
 
     if downloadable
       # using the multi-parameter form because not every class that mixes in
@@ -97,7 +98,7 @@ module Api::V1::Attachment
       'updated_at' => attachment.updated_at,
       'unlock_at' => attachment.unlock_at,
       'locked' => !!attachment.locked,
-      'hidden' => submission_attachment ? false : !!attachment.hidden?,
+      'hidden' => skip_permission_checks ? false : !!attachment.hidden?,
       'lock_at' => attachment.lock_at,
       'hidden_for_user' => hidden_for_user,
       'thumbnail_url' => thumbnail_url,
@@ -105,7 +106,11 @@ module Api::V1::Attachment
       'mime_class' => attachment.mime_class,
       'media_entry_id' => attachment.media_entry_id
     )
-    locked_json(hash, attachment, user, 'file')
+    if skip_permission_checks
+      hash['locked_for_user'] = false
+    else
+      locked_json(hash, attachment, user, 'file')
+    end
 
     if includes.include? 'user'
       context = attachment.context
@@ -118,7 +123,8 @@ module Api::V1::Attachment
         moderated_grading_whitelist: options[:moderated_grading_whitelist],
         enable_annotations: options[:enable_annotations],
         enrollment_type: options[:enrollment_type],
-        anonymous_instructor_annotations: options[:anonymous_instructor_annotations]
+        anonymous_instructor_annotations: options[:anonymous_instructor_annotations],
+        submission_id: options[:submission_id]
       }
       hash['preview_url'] = attachment.crocodoc_url(user, url_opts) ||
                             attachment.canvadoc_url(user, url_opts)
@@ -225,7 +231,10 @@ module Api::V1::Attachment
     # no permission check required to use the preferred folder
 
     folder ||= opts[:folder]
-    progress_context = opts[:assignment] || @current_user
+    progress_context =
+      opts[:assignment] ||
+      (opts[:assignment_id] && Assignment.where(:id => params[:assignment_id]).first) ||
+      @current_user
     if InstFS.enabled?
       additional_capture_params = {}
       progress_json_result = if params[:url]
@@ -234,7 +243,6 @@ module Api::V1::Attachment
         progress.save!
 
         additional_capture_params = {
-          submit_assignment: params[:submit_assignment],
           eula_agreement_timestamp: params[:eula_agreement_timestamp]
         }
 
@@ -278,30 +286,10 @@ module Api::V1::Attachment
         progress = ::Progress.new(context: progress_context, user: @current_user, tag: :upload_via_url)
         progress.reset!
 
-        # TODO: The `submit_assignment` param is used to help in backwards compat for prevent double submissions,
-        # can be removed in the next release.
-        if params[:submit_assignment].to_s == 'true' # coerced to handle json body vs url param
-          executor = Services::SubmitHomeworkService.create_clone_url_executor(
-            params[:url], on_duplicate, opts[:check_quota], progress: progress
-          )
-          Services::SubmitHomeworkService.submit_job(progress, @attachment, params[:eula_agreement_timestamp], executor)
-
-        # Old way that does not submit the assignment (browser js will try to do it)
-        else
-          progress.process_job(
-            @attachment,
-            :clone_url,
-            {
-              n_strand: 'file_download',
-              preserve_method_args: true,
-              priority: Delayed::HIGH_PRIORITY
-            },
-            params[:url],
-            on_duplicate,
-            opts[:check_quota],
-            { progress: progress }
-          )
-        end
+        executor = Services::SubmitHomeworkService.create_clone_url_executor(
+          params[:url], on_duplicate, opts[:check_quota], progress: progress
+        )
+        Services::SubmitHomeworkService.submit_job(progress, @attachment, params[:eula_agreement_timestamp], executor)
 
         json = { progress: progress_json(progress, @current_user, session) }
       else

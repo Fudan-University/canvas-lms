@@ -265,21 +265,6 @@ RSpec::Matchers.define :and_fragment do |expected|
 end
 
 module Helpers
-  def message(opts={})
-    m = Message.new
-    m.to = opts[:to] || 'some_user'
-    m.from = opts[:from] || 'some_other_user'
-    m.subject = opts[:subject] || 'a message for you'
-    m.body = opts[:body] || 'foo bar'
-    m.sent_at = opts[:sent_at] || 5.days.ago
-    m.workflow_state = opts[:workflow_state] || 'sent'
-    m.user_id = opts[:user_id] || opts[:user].try(:id)
-    m.path_type = opts[:path_type] || 'email'
-    m.root_account_id = opts[:account_id] || Account.default.id
-    m.save!
-    m
-  end
-
   def assert_status(status=500)
     expect(response.status.to_i).to eq status
   end
@@ -481,8 +466,11 @@ RSpec.configure do |config|
   if Bullet.enable?
     config.before(:each) do |example|
       Bullet.start_request
-      possible_objects, impossible_objects =
-        example.example_group.onceler.instance_variable_get(:@bullet_state)
+      # we walk the example group chain until we reach one that actually recorded something
+      oncie = example.example_group
+      oncie = oncie.superclass while oncie && !oncie.onceler&.tape && oncie.superclass.respond_to?(:onceler)
+
+      possible_objects, impossible_objects = oncie.onceler.instance_variable_get(:@bullet_state)
       possible_objects&.each { |object| Bullet::Detector::NPlusOneQuery.possible_objects.add(object) }
       impossible_objects&.each { |object| Bullet::Detector::NPlusOneQuery.impossible_objects.add(object) }
     end
@@ -495,6 +483,10 @@ RSpec.configure do |config|
     Onceler.configure do |config|
       config.before(:record) do
         Bullet.start_request
+        possible_objects, impossible_objects =
+          onceler.parent&.instance_variable_get(:@bullet_state)
+        possible_objects&.each { |object| Bullet::Detector::NPlusOneQuery.possible_objects.add(object) }
+        impossible_objects&.each { |object| Bullet::Detector::NPlusOneQuery.impossible_objects.add(object) }
       end
 
       config.after(:record) do |tape|
@@ -598,9 +590,7 @@ RSpec.configure do |config|
     path = generate_csv_file(lines)
     opts[:files] = [path]
 
-    use_parallel = SisBatch.use_parallel_importers?(account)
-    import_class = use_parallel ? SIS::CSV::ImportRefactored : SIS::CSV::Import
-    importer = import_class.process(account, opts)
+    importer = SIS::CSV::ImportRefactored.process(account, opts)
     run_jobs
 
     File.unlink path
@@ -666,6 +656,14 @@ RSpec.configure do |config|
                                                  'kcw_ui_conf' => '1',
                                                  'upload_ui_conf' => '1'
                                              })
+  end
+
+  def override_dynamic_settings(data)
+    original_fallback = Canvas::DynamicSettings.fallback_data
+    Canvas::DynamicSettings.fallback_data = data
+    yield
+  ensure
+    Canvas::DynamicSettings.fallback_data = original_fallback
   end
 
   def json_parse(json_string = response.body)
@@ -933,4 +931,14 @@ Shoulda::Matchers.configure do |config|
     # Or, choose the following (which implies all of the above):
     # with.library :rails
   end
+end
+
+def enable_developer_key_account_binding!(developer_key)
+  developer_key.developer_key_account_bindings.first.update!(
+    workflow_state: 'on'
+  )
+end
+
+def enable_default_developer_key!
+  enable_developer_key_account_binding!(DeveloperKey.default)
 end

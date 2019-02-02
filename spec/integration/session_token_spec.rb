@@ -21,6 +21,7 @@ require_relative '../sharding_spec_helper'
 describe 'session token', type: :request do
   before do
     user_with_pseudonym
+    enable_default_developer_key!
   end
 
   let(:access_token) { @user.access_tokens.create!(:purpose => "test").full_token }
@@ -28,7 +29,7 @@ describe 'session token', type: :request do
   it "should work" do
     get 'https://www.example.com/login/session_token?return_to=https://www.example.com/courses',
          params: {access_token: access_token}
-    expect(response).to be_success
+    expect(response).to be_successful
     json = JSON.parse(response.body)
     expect(json['session_url']).to match %r{^https://www.example.com/courses\?session_token=[0-9a-zA-Z_\-]+$}
 
@@ -37,7 +38,7 @@ describe 'session token', type: :request do
     expect(response.location).to eq 'https://www.example.com/courses'
 
     follow_redirect!
-    expect(response).to be_success
+    expect(response).to be_successful
   end
 
   it "should set used_remember_me_token" do
@@ -48,7 +49,7 @@ describe 'session token', type: :request do
     expect(response).to redirect_to 'http://test1.instructure.com/'
 
     follow_redirect!
-    expect(response).to be_success
+    expect(response).to be_successful
     expect(session[:used_remember_me_token]).to eq true
   end
 
@@ -80,6 +81,6 @@ describe 'session token', type: :request do
     get "http://test1.instructure.com/?session_token=#{SessionToken.new(@pseudonym.id)}"
     expect(response).to redirect_to 'http://test1.instructure.com/'
     follow_redirect!
-    expect(response).to be_success
+    expect(response).to be_successful
   end
 end

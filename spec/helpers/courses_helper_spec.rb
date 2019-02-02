@@ -137,11 +137,6 @@ describe CoursesHelper do
       expect(readable_grade(submission)).to be_nil
     end
 
-    it "should return a capitalized grade without an assignment" do
-      submission = Submission.new(:grade => 'unknown', :workflow_state => 'graded')
-      expect(readable_grade(submission)).to eq 'Unknown'
-    end
-
     it "should return the score if graded" do
       assignment = Assignment.new(:points_possible => 5, :grading_type => 'points')
       submission = Submission.new(:grade => 1.33333333, :workflow_state => 'graded', :assignment => assignment)
@@ -155,7 +150,7 @@ describe CoursesHelper do
     end
   end
 
-  context "#user_type" do
+  describe "#user_type" do
     let(:admin) { account_admin_user(account: Account.default, active_user: true) }
     let(:course) { Account.default.courses.create! }
     let(:teacher) { teacher_in_course(course: course, active_all: true).user }
@@ -197,6 +192,16 @@ describe CoursesHelper do
     it "returns 'admin' for admin enrollments" do
       expect(user_type(course, admin)).to eq "admin"
     end
-  end
 
+    it "can optionally be passed preloaded enrollments" do
+      enrollments = course.enrollments.index_by(&:user_id)
+      expect(course).not_to receive(:enrollments)
+      user_type(course, teacher, enrollments)
+    end
+
+    it "returns the correct user type when passed preloaded enrollments" do
+      enrollments = teacher && course.enrollments.index_by(&:user_id)
+      expect(user_type(course, teacher, enrollments)).to eq "teacher"
+    end
+  end
 end

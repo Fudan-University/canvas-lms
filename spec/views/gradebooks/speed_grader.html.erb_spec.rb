@@ -27,7 +27,7 @@ describe "/gradebooks/speed_grader" do
     { anonymize_students: false }
   end
 
-  before do
+  before(:once) do
     course_with_student(active_all: true)
     view_context
     assign(:students, [@user])
@@ -49,15 +49,31 @@ describe "/gradebooks/speed_grader" do
     assign(:current_user, @teacher)
   end
 
-  it "should render" do
+  it "renders without error" do
+    expect {
+      render template: 'gradebooks/speed_grader', locals: locals
+    }.not_to raise_error
+  end
+
+  it "includes a mount pount for submission comments" do
     render template: 'gradebooks/speed_grader', locals: locals
-    expect(rendered).not_to be_nil
+    expect(rendered).to include '<div id="speed_grader_submission_comments_download_mount_point"></div>'
+  end
+
+  it "includes a mount pount for comment textarea" do
+    assign(:can_comment_on_submission, true)
+    render template: 'gradebooks/speed_grader', locals: locals
+    expect(rendered).to include '<div id="speed_grader_comment_textarea_mount_point"></div>'
+  end
+
+  it "includes a mount pount for speed grader settings" do
+    render template: 'gradebooks/speed_grader', locals: locals
+    expect(rendered).to include '<span id="speed_grader_settings_mount_point"></span>'
   end
 
   it "includes a link back to the gradebook (gradebook by default)" do
     render template: 'gradebooks/speed_grader', locals: locals
-    course_id = @course.id
-    expect(rendered).to include "a href=\"http://test.host/courses/#{course_id}/gradebook\""
+    expect(rendered).to include "a href=\"http://test.host/courses/#{@course.id}/gradebook\""
   end
 
   it 'includes the comment auto-save message' do
@@ -164,6 +180,28 @@ describe "/gradebooks/speed_grader" do
     it 'does not render a placeholder for the submission score for a GPA-scale-based assignment' do
       @assignment.update!(grading_type: 'gpa_scale', points_possible: 999)
       expect(html.at_css('#grading-box-points-possible .score')).not_to be_present
+    end
+  end
+
+  context "hide student names checkbox" do
+    let(:html) do
+      render template: "gradebooks/speed_grader", locals: locals
+      Nokogiri::HTML.fragment(response.body)
+    end
+
+    before(:once) do
+      @assignment = @course.assignments.create!(assignment_valid_attributes)
+      assign(:assignment, @assignment)
+    end
+
+    it "is not rendered when anonymous grading is enabled" do
+      @assignment.update!(anonymous_grading: true)
+      expect(html.at_css("#hide_student_names")).not_to be_present
+    end
+
+    it "is rendered when anonymous grading is not enabled" do
+      @assignment.update!(anonymous_grading: false)
+      expect(html.at_css("#hide_student_names")).to be_present
     end
   end
 end

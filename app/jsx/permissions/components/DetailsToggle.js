@@ -19,7 +19,7 @@
 import React from 'react'
 import {arrayOf, string} from 'prop-types'
 
-import ToggleDetails from '@instructure/ui-toggle-details/lib/components/ToggleDetails/elements/ToggleDetails'
+import ToggleDetails from '@instructure/ui-toggle-details/lib/components/ToggleDetails'
 import Text from '@instructure/ui-elements/lib/components/Text'
 import View from '@instructure/ui-layout/lib/components/View'
 
@@ -33,7 +33,7 @@ class DetailsToggle extends React.Component {
 
   renderDetailGroup(item) {
     return (
-      <View margin="small" padding="small">
+      <View key={item.title} margin="small" padding="small">
         <Text weight="bold" as="div">
           {item.title}
         </Text>

@@ -44,13 +44,17 @@ module BasicLTI
     end
 
     def self.process_request(tool, xml)
-      res = LtiResponse.new(xml)
+      res = (quizzes_next_tool?(tool) ? BasicLTI::QuizzesNextLtiResponse : LtiResponse).new(xml)
 
       unless res.handle_request(tool)
         res.code_major = 'unsupported'
         res.description = 'Request could not be handled. ¯\_(ツ)_/¯'
       end
-      return res
+      res
+    end
+
+    def self.quizzes_next_tool?(tool)
+      tool.tool_id == 'Quizzes 2' && tool.context.root_account.feature_enabled?(:quizzes_next_submission_history)
     end
 
     def self.process_legacy_request(tool, params)
@@ -256,9 +260,9 @@ to because the assignment has no points possible.
         else
           if attachment
             job_options = {
-              :priority => Delayed::LOW_PRIORITY,
+              :priority => Delayed::HIGH_PRIORITY,
               :max_attempts => 1,
-              :n_strand => 'file_download'
+              :n_strand => Attachment.clone_url_strand(url)
             }
 
             send_later_enqueue_args(:fetch_attachment_and_save_submission, job_options, url, attachment, _tool, submission_hash, assignment, user, new_score, raw_score)
@@ -291,6 +295,7 @@ to because the assignment has no points possible.
         end
 
         if @submission
+          @submission.attempt -= 1 if @submission.attempt.try(:'>', 0) && @submission.submitted_at_changed?
           @submission.save
         else
           self.code_major = 'failure'

@@ -20,7 +20,7 @@ require 'atom'
 require 'date'
 require 'icalendar'
 
-Icalendar::Event.ical_property  :x_alt_desc
+Icalendar::Event.optional_property  :x_alt_desc
 
 class CalendarEvent < ActiveRecord::Base
   include CopyAuthorizedLinks
@@ -165,6 +165,10 @@ class CalendarEvent < ActiveRecord::Base
     SQL
   }
 
+  scope :not_hidden, -> {
+    where("NOT EXISTS (SELECT id FROM #{CalendarEvent.quoted_table_name} sub_events WHERE sub_events.parent_calendar_event_id=calendar_events.id)")
+  }
+
   scope :undated, -> { where(:start_at => nil, :end_at => nil) }
 
   scope :between, lambda { |start, ending| where(:start_at => start..ending) }
@@ -204,6 +208,19 @@ class CalendarEvent < ActiveRecord::Base
   end
   protected :default_values
 
+  def root_account
+    if context.respond_to?(:root_account)
+      context.root_account # course, section, group
+    else
+      case context
+      when User
+        context.account
+      when AppointmentGroup
+        context.context&.root_account
+      end
+    end
+  end
+
   def populate_appointment_group_defaults
     self.effective_context_code = context.appointment_group_contexts.map(&:context_code).join(",")
     if new_record?
@@ -242,18 +259,15 @@ class CalendarEvent < ActiveRecord::Base
   def populate_all_day_flag
     # If the all day flag has been changed to all day, set the times to 00:00
     if self.all_day_changed? && self.all_day?
-      self.start_at = self.end_at = zoned_start_at.beginning_of_day rescue nil
-
+      self.start_at = zoned_start_at.beginning_of_day rescue nil
+      self.end_at = zoned_end_at.beginning_of_day rescue nil
     elsif self.start_at_changed? || self.end_at_changed?
-      if self.start_at && self.start_at == self.end_at && zoned_start_at.strftime("%H:%M") == '00:00'
-        self.all_day = true
-      else
-        self.all_day = false
-      end
+      self.all_day = self.start_at && self.start_at == self.end_at && zoned_start_at.strftime("%H:%M") == '00:00'
     end
 
     if self.all_day && (!self.all_day_date || self.start_at_changed? || self.all_day_date_changed?)
-      self.start_at = self.end_at = zoned_start_at.beginning_of_day rescue nil
+      self.start_at = zoned_start_at.beginning_of_day rescue nil
+      self.end_at = zoned_end_at.beginning_of_day rescue nil
       self.all_day_date = (zoned_start_at.to_date rescue nil)
     end
   end
@@ -262,6 +276,11 @@ class CalendarEvent < ActiveRecord::Base
   # Localized start_at
   def zoned_start_at
     self.start_at && ActiveSupport::TimeWithZone.new(self.start_at.utc,
+        ((ActiveSupport::TimeZone.new(self.time_zone_edited) rescue nil) || Time.zone))
+  end
+
+  def zoned_end_at
+    self.end_at && ActiveSupport::TimeWithZone.new(self.end_at.utc,
         ((ActiveSupport::TimeZone.new(self.time_zone_edited) rescue nil) || Time.zone))
   end
 
@@ -531,10 +550,11 @@ class CalendarEvent < ActiveRecord::Base
     end
   end
 
-  def to_ics(in_own_calendar: true, preloaded_attachments: {}, user: nil)
+  def to_ics(in_own_calendar: true, preloaded_attachments: {}, user: nil, user_events: [])
     CalendarEvent::IcalEvent.new(self).to_ics(in_own_calendar:       in_own_calendar,
                                               preloaded_attachments: preloaded_attachments,
-                                              include_description:   true)
+                                              include_description:   true,
+                                              user_events: user_events)
   end
 
   def self.max_visible_calendars
@@ -590,61 +610,75 @@ class CalendarEvent < ActiveRecord::Base
     def location
     end
 
-    def to_ics(in_own_calendar:, preloaded_attachments: {}, include_description: false)
+    def to_ics(in_own_calendar:, preloaded_attachments: {}, include_description: false, user_events: [])
       cal = Icalendar::Calendar.new
       # to appease Outlook
-      cal.custom_property("METHOD","PUBLISH")
+      cal.append_custom_property("METHOD","PUBLISH")
 
       event = Icalendar::Event.new
-      event.klass = "PUBLIC"
+      event.ip_class = "PUBLIC"
 
       start_at = @event.is_a?(CalendarEvent) ? @event.start_at : @event.due_at
       end_at = @event.is_a?(CalendarEvent) ? @event.end_at : @event.due_at
 
-      if start_at
-        event.start = start_at.utc_datetime
-        event.start.icalendar_tzid = 'UTC'
-      end
-
-      if end_at
-        event.end = end_at.utc_datetime
-        event.end.icalendar_tzid = 'UTC'
-      end
+      event.dtstart = Icalendar::Values::DateTime.new(start_at.utc_datetime, 'tzid' => 'UTC') if start_at
+      event.dtend = Icalendar::Values::DateTime.new(end_at.utc_datetime, 'tzid' => 'UTC') if end_at
 
       if @event.all_day && @event.all_day_date
-        event.start = Date.new(@event.all_day_date.year, @event.all_day_date.month, @event.all_day_date.day)
-        event.start.ical_params = {"VALUE"=>["DATE"]}
-        event.end = event.start
-        event.end.ical_params = {"VALUE"=>["DATE"]}
+        event.dtstart = Date.new(@event.all_day_date.year, @event.all_day_date.month, @event.all_day_date.day)
+        event.dtstart.ical_params = {"VALUE"=>["DATE"]}
+        event.dtend = event.dtstart
+        event.dtend.ical_params = {"VALUE"=>["DATE"]}
       end
 
       event.summary = @event.title
 
       if @event.description && include_description
         html = api_user_content(@event.description, @event.context, nil, preloaded_attachments)
-        event.description html_to_text(html)
-        event.x_alt_desc(html, { 'FMTTYPE' => 'text/html' })
+        event.description = html_to_text(html)
+        event.x_alt_desc = Icalendar::Values::Text.new(html, {'FMTTYPE' => 'text/html'})
       end
 
       if @event.is_a?(CalendarEvent)
-        loc_string = ""
-        loc_string << @event.location_name + ", " if @event.location_name.present?
-        loc_string << @event.location_address if @event.location_address.present?
+        loc_string = [@event.location_name, @event.location_address].reject { |e| e.blank? }.join(", ")
       else
         loc_string = nil
       end
 
+      if @event.context_type.eql?("AppointmentGroup")
+        # We should only enter this block if a user has made an appointment, so
+        # there is always at least one element in current_apts
+        current_appts = user_events.select { |appointment| @event.id == appointment[:parent_id]}
+        if current_appts.any?
+          if !event.description.nil?
+            event.description.concat("\n\n" + current_appts[0][:course_name] + "\n\n")
+          else
+            event.description = current_appts[0][:course_name] + "\n\n"
+          end
+
+          event.description.concat("Participants: ")
+          current_appts.each { |appt| event.description.concat("\n" + appt[:user]) }
+          comments = current_appts.map{ |appt| appt[:comments] }.join(",\n")
+          event.description.concat("\n\n" + comments)
+        end
+      end
+
       event.location = loc_string
-      event.dtstamp = @event.updated_at.utc_datetime if @event.updated_at
-      event.dtstamp.icalendar_tzid = 'UTC' if event.dtstamp
+      event.dtstamp = Icalendar::Values::DateTime.new(@event.updated_at.utc_datetime, 'tzid' => 'UTC') if @event.updated_at
 
       tag_name = @event.class.name.underscore
 
+      # Covers the case for when personal calendar event is created so that HostUrl finds the correct UR:
+      url_context = @event.context
+      if url_context.is_a? User
+        url_context = url_context.account
+      end
+
       # This will change when there are other things that have calendars...
       # can't call calendar_url or calendar_url_for here, have to do it manually
-      event.url           "http://#{HostUrl.context_host(@event.context)}/calendar?include_contexts=#{@event.context.asset_string}&month=#{start_at.try(:strftime, "%m")}&year=#{start_at.try(:strftime, "%Y")}##{tag_name}_#{@event.id}"
-      event.uid           "event-#{tag_name.gsub('_', '-')}-#{@event.id}"
-      event.sequence      0
+      event.url =         "https://#{HostUrl.context_host(url_context)}/calendar?include_contexts=#{@event.context.asset_string}&month=#{start_at.try(:strftime, "%m")}&year=#{start_at.try(:strftime, "%Y")}##{tag_name}_#{@event.id}"
+      event.uid =         "event-#{tag_name.gsub('_', '-')}-#{@event.id}"
+      event.sequence =    0
 
       if @event.respond_to?(:applied_overrides)
         @event.applied_overrides.try(:each) do |override|

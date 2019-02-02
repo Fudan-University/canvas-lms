@@ -22,10 +22,6 @@ describe "Pages API", type: :request do
   include Api::V1::User
   include AvatarHelper
 
-  def blank_fallback
-    nil
-  end
-
   context 'locked api item' do
     let(:item_type) { 'page' }
 
@@ -309,7 +305,8 @@ describe "Pages API", type: :request do
                      "published" => true,
                      "front_page" => false,
                      "locked_for_user" => false,
-                     "page_id" => @hidden_page.id
+                     "page_id" => @hidden_page.id,
+                     "todo_date" => nil
         }
         expect(json).to eq expected
       end
@@ -332,7 +329,8 @@ describe "Pages API", type: :request do
                      "published" => true,
                      "front_page" => true,
                      "locked_for_user" => false,
-                     "page_id" => page.id
+                     "page_id" => page.id,
+                     "todo_date" => nil,
         }
         expect(json).to eq expected
       end
@@ -542,7 +540,7 @@ describe "Pages API", type: :request do
         expect(page.published?).to eq(true)
       end
 
-      it "should error when creating  front page with published set to false using PUT", priority: "3", test_id: 126822 do
+      it "should error when creating front page with published set to false using PUT", priority: "3", test_id: 126822 do
         json = api_call(:put, "/api/v1/courses/#{@course.id}/front_page",
                         { :controller => 'wiki_pages_api', :action => 'update_front_page', :format => 'json', :course_id => @course.to_param },
                         { :wiki_page => { :title => 'New Wiki Front Page!', :published => false}},
@@ -698,6 +696,15 @@ describe "Pages API", type: :request do
 
         page.reload
         expect(page.title).to eq new_title
+      end
+
+      it 'should not crash updating front page if the wiki_page param is not available with student planner enabled' do
+        @course.root_account.enable_feature!(:student_planner)
+        response = api_call(:put, "/api/v1/courses/#{@course.id}/front_page",
+                 { :controller => 'wiki_pages_api', :action => 'update_front_page', :format => 'json', :course_id => @course.to_param,
+                   :url => @hidden_page.url },
+                 {}, {},
+                 {:expected_status => 200})
       end
 
       it "should set as front page", priority:"3", test_id: 126813 do

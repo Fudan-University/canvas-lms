@@ -20,12 +20,12 @@ module Types
   class SubmissionType < ApplicationObjectType
     graphql_name "Submission"
 
-    implements GraphQL::Relay::Node.interface
+    implements GraphQL::Types::Relay::Node
     implements Interfaces::TimestampInterface
 
     alias :submission :object
 
-    # not doing a legacy canvas id since they aren't used in the rest api
+    field :_id, ID, "legacy canvas id", method: :id, null: false
     global_id_field :id
 
     field :assignment, AssignmentType, null: true

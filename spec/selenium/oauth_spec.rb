@@ -23,6 +23,7 @@ describe "oauth2 flow" do
 
   before do
     @key = DeveloperKey.create!(:name => 'Specs', :redirect_uri => 'http://www.example.com')
+    enable_developer_key_account_binding!(@key)
     @client_id = @key.id
     @client_secret = @key.api_key
   end
@@ -90,7 +91,7 @@ describe "oauth2 flow" do
       expect(f('.ic-Login-confirmation__auth-icon')).to be_displayed
     end
 
-    it "should show remember authorization checkbox for scoped token requests" do
+    it "should show remember authorization checkbox only for 'auth/userinfo' scoped token requests" do
       get "/login/oauth2/auth?response_type=code&client_id=#{@client_id}&redirect_uri=http%3A%2F%2Fwww.example.com&scopes=%2Fauth%2Fuserinfo"
       expect(f('#remember_access')).to be_displayed
     end
@@ -100,12 +101,18 @@ describe "oauth2 flow" do
       expect(f("#content")).not_to contain_css('#remember_access')
     end
 
+    it "should not show remember authorization checkbox for other scope requests" do
+      get "/login/oauth2/auth?response_type=code&client_id=#{@client_id}&redirect_uri=http%3A%2F%2Fwww.example.com&scopes=url%3AGET%7C%2Fapi%2Fv1%2Faccounts"
+      expect(f("#content")).not_to contain_css('#remember_access')
+    end
+
     it "should not let developer keys expire if remember me was checked" do
       expiring_key = DeveloperKey.create!(
         name: 'IExpire',
         redirect_uri: 'http://www.example.com',
         auto_expire_tokens: true
       )
+      enable_developer_key_account_binding!(expiring_key)
       redirect_uri = 'http://www.example.com&scopes=/auth/userinfo'
       get "/login/oauth2/auth?response_type=code&client_id=#{expiring_key.id}&redirect_uri=#{redirect_uri}"
       f('#remember_access').click

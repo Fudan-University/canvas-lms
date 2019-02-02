@@ -178,5 +178,23 @@ module Canvas::Oauth
         expect(provider.session_hash[:scopes]).to eq 'userinfo,full_access'
       end
     end
+
+    describe '#valid_scopes?' do
+      let(:developer_key) { DeveloperKey.create! scopes: [TokenScopes::USER_INFO_SCOPE[:scope]] }
+      let(:scopes) { [TokenScopes::USER_INFO_SCOPE[:scope]] }
+      let(:provider) { Provider.new(developer_key.id, 'some_uri', scopes)}
+
+      it 'returns true if scopes requested are included on key' do
+        expect(provider.valid_scopes?).to eq(true)
+      end
+
+      context 'with invalid scopes' do
+        let(:scopes) { [TokenScopes::USER_INFO_SCOPE[:scope], 'otherscope'] }
+
+        it 'returns false' do
+          expect(provider.valid_scopes?).to eq(false)
+        end
+      end
+    end
   end
 end

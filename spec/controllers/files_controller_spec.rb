@@ -212,6 +212,7 @@ describe FilesController do
       end
 
       it "should not show restricted external tools to students" do
+        course_file
         @course.enroll_student(@user).accept!
 
         get 'index', params: {:course_id => @course.id}
@@ -252,6 +253,20 @@ describe FilesController do
     it "should require authorization" do
       get 'show', params: {:course_id => @course.id, :id => @file.id}
       assert_unauthorized
+    end
+
+    it "should respect user context" do
+      user_session(@teacher)
+      assert_page_not_found do
+        get 'show', params: {:user_id => @user.id, :id => @file.id}, :format => 'html'
+      end
+    end
+
+    it "authenticates via course if given an assignment id" do
+      user_session(@teacher)
+      assignment = @course.assignments.create!(name: "an assignment")
+      get 'show', params: {assignment_id: assignment.id, id: @file.id}, format: :json
+      expect(response).to be_ok
     end
 
     describe "with verifiers" do
@@ -346,7 +361,7 @@ describe FilesController do
 
       # first use to establish session
       get 'show', params: verifier.merge(id: file.id)
-      expect(response).to be_success
+      expect(response).to be_successful
       permissions_key = session[:permissions_key]
 
       # second use after verifier expiration but before session expiration.
@@ -354,7 +369,7 @@ describe FilesController do
       Timecop.freeze((Users::AccessVerifier::TTL_MINUTES + 1).minutes.from_now) do
         get 'show', params: verifier.merge(id: file.id)
       end
-      expect(response).to be_success
+      expect(response).to be_successful
       expect(session[:permissions_key]).not_to eq permissions_key
     end
 
@@ -609,12 +624,8 @@ describe FilesController do
         allow(HostUrl).to receive(:file_host).and_return('files.test')
         request.host = 'files.test'
         @file.update_attribute(:content_type, 'text/html')
-        s3object = double()
-        allow(s3object).to receive(:content_length).and_return(5)
-        allow(s3object).to receive(:get).and_return(s3object)
-        allow(s3object).to receive(:body).and_return(s3object)
-        allow(s3object).to receive(:read).and_return('hello')
-        allow_any_instantiation_of(@file).to receive(:s3object).and_return(s3object)
+        handle = double(read: 'hello')
+        allow_any_instantiation_of(@file).to receive(:open).and_return(handle)
         get "show_relative", params: {file_id: @file.id, course_id: @course.id, file_path: @file.full_display_path, inline: 1, download: 1}
         expect(response).to be_successful
         expect(response.body).to eq 'hello'
@@ -1347,7 +1358,6 @@ describe FilesController do
           let(:progress_params) do
             assignment_params.merge(
               progress_id: progress.id,
-              submit_assignment: true,
               eula_agreement_timestamp: eula_agreement_timestamp
             )
           end
@@ -1377,13 +1387,6 @@ describe FilesController do
             assert_status(201)
           end
 
-          it 'should send a successful email' do
-            expect(homework_service).to receive(:successful_email)
-            request
-
-            expect(progress.reload.workflow_state).to eq 'completed'
-          end
-
           it 'should send a failure email' do
             allow(homework_service).to receive(:submit).and_raise('error')
             expect(homework_service).to receive(:failure_email)
@@ -1392,31 +1395,29 @@ describe FilesController do
             expect(progress.reload.workflow_state).to eq 'failed'
           end
         end
+      end
+    end
 
-        context 'with Progress but submit_assignment not set' do
-          let(:progress) do
-            ::Progress.
-              new(context: assignment, user: user, tag: :upload_via_url).
-              tap(&:start).
-              tap(&:save!)
-          end
-          let(:progress_params) do
-            assignment_params.merge(
-              progress_id: progress.id
-            )
-          end
-          let(:request) { post "api_capture", params: progress_params }
+    context "sharding" do
+      specs_require_sharding
 
-          it 'should not submit the attachment' do
-            expect(homework_service).not_to receive(:submit)
-            request
-          end
-
-          it "returns a 201 http status" do
-            request
-            assert_status(201)
-          end
-        end
+      it "should create the attachment on the context's shard" do
+        user = @shard1.activate{ User.create!(name: "me") }
+        post "api_capture", params: {
+          user_id: user.global_id,
+          context_type: "User",
+          context_id: user.global_id,
+          token: @token,
+          name: "test.txt",
+          size: 42,
+          content_type: "text/plain",
+          instfs_uuid: 1,
+          folder_id: user.profile_pics_folder.global_id,
+        }
+        assert_status(201)
+        attachment = assigns[:attachment]
+        expect(attachment).not_to be_nil
+        expect(attachment.shard).to eq @shard1
       end
     end
   end

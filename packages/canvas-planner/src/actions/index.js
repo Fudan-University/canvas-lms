@@ -21,7 +21,6 @@ import configureAxios from '../utilities/configureAxios';
 import { alert } from '../utilities/alertUtils';
 import formatMessage from '../format-message';
 import parseLinkHeader from 'parse-link-header';
-import { makeEndOfDayIfMidnight } from '../utilities/dateUtils';
 import { maybeUpdateTodoSidebar } from './sidebar-actions';
 
 import {
@@ -74,7 +73,7 @@ export * from './sidebar-actions';
 function saveExistingPlannerItem (apiItem) {
   return axios({
     method: 'put',
-    url: `api/v1/planner_notes/${apiItem.id}`,
+    url: `/api/v1/planner_notes/${apiItem.id}`,
     data: apiItem,
   });
 }
@@ -82,7 +81,7 @@ function saveExistingPlannerItem (apiItem) {
 function saveNewPlannerItem (apiItem) {
   return axios({
     method: 'post',
-    url: 'api/v1/planner_notes',
+    url: '/api/v1/planner_notes',
     data: apiItem,
   });
 }
@@ -136,12 +135,6 @@ export const dismissOpportunity = (id, plannerOverride) => {
       saveNewPlannerOverride(apiOverride);
     promise = promise.then(response => {
       dispatch(dismissedOpportunity(response.data));
-
-      // TODO: When splitting into dismissed not dismissed tabs this needs to change
-      if(!getState().loading.allOpportunitiesLoaded && !getState().loading.loadingOpportunities && getState().opportunities.items.filter((opp) => {
-        return opp.planner_override && !opp.planner_override.dismissed;
-      }).length < 10)
-        dispatch(getNextOpportunities());
     })
     .catch((error) => {
       alert(formatMessage('An error occurred attempting to dismiss the opportunity.'), true);
@@ -152,9 +145,6 @@ export const dismissOpportunity = (id, plannerOverride) => {
 
 export const savePlannerItem = (plannerItem) => {
   return (dispatch, getState) => {
-    plannerItem.date = makeEndOfDayIfMidnight(plannerItem.date, getState().timeZone);
-    plannerItem.date = plannerItem.date.toISOString();
-
     const isNewItem = !plannerItem.id;
     const overrideData = getOverrideDataOnItem(plannerItem);
     dispatch(savingPlannerItem({item: plannerItem, isNewItem}));
@@ -182,7 +172,7 @@ export const deletePlannerItem = (plannerItem) => {
     dispatch(deletingPlannerItem(plannerItem));
     const promise = axios({
       method: 'delete',
-      url: `api/v1/planner_notes/${plannerItem.id}`,
+      url: `/api/v1/planner_notes/${plannerItem.id}`,
     }).then(response => transformPlannerNoteApiToInternalItem(response.data, getState().courses, getState().timeZone))
       .catch(() => alert(formatMessage('Failed to delete to do'), true));
     dispatch(clearUpdateTodo());
@@ -204,7 +194,7 @@ export const cancelEditingPlannerItem = () => {
 function saveExistingPlannerOverride (apiOverride) {
   return axios({
     method: 'put',
-    url: `api/v1/planner/overrides/${apiOverride.id}`,
+    url: `/api/v1/planner/overrides/${apiOverride.id}`,
     data: apiOverride,
   });
 }
@@ -212,7 +202,7 @@ function saveExistingPlannerOverride (apiOverride) {
 function saveNewPlannerOverride (apiOverride) {
   return axios({
     method: 'post',
-    url: 'api/v1/planner/overrides',
+    url: '/api/v1/planner/overrides',
     data: apiOverride,
   });
 }

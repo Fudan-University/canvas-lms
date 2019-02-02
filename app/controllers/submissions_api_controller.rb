@@ -174,6 +174,16 @@
 #               "pending_review"
 #             ]
 #           }
+#         },
+#         "extra_attempts": {
+#           "description": "Extra submission attempts allowed for the given user and assignment.",
+#           "example": 10,
+#           "type": "number"
+#         },
+#         "anonymous_id": {
+#           "description": "A unique short ID identifying this submission without reference to the owning user. Only included if the caller has administrator access for the current account.",
+#           "example": "acJ4Q",
+#           "type": "string"
 #         }
 #       }
 #     }
@@ -235,6 +245,8 @@ class SubmissionsApiController < ApplicationController
         submissions = submissions.order(:user_id)
 
         submissions = submissions.preload(:group) if includes.include?("group")
+        submissions = submissions.preload(:quiz_submission) unless params[:exclude_response_fields]&.include?('preview_url')
+        submissions = submissions.preload(:attachment) unless params[:exclude_response_fields]&.include?('attachments')
 
         submissions = Api.paginate(submissions, self,
                                    polymorphic_url([:api_v1, @section || @context, @assignment, :submissions]))
@@ -456,7 +468,7 @@ class SubmissionsApiController < ApplicationController
     if params[:grouped].present?
       scope = (@section || @context).all_student_enrollments.
         preload(:root_account, :sis_pseudonym, :user => :pseudonyms).
-        where(:user_id => student_ids)
+        where(:user_id => student_ids).order(:user_id)
       student_enrollments = Api.paginate(scope, self, polymorphic_url([:api_v1, @section || @context, :student_submissions]))
 
       submissions_scope = Submission.active.where(user_id: student_enrollments.map(&:user_id), assignment_id: assignments)
@@ -465,6 +477,7 @@ class SubmissionsApiController < ApplicationController
       if params[:workflow_state].present?
         submissions_scope = submissions_scope.where(:workflow_state => params[:workflow_state])
       end
+      submissions_scope = submissions_scope.preload(:attachment) unless params[:exclude_response_fields]&.include?('attachments')
       submissions = submissions_scope.preload(:originality_reports, :quiz_submission).to_a
       bulk_load_attachments_and_previews(submissions)
       submissions_for_user = submissions.group_by(&:user_id)
@@ -523,6 +536,7 @@ class SubmissionsApiController < ApplicationController
       submissions = submissions.where("submitted_at>?", submitted_since_date) if submitted_since_date
       submissions = submissions.where("graded_at>?", graded_since_date) if graded_since_date
       submissions = submissions.preload(:user, :originality_reports, :quiz_submission)
+      submissions = submissions.preload(:attachment) unless params[:exclude_response_fields]&.include?('attachments')
 
       # this will speed up pagination for large collections when order_direction is asc
       if order_by == 'graded_at' && order_direction == 'asc'
@@ -756,7 +770,7 @@ class SubmissionsApiController < ApplicationController
           submission[:seconds_late_override] = params[:submission].delete(:seconds_late_override)
         end
         submission[:provisional] = value_to_boolean(params[:submission][:provisional])
-        submission[:final] = value_to_boolean(params[:submission][:final]) && @context.grants_right?(@current_user, :moderate_grades)
+        submission[:final] = value_to_boolean(params[:submission][:final]) && @assignment.permits_moderation?(@current_user)
         if params[:submission][:submission_type] == 'basic_lti_launch' && (!@submission.has_submission? || @submission.submission_type == 'basic_lti_launch')
           submission[:submission_type] = params[:submission][:submission_type]
           submission[:url] = params[:submission][:url]
@@ -861,9 +875,16 @@ class SubmissionsApiController < ApplicationController
   #
   # A paginated list of students eligible to submit the assignment. The caller must have permission to view grades.
   #
+  # If anonymous grading is enabled for the current assignment and the allow_new_anonymous_id parameter is passed,
+  # the returned data will not include any values identifying the student, but will instead include an
+  # assignment-specific anonymous ID for each student.
+  #
   # Section-limited instructors will only see students in their own sections.
   #
-  # returns [UserDisplay]
+  # @returns [UserDisplay] if anonymous grading is not enabled for the assignment or if the
+  #   allow_new_anonymous_id parameter is not true
+  # @returns [AnonymousUserDisplay] if anonymous grading is enabled for the assignment and the
+  #   allow_new_anonymous_id parameter is true
   def gradeable_students
     if authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
       @assignment = @context.assignments.active.find(params[:assignment_id])
@@ -888,7 +909,14 @@ class SubmissionsApiController < ApplicationController
           selection = submission.provisional_grades.find(&:selection)
           json.merge!(in_moderation_set: selection.present?,
                       selected_provisional_grade_id: selection&.provisional_grade_id)
-          pg_list = submission_provisional_grades_json(submission, @assignment, @current_user, includes)
+          pg_list = submission_provisional_grades_json(
+            course: @context,
+            assignment: @assignment,
+            submission: submission,
+            current_user: @current_user,
+            avatars: service_enabled?(:avatars) && !@assignment.grade_as_group?,
+            includes: includes
+          )
           json.merge!({ provisional_grades: pg_list })
         end
         json

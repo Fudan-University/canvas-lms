@@ -19,8 +19,6 @@
 require_relative '../sharding_spec_helper'
 
 describe PlannerController do
-  include PlannerHelper
-
   before :once do
     course_with_teacher(active_all: true)
     student_in_course(active_all: true)
@@ -45,17 +43,6 @@ describe PlannerController do
     end
   end
 
-  context "feature disabled" do
-    before :each do
-      user_session(@student)
-    end
-
-    it "should return forbidden" do
-      get :index
-      assert_forbidden
-    end
-  end
-
   context "as student" do
     before :each do
       user_session(@student)
@@ -65,15 +52,14 @@ describe PlannerController do
     describe "GET #index" do
       it "returns http success" do
         get :index
-        expect(response).to have_http_status(:success)
+        expect(response).to be_successful
       end
 
       it "checks the planner cache" do
-        @current_user = @student
         found_planner_meta_request = false
         found_planner_items_request = false
         allow(Rails.cache).to receive(:fetch) do |cache_key, &block|
-          if cache_key == planner_meta_cache_key
+          if cache_key.include?('planner_items_meta')
             found_planner_meta_request = true
             'meta-cache-key'
           elsif cache_key.include?('meta-cache-key')
@@ -119,7 +105,24 @@ describe PlannerController do
         expect(user_event['plannable']['title']).to eq 'user_event'
       end
 
-      it "should show appointment groups" do
+      it "shows the appropriate section-specific event for the user" do
+        other_section = @course.course_sections.create!(name: 'Other Section')
+        event = @course.calendar_events.build(:title => 'event', :child_event_data =>
+          {"0" => {:start_at => 1.hour.from_now.iso8601, :end_at => 2.hours.from_now.iso8601, :context_code => @course.default_section.asset_string},
+           "1" => {:start_at => 2.hours.from_now.iso8601, :end_at => 3.hours.from_now.iso8601, :context_code => other_section.asset_string}})
+        event.updating_user = @teacher
+        event.save!
+
+        get :index
+        json = json_parse(response.body)
+        event_ids = json.select { |thing| thing['plannable_type'] == 'calendar_event' }.map { |thing| thing['plannable_id'] }
+
+        my_event_id = @course.default_section.calendar_events.where(parent_calendar_event_id: event).pluck(:id).first
+        expect(event_ids).not_to include event.id
+        expect(event_ids).to include my_event_id
+      end
+
+      it "should show appointment group reservations" do
         ag = appointment_group_model(title: 'appointment group')
         ap = appointment_participant_model(participant: @student, course: @course, appointment_group: ag)
         get :index
@@ -127,6 +130,17 @@ describe PlannerController do
         event = response_json.find { |i| i['plannable_type'] == 'calendar_event' && i['plannable_id'] == ap.id }
         expect(event['plannable']['title']).to eq 'appointment group'
       end
+
+      it "should only show section specific announcements to students who can view them" do
+        a1 = @course.announcements.create!(:message => "for the defaults", :is_section_specific => true, :course_sections => [@course.default_section])
+        sec2 = @course.course_sections.create!
+        a2 = @course.announcements.create!(:message => "for my favorites", :is_section_specific => true, :course_sections => [sec2])
+
+        get :index
+        response_json = json_parse(response.body)
+        expect(response_json.select{|i| i['plannable_type'] == 'announcement'}.map{|i| i['plannable_id']}).to eq [a1.id]
+      end
+
 
       it "should show planner overrides created on quizzes" do
         quiz = quiz_model(course: @course, due_at: 1.day.from_now)
@@ -156,6 +170,52 @@ describe PlannerController do
         page_json = response_json.find {|rj| rj['plannable_id'] == page.id}
         expect(page_json['planner_override']['plannable_id']).to eq page.id
         expect(page_json['planner_override']['plannable_type']).to eq 'wiki_page'
+      end
+
+      it "should show peer review tasks for the user" do
+        @current_user = @student
+        reviewee = course_with_student(course: @course, active_all: true).user
+        assignment_model(course: @course, peer_reviews: true, only_visible_to_overrides: true)
+        submission_model(assignment: @assignment, user: reviewee)
+        assessment_request = @assignment.assign_peer_review(@current_user, reviewee)
+        get :index
+        response_json = json_parse(response.body)
+        peer_review = response_json.detect { |i| i["plannable_type"] == 'assessment_request' }
+        expect(peer_review['plannable']['id']).to eq assessment_request.id
+        expect(peer_review['plannable']['title']).to eq @assignment.title
+        expect(peer_review['html_url']).to match "/courses/#{@course.id}/assignments/#{@assignment.id}/submissions/#{@student.id}"
+      end
+
+      it "should show peer reviews for assignments with no 'everyone' date and no peer review date" do
+        @current_user = @student
+        reviewee = user_model
+        differentiated_assignment(course: @course, peer_reviews: true, due_at: nil)
+        @override.update_attributes(due_at: Time.zone.now, due_at_overridden: true)
+        add_section('section 2').enroll_user(reviewee, 'StudentEnrollment', 'active')
+        create_section_override_for_assignment(@assignment, due_at: nil, course_section: @course_section)
+        submission_model(assignment: @assignment, user: reviewee)
+        assessment_request = @assignment.assign_peer_review(@current_user, reviewee)
+        get :index
+        response_json = json_parse(response.body)
+        peer_review = response_json.detect { |i| i["plannable_type"] == 'assessment_request' }
+        expect(peer_review['plannable']['id']).to eq assessment_request.id
+        expect(peer_review['plannable_date']).to eq @assignment.submissions.find_by(user: @current_user).cached_due_date.iso8601
+      end
+
+      it "should mark peer reviews as done when they are completed, if they have been marked as incomplete by an override" do
+        @current_user = @student
+        reviewee = course_with_student(course: @course, active_all: true).user
+        assignment_model(course: @course, peer_reviews: true, due_at: 1.day.ago, peer_reviews_due_at: 1.day.from_now)
+        submission_model(assignment: @assignment, user: reviewee)
+        assessment_request = @assignment.assign_peer_review(@current_user, reviewee)
+        PlannerOverride.create!(user: @current_user, plannable_id: assessment_request.id, plannable_type: 'AssessmentRequest', marked_complete: false)
+        @submission.add_comment(comment: 'comment', author: @current_user, assessment_request: assessment_request)
+        assessment_request.save!
+        get :index, params: {start_date: @start_date, end_date: @end_date}
+        response_json = json_parse(response.body)
+        peer_review = response_json.detect { |i| i["plannable_type"] == 'assessment_request' }
+        expect(peer_review['planner_override']['plannable_id']).to eq assessment_request.id
+        expect(peer_review['planner_override']['marked_complete']).to be true
       end
 
       context "include_concluded" do
@@ -223,6 +283,8 @@ describe PlannerController do
           @course2_event = @course2.calendar_events.create!(title: "Course 2 event", start_at: 1.minute.from_now, end_at: 1.hour.from_now)
           @group_event = @group.calendar_events.create!(title: "Group event", start_at: 1.minute.from_now, end_at: 1.hour.from_now)
           @user_event = @user.calendar_events.create!(title: "User event", start_at: 1.minute.from_now, end_at: 1.hour.from_now)
+          @deleted_page = wiki_page_model(course: @course1, todo_date: 1.day.from_now); @deleted_page.destroy
+          @deleted_topic = discussion_topic_model(context: @group, todo_date: 1.day.from_now); @deleted_topic.destroy
         end
 
         before :each do
@@ -271,13 +333,12 @@ describe PlannerController do
           expect(response_hash.length).to be 5
         end
 
-        it "should not return any data if context_codes are specified but none are valid for the user" do
+        it "returns unauthorized if the user doesn't have read permission on a context_code" do
           course_with_teacher(active_all: true)
           assignment_model(course: @course, due_at: 1.day.from_now)
 
           get :index, params: {context_codes: [@course.asset_string]}
-          response_json = json_parse(response.body)
-          expect(response_json).to eq []
+          assert_unauthorized
         end
 
         it "filters ungraded_todo_items" do
@@ -292,7 +353,9 @@ describe PlannerController do
           )
         end
 
-        it "filters all_ungraded_todo_items for teachers" do
+        it "filters all_ungraded_todo_items for teachers, including unpublished items" do
+          @course_page.unpublish
+          @group_topic.unpublish
           user_session @course1.teachers.first
           get :index, params: {
             filter: 'all_ungraded_todo_items',
@@ -306,6 +369,77 @@ describe PlannerController do
             [['discussion_topic', @course_topic.id],
              ['discussion_topic', @group_topic.id],
              ['wiki_page', @course_page.id],
+             ['wiki_page', @group_page.id]]
+          )
+        end
+
+        describe "with public syllabus courses" do
+          before :once do
+            @ps_topic = @course2.discussion_topics.create! title: 'ohai', todo_date: 1.day.from_now
+            @ps_page = @course2.wiki_pages.create! title: 'kthxbai', todo_date: 1.day.from_now
+            @course2.public_syllabus = true
+            @course2.save!
+          end
+
+          it "allows unauthenticated users to view all_ungraded_todo_items" do
+            remove_user_session
+            get :index, params: {
+              filter: 'all_ungraded_todo_items',
+              context_codes: [@course2.asset_string],
+              start_date: 2.weeks.ago.iso8601,
+              end_date: 2.weeks.from_now.iso8601
+            }
+            response_json = json_parse(response.body)
+            items = response_json.map{|i| [i['plannable_type'], i['plannable_id']]}
+            expect(items).to match_array(
+              [['discussion_topic', @ps_topic.id],
+               ['wiki_page', @ps_page.id]]
+            )
+          end
+
+          it "allows unenrolled users to view all_ungraded_todo_items" do
+            user_session(user_factory)
+            get :index, params: {
+              filter: 'all_ungraded_todo_items',
+              context_codes: [@course2.asset_string],
+              start_date: 2.weeks.ago.iso8601,
+              end_date: 2.weeks.from_now.iso8601
+            }
+            response_json = json_parse(response.body)
+            items = response_json.map{|i| [i['plannable_type'], i['plannable_id']]}
+            expect(items).to match_array(
+              [['discussion_topic', @ps_topic.id],
+               ['wiki_page', @ps_page.id]]
+            )
+          end
+
+          it "returns unauthorized if the course isn't public syllabus" do
+            user_session(user_factory)
+            get :index, params: {
+              filter: 'all_ungraded_todo_items',
+              context_codes: [@course1.asset_string],
+              start_date: 2.weeks.ago.iso8601,
+              end_date: 2.weeks.from_now.iso8601
+            }
+            assert_unauthorized
+          end
+        end
+
+        it "filters out unpublished todo items for students" do
+          @course_page.unpublish
+          @group_topic.unpublish
+          user_session @course1.students.first
+          get :index, params: {
+            filter: 'all_ungraded_todo_items',
+            context_codes: [@course1.asset_string, @group.asset_string],
+            start_date: 2.weeks.ago.iso8601,
+            end_date: 2.weeks.from_now.iso8601
+          }
+          response_json = json_parse(response.body)
+          items = response_json.map{|i| [i['plannable_type'], i['plannable_id']]}
+          expect(items).to match_array(
+            [['discussion_topic', @course_topic.id],
+             ['discussion_topic', @group_topic.id], # turns out groups let all members view unpublished items
              ['wiki_page', @group_page.id]]
           )
         end
@@ -482,7 +616,7 @@ describe PlannerController do
           it "should order graded discussions with overridden due dates correctly" do
             topic1 = discussion_topic_model(context: @course, todo_date: Time.zone.now)
             topic2 = group_assignment_discussion(course: @course)
-            topic2_override_due_at = 2.days.from_now
+            topic2_override_due_at = 2.days.from_now.change(min: 1)
             create_group_override_for_assignment(topic2.assignment, {user: @student, group: @group, due_at: topic2_override_due_at})
             topic2_assign = topic2.assignment
             topic2_assign.due_at = 2.days.ago
@@ -518,10 +652,16 @@ describe PlannerController do
       context "cross-sharding" do
         specs_require_sharding
 
-        it "should ignore shards other than the current account's" do
+        before :once do
+          @original_course = @course
           @shard1.activate do
             @another_account = Account.create!
             @another_course = @another_account.courses.create!(:workflow_state => 'available')
+         end
+        end
+
+        it "should ignore shards other than the current account's" do
+          @shard1.activate do
             @another_assignment = @another_course.assignments.create!(:title => "title", :due_at => 1.day.from_now)
             @student = user_with_pseudonym(:active_all => true, :account => @another_account)
             @another_course.enroll_student(@student, :enrollment_state => 'active')
@@ -536,6 +676,53 @@ describe PlannerController do
           get :index
           response_json = json_parse(response.body)
           expect(response_json.map { |i| i["plannable_id"]}).to eq [announcement.id, @assignment.id, @assignment2.id]
+        end
+
+        it "returns all_ungraded_todo_items across shards" do
+          @shard1.activate do
+            @original_topic = @original_course.discussion_topics.create! todo_date: 1.day.from_now, title: 'fuh'
+            @original_page = @original_course.wiki_pages.create! todo_date: 1.day.from_now, title: 'duh'
+            @other_topic = @another_course.discussion_topics.create! todo_date: 1.day.from_now, title: 'buh'
+            @other_page = @another_course.wiki_pages.create! todo_date: 1.day.from_now, title: 'uh'
+            @another_course.enroll_student(@student).accept!
+          end
+          user_session @student
+          get :index, params: {
+            filter: 'all_ungraded_todo_items',
+            context_codes: [@original_course.asset_string, @another_course.asset_string],
+            start_date: 2.weeks.ago.iso8601,
+            end_date: 2.weeks.from_now.iso8601
+          }
+          json = json_parse(response.body)
+          items = json.map{|i| [i['plannable_type'], i['plannable_id']]}
+          expect(items).to match_array(
+            [['discussion_topic', @original_topic.id],
+             ['discussion_topic', @other_topic.id],
+             ['wiki_page', @original_page.id],
+             ['wiki_page', @other_page.id]]
+          )
+        end
+
+        it "should still work with context code if the student is from another shard" do
+          @shard1.activate do
+            @cs_student = user_factory(:active_all => true, :account => Account.create!)
+            @original_course.enroll_user(@cs_student, 'StudentEnrollment', :enrollment_state => 'active')
+            planner_note_model(course: @original_course, user: @cs_student)
+          end
+          group_category(context: @original_course)
+          @group = @group_category.groups.create!(context: @original_course)
+          @group.add_user(@cs_student, 'accepted')
+          @group_assignment = @original_course.assignments.create!(group_category: @group_category, due_at: 1.day.from_now)
+          @original_topic = @original_course.discussion_topics.create! todo_date: 1.day.from_now, title: 'fuh'
+          @original_page = @original_course.wiki_pages.create! todo_date: 1.day.from_now, title: 'duh'
+
+          user_session(@cs_student)
+
+          get :index, params: {context_codes: [@original_course.asset_string, @group.asset_string, @cs_student.asset_string]}
+          json = json_parse(response.body)
+          expect(json.map{|h| h["plannable_id"]}).to match_array([
+            @planner_note.id, @group_assignment.id, @original_topic.id, @original_page.id
+          ])
         end
       end
 
@@ -589,9 +776,93 @@ describe PlannerController do
           next_link = test_page
           expect(next_link).not_to be_nil
         end
-
       end
 
+      context "re-viewing the index with caching" do
+        before do
+          enable_cache
+          @start_date = 2.weeks.ago.iso8601
+          @end_date = 2.weeks.from_now.iso8601
+        end
+
+        it "should show new activity when a new discussion topic has been created" do
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          discussion_topic_model(context: @course, todo_date: 1.day.from_now)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be true
+        end
+
+        it "should not show new activity after an unread discussion has been viewed" do
+          discussion_topic_model(context: @course, todo_date: 1.day.from_now)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be true
+
+          @topic.change_read_state('read', @student)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be false
+        end
+
+        it "should show new activity when a new discussion entry has been created" do
+          @topic = discussion_topic_model(context: @course, todo_date: 1.day.from_now)
+          @topic.change_read_state('read', @student)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be false
+
+          @topic.discussion_entries.create!(message: 'hi', user: @teacher)
+          @student.reload
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be true
+        end
+
+        it "should not show new activity after an unread discussion entry has been viewed" do
+          @topic = discussion_topic_model(context: @course, todo_date: 1.day.from_now)
+          @topic.change_read_state('read', @student)
+          entry = @topic.discussion_entries.create!(message: 'hi', user: @teacher)
+          @student.reload
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be true
+
+          entry.change_read_state('read', @student)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          topic_json = json_parse(response.body).find{|j| j['plannable_id'] == @topic.id && j['plannable_type'] == 'discussion_topic'}
+          expect(topic_json['new_activity']).to be false
+        end
+
+        it "should show new activity when a new submission comment has been created" do
+          @assignment.submit_homework(@student, { :url => "http://www.instructure.com/" })
+          submission = @assignment.submissions.find_by(user: @student)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          assign_json = json_parse(response.body).find{|j| j['plannable_id'] == @assignment.id && j['plannable_type'] == 'assignment'}
+          expect(assign_json['new_activity']).to be false
+
+          submission.submission_comments.create!(author: @teacher, comment: 'hi')
+          @student.reload
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          assign_json = json_parse(response.body).find{|j| j['plannable_id'] == @assignment.id && j['plannable_type'] == 'assignment'}
+          expect(assign_json['new_activity']).to be true
+        end
+
+        it "should not show new activity when a new submission comment has been viewed" do
+          @assignment.submit_homework(@student, { :url => "http://www.instructure.com/" })
+          submission = @assignment.submissions.find_by(user: @student)
+          submission.submission_comments.create!(author: @teacher, comment: 'hi')
+          @student.reload
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          assign_json = json_parse(response.body).find{|j| j['plannable_id'] == @assignment.id && j['plannable_type'] == 'assignment'}
+          expect(assign_json['new_activity']).to be true
+
+          submission.mark_read(@student)
+          get :index, params: {start_date: @start_date, end_date: @end_date}
+          assign_json = json_parse(response.body).find{|j| j['plannable_id'] == @assignment.id && j['plannable_type'] == 'assignment'}
+          expect(assign_json['new_activity']).to be false
+        end
+      end
 
       context "new activity filter" do
         it "should return newly created & unseen items" do
@@ -755,6 +1026,26 @@ describe PlannerController do
             reply.change_read_state('read', @student)
             get :index, params: {filter: "new_activity"}
             expect(json_parse(response.body)).to be_empty
+          end
+
+          it 'should calculate unread count correctly' do
+            get :index
+            topic_json = json_parse(response.body).first
+            expect(topic_json['plannable']['unread_count']).to be 0
+            entry = @topic.discussion_entries.create!(message: "Hello!", user: @teacher)
+            get :index
+            topic_json = json_parse(response.body).first
+            expect(topic_json['plannable']['unread_count']).to be 1
+            @topic.change_read_state('read', @student)
+            entry.change_read_state('read', @student)
+            get :index
+            topic_json = json_parse(response.body).first
+            expect(topic_json['plannable']['unread_count']).to be 0
+            reply = entry.reply_from(user: @student, text: 'wat?')
+            reply = entry.reply_from(user: @teacher, text: "ohai!")
+            get :index
+            topic_json = json_parse(response.body).first
+            expect(topic_json['plannable']['unread_count']).to be 1
           end
         end
       end

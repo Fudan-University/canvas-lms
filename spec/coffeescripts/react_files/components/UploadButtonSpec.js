@@ -18,7 +18,6 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import {Simulate} from 'react-addons-test-utils'
 import $ from 'jquery'
 import UploadButton from 'jsx/files/UploadButton'
 import FileOptionsCollection from 'compiled/react_files/modules/FileOptionsCollection'
@@ -29,13 +28,13 @@ QUnit.module('UploadButton', {
     this.button = ReactDOM.render(<UploadButton {...props} />, $('<div>').appendTo('#fixtures')[0])
   },
   teardown() {
-    ReactDOM.unmountComponentAtNode(this.button.getDOMNode().parentNode)
+    ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(this.button).parentNode)
     $('#fixtures').empty()
   }
 })
 
 test('hides actual file input form', function() {
-  const form = this.button.refs.form.getDOMNode()
+  const form = this.button.refs.form
   ok(
     $(form)
       .attr('class')

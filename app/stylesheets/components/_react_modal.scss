@@ -16,61 +16,6 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* @styleguide Modal Dialog
-
-## Default Canvas modal
-
-React Modal comes with very few default classes to make it as themeable as possible. If you want plain-vanilla Canvas modal styles, be sure to specify `className: 'ReactModal__Content--canvas'` when you initialize the modal, as follows:
-
-<br/>
-
-```javascript
-ReactDOM.render(
-  ReactModalExample(
-    { className: 'ReactModal__Content--canvas'
-      overlayClassName: 'ReactModal__Overlay--canvas' }
-  ), document.getElementById('react-modal-example')
-);
-```
-
-```html
-<p>
-  <div id="react-modal-example"></div>
-</p>
-```
-
-See `app/jsx/styleguide/ReactModalExample.jsx` for complete example usage.
-
-<br />
-
-## Mini Canvas modal
-
-For small dialogs like Confirms, the default Canvas modal width might seem too much.
-
-The `.ReactModal__Content--mini-modal` class can be appended to the `.ReactModal__Content--canvas` class to render a less wide modal dialog.
-
-<br/>
-
-```javascript
-ReactDOM.render(
-  ReactModalExample(
-    { label: 'Trigger Confirm Dialog',
-      className: 'ReactModal__Content--canvas ReactModal__Content--mini-modal',
-      overlayClassName: 'ReactModal__Overlay--canvas' }
-  ), document.getElementById('react-modal-confirm-example')
-);
-```
-
-```html
-<p>
-  <div id="react-modal-confirm-example"></div>
-</p>
-```
-
-See `app/jsx/examples/ReactModalExample.jsx` for complete example usage.
-
-*/
-
 // Global styles for any React modal.
 // Do not change these or your name will be cursed for generations.
 .ReactModal__Overlay {
@@ -82,8 +27,8 @@ See `app/jsx/examples/ReactModalExample.jsx` for complete example usage.
   opacity: 0;
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
+  #{direction(left)}: 0;
+  #{direction(right)}: 0;
   bottom: 0;
 
 
@@ -108,8 +53,8 @@ See `app/jsx/examples/ReactModalExample.jsx` for complete example usage.
   outline: none;
   padding: 20px;
   top: 40px;
-  left: 40px;
-  right: 40px;
+  #{direction(left)}: 40px;
+  #{direction(right)}: 40px;
   bottom: 40px;
 
   // To accomodate different kinds of modals, styles for
@@ -162,16 +107,16 @@ See `app/jsx/examples/ReactModalExample.jsx` for complete example usage.
 
     .ReactModal__Header {
       @include ReactModalPadding;
-      border-top-left-radius: $baseBorderRadius;
-      border-top-right-radius: $baseBorderRadius;
+      border-top-#{direction(left)}-radius: $baseBorderRadius;
+      border-top-#{direction(right)}-radius: $baseBorderRadius;
       display: flex;
       align-items: center;
       background: $ic-color-light;
       border-bottom: 1px solid $ic-border-light;
       + .ReactModal__Body,
       + * > .ReactModal__Body:first-child {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
+        border-top-#{direction(left)}-radius: 0;
+        border-top-#{direction(right)}-radius: 0;
       }
     }
 
@@ -187,33 +132,21 @@ See `app/jsx/examples/ReactModalExample.jsx` for complete example usage.
     .ReactModal__Body {
       padding: $ic-sp;
       background: $ic-color-light;
-      border-top-left-radius: $baseBorderRadius;
-      border-top-right-radius: $baseBorderRadius;
+      border-top-#{direction(left)}-radius: $baseBorderRadius;
+      border-top-#{direction(right)}-radius: $baseBorderRadius;
       @include breakpoint(desktop) { padding: $ic-sp*1.5; }
       &:last-child {
-        border-bottom-left-radius: $baseBorderRadius;
-        border-bottom-right-radius: $baseBorderRadius;
+        border-bottom-#{direction(left)}-radius: $baseBorderRadius;
+        border-bottom-#{direction(right)}-radius: $baseBorderRadius;
       }
       &.ReactModal__Body--force-no-padding { padding: 0; }
     }
 
     .ReactModal__Footer {
       @include ReactModalPadding;
-      border-bottom-left-radius: $baseBorderRadius;
-      border-bottom-right-radius: $baseBorderRadius;
+      border-bottom-#{direction(left)}-radius: $baseBorderRadius;
+      border-bottom-#{direction(right)}-radius: $baseBorderRadius;
       background: $ic-bg-light-neutral;
-      border-top: 1px solid $ic-border-light;
-      @include breakpoint(mini-tablet) {
-        display: flex;
-        align-items: center;
-      }
-    }
-
-    .ReactModal__Footer-Scheduler {
-      @include ReactModalPadding;
-      border-bottom-left-radius: $baseBorderRadius;
-      border-bottom-right-radius: $baseBorderRadius;
-      background: white;
       border-top: 1px solid $ic-border-light;
       @include breakpoint(mini-tablet) {
         display: flex;

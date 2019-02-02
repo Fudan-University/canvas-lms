@@ -72,7 +72,7 @@ describe UsersController, type: :request do
                    ]
   end
 
-  context "cross-shard activity stream summary" do
+  context "cross-shard activity stream" do
     specs_require_sharding
     it "should return the activity stream summary with cross-shard items" do
       @student = user_factory(active_all: true)
@@ -91,7 +91,7 @@ describe UsersController, type: :request do
         @assignment.update_attribute(:due_at, 1.week.from_now)
         @assignment.update_attribute(:due_at, 2.weeks.from_now)
         # manually set the pre-datafixup state for one of them
-        val = StreamItem.where(:asset_type => "Message", :id => @user.visible_stream_item_instances.map(&:stream_item)).
+        val = StreamItem.where(:asset_type => "Message", :id => @user.visible_stream_item_instances.map(&:stream_item_id)).
           limit(1).update_all(:notification_category => nil)
       end
       json = api_call(:get, "/api/v1/users/self/activity_stream/summary.json",
@@ -103,6 +103,27 @@ describe UsersController, type: :request do
             {"type" => "DiscussionTopic", "count" => 2, "unread_count" => 1, "notification_category" => nil},
             {"type" => "Message", "count" => 2, "unread_count" => 0, "notification_category" => "TestImmediately"} # check a broadcast-policy-based one
           ]
+    end
+
+    it "should filter the activity stream to currently active courses if requested" do
+      @student = user_factory(active_all: true)
+      @shard1.activate do
+        @account = Account.create!
+        @course1 = course_factory(active_all: true, :account => @account)
+        @course1.enroll_student(@student).accept!
+        @course2 = course_factory(active_all: true, :account => @account)
+        @course2.enroll_student(@student).accept!
+        @dt1 = discussion_topic_model(:context => @course1)
+        @dt2 = discussion_topic_model(:context => @course2)
+        @course2.update_attributes(:start_at => 2.weeks.ago, :conclude_at => 1.week.ago, :restrict_enrollments_to_course_dates => true)
+      end
+      json = api_call(:get, "/api/v1/users/self/activity_stream",
+        { :controller => "users", :action => "activity_stream", :format => 'json' })
+      expect(json.map{|r| r["discussion_topic_id"]}).to match_array([@dt1.id, @dt2.id])
+
+      json = api_call(:get, "/api/v1/users/self/activity_stream?only_active_courses=1",
+        { :controller => "users", :action => "activity_stream", :format => 'json', :only_active_courses => "1"})
+      expect(json.map{|r| r["discussion_topic_id"]}).to eq([@dt1.id])
     end
 
     it "should find cross-shard submission comments" do
@@ -295,8 +316,8 @@ describe UsersController, type: :request do
   it "should format Conversation" do
     @sender = User.create!(:name => 'sender')
     @conversation = Conversation.initiate([@user, @sender], false)
-    @conversation.add_message(@sender, "hello")
-    @message = @conversation.conversation_messages.last
+    @message = @conversation.add_message(@sender, "hello")
+
     json = api_call(:get, "/api/v1/users/activity_stream.json",
                     { :controller => "users", :action => "activity_stream", :format => 'json' }).first
     expect(json).to eq({
@@ -308,12 +329,20 @@ describe UsersController, type: :request do
       'updated_at' => StreamItem.last.updated_at.as_json,
       'title' => nil,
       'message' => nil,
-
       'private' => false,
       'html_url' => "http://www.example.com/conversations/#{@conversation.id}",
-
-      'participant_count' => 2
+      'participant_count' => 2,
+      'latest_messages' => [
+        {'id' => @message.id, "created_at" => @message.created_at.as_json,
+          "author_id" => @sender.id, "message" => "hello",
+          "participating_user_ids" => [@user.id, @sender.id]}]
     })
+
+    @conversation.conversation_participants.where(:user_id => @user).first.remove_messages(@message)
+    # should update the latest messages and not show them the one they can't see anymore
+    json = api_call(:get, "/api/v1/users/activity_stream.json",
+      { :controller => "users", :action => "activity_stream", :format => 'json' }).first
+    expect(json["latest_messages"]).to be_blank
   end
 
   it "should format Message" do
@@ -392,6 +421,7 @@ describe UsersController, type: :request do
       'seconds_late' => 0,
       'url' => nil,
       'user_id' => @sub.user_id,
+      'extra_attempts' => nil,
 
       'submission_comments' => [
         {
@@ -431,6 +461,7 @@ describe UsersController, type: :request do
         'account_id' => @course.account_id,
         'root_account_id' => @course.root_account_id,
         'enrollment_term_id' => @course.enrollment_term_id,
+        'created_at' => @course.created_at.as_json,
         'start_at' => @course.start_at.as_json,
         'grading_standard_id'=>nil,
         'id' => @course.id,
@@ -448,11 +479,12 @@ describe UsersController, type: :request do
         'apply_assignment_group_weights' => false,
         'restrict_enrollments_to_course_dates' => false,
         'time_zone' => 'America/Denver',
-        'uuid' => @course.uuid
+        'uuid' => @course.uuid,
+        'blueprint' => false
       },
 
       'user' => {
-        "name"=>"User", "sortable_name"=>"User", "id"=>@sub.user_id, "short_name"=>"User"
+        "name"=>"User", "sortable_name"=>"User", "id"=>@sub.user_id, "short_name"=>"User", "created_at"=>@user.created_at.iso8601
       },
 
       'context_type' => 'Course',
@@ -516,6 +548,7 @@ describe UsersController, type: :request do
       'seconds_late' => 0,
       'url' => nil,
       'user_id' => @sub.user_id,
+      'extra_attempts' => nil,
 
       'submission_comments' => [
         {
@@ -556,6 +589,7 @@ describe UsersController, type: :request do
         'root_account_id' => @course.root_account_id,
         'enrollment_term_id' => @course.enrollment_term_id,
         'start_at' => @course.start_at.as_json,
+        'created_at' => @course.created_at.as_json,
         'grading_standard_id'=>nil,
         'id' => @course.id,
         'course_code' => @course.course_code,
@@ -572,11 +606,12 @@ describe UsersController, type: :request do
         'apply_assignment_group_weights' => false,
         'restrict_enrollments_to_course_dates' => false,
         'time_zone' => 'America/Denver',
-        'uuid' => @course.uuid
+        'uuid' => @course.uuid,
+        'blueprint' => false
       },
 
       'user' => {
-        "name"=>"User", "sortable_name"=>"User", "id"=>@sub.user_id, "short_name"=>"User"
+        "name"=>"User", "sortable_name"=>"User", "id"=>@sub.user_id, "short_name"=>"User", "created_at"=>@user.created_at.iso8601
       },
 
       'context_type' => 'Course',

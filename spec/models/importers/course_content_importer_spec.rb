@@ -35,7 +35,7 @@ describe Course do
       data['all_files_export'] = {
         'file_path' => File.join(IMPORT_JSON_DIR, 'import_from_migration_small.zip')
       }
-      migration = ContentMigration.create!(:context => @course)
+      migration = ContentMigration.create!(:context => @course, started_at: Time.zone.now)
       allow(migration).to receive(:canvas_import?).and_return(true)
 
       params = {:copy => {
@@ -61,6 +61,8 @@ describe Course do
         :new_end_date=>"Apr 13, 2011"
       }}.with_indifferent_access
       migration.migration_ids_to_import = params
+
+      expect(migration).to receive(:trigger_live_events!).once
 
       # tool profile tests
       expect(Importers::ToolProfileImporter).to receive(:process_migration)
@@ -248,10 +250,10 @@ describe Course do
 
       expect(@course.quizzes.count).to eq 2
       quiz1 = @course.quizzes.where(migration_id: "i7ed12d5eade40d9ee8ecb5300b8e02b2").first
-      quiz1.quiz_questions.each{|qq| expect(qq.assessment_question).not_to be_nil }
+      quiz1.quiz_questions.preload(:assessment_question).each{|qq| expect(qq.assessment_question).not_to be_nil }
 
       quiz2 = @course.quizzes.where(migration_id: "ife86eb19e30869506ee219b17a6a1d4e").first
-      quiz2.quiz_questions.each{|qq| expect(qq.assessment_question).to be_nil } # since the bank wasn't brought in
+      quiz2.quiz_questions.preload(:assessment_question).each{|qq| expect(qq.assessment_question).to be_nil } # since the bank wasn't brought in
       expect(migration.workflow_state).to eq('imported')
     end
 

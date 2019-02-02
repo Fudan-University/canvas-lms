@@ -604,9 +604,9 @@ describe ApplicationHelper do
     end
   end
 
-  describe 'brand_config_for_account' do
+  describe 'brand_config_account' do
     it "handles not having @domain_root_account set" do
-      expect(helper.send(:brand_config_for_account)).to be_nil
+      expect(helper.send(:brand_config_account)).to be_nil
     end
   end
 
@@ -694,34 +694,6 @@ describe ApplicationHelper do
     end
   end
 
-  describe "map_courses_for_menu" do
-    context "with Dashcard Reordering feature enabled" do
-      before(:each) do
-        @account = Account.default
-        @account.enable_feature! :dashcard_reordering
-        @domain_root_account = @account
-      end
-
-      it "returns the list of courses sorted by position" do
-        course1 = @account.courses.create!
-        course2 = @account.courses.create!
-        course3 = @account.courses.create!
-        user = user_model
-        course1.enroll_student(user)
-        course2.enroll_student(user)
-        course3.enroll_student(user)
-        courses = [course1, course2, course3]
-        user.dashboard_positions[course1.asset_string] = 3
-        user.dashboard_positions[course2.asset_string] = 2
-        user.dashboard_positions[course3.asset_string] = 1
-        user.save!
-        @current_user = user
-        mapped_courses = map_courses_for_menu(courses)
-        expect(mapped_courses.map {|h| h[:id]}).to eq [course3.id, course2.id, course1.id]
-      end
-    end
-  end
-
   describe "map_groups_for_planner" do
     context "with planner enabled" do
       before(:each) do
@@ -789,10 +761,44 @@ describe ApplicationHelper do
         @current_user = @user
         expect(planner_enabled?).to be true
       end
+
+      it "returns true for past student enrollments" do
+        enrollment = course_with_student
+        enrollment.workflow_state = 'completed'
+        enrollment.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+       it "returns true for invited student enrollments" do
+        enrollment = course_with_student
+        enrollment.workflow_state = 'invited'
+        enrollment.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+      it "returns true for future student enrollments" do
+        enrollment = course_with_student
+        enrollment.start_at = 2.months.from_now
+        enrollment.end_at = 3.months.from_now
+        enrollment.workflow_state = 'active'
+        enrollment.save!
+        @course.restrict_student_future_view = true
+        @course.restrict_enrollments_to_course_dates = true
+        @course.save!
+        @current_user = @user
+        expect(planner_enabled?).to be true
+      end
+
+      it "returns false with no user" do
+        expect(planner_enabled?).to be false
+      end
     end
 
     context "with student_planner feature flag disabled" do
       it "returns false" do
+        @current_user = user_factory
         expect(planner_enabled?).to be false
       end
     end

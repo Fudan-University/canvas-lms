@@ -35,7 +35,7 @@ define [
       alert(
         I18n.t(
           "processing_submission",
-          "Canvas is currently processing your submission. You can safely navigate away from this page and we will email you when the submission has processed."
+          "Canvas is currently processing your submission. You can safely navigate away from this page and we will email you if the submission fails to process."
         )
       )
       window.location.reload()
@@ -67,17 +67,14 @@ define [
 
       @assignmentSubmission = modelData
       # build the params for submitting the assignment
-      # TODO: The `submit_assignment` param is used to help in backwards compat for fixing auto submissions,
-      # can be removed in the next release.
       preflightData =
         url: @assignmentSubmission.get('url')
         name: @assignmentSubmission.get('text')
         content_type: ''
-        submit_assignment: true
         eula_agreement_timestamp: @assignmentSubmission.get('eula_agreement_timestamp')
 
       if ENV.SUBMIT_ASSIGNMENT.GROUP_ID_FOR_USER?
-        preflightUrl = "/api/v1/groups/" + ENV.SUBMIT_ASSIGNMENT.GROUP_ID_FOR_USER + "/files"
+        preflightUrl = "/api/v1/groups/" + ENV.SUBMIT_ASSIGNMENT.GROUP_ID_FOR_USER + "/files?assignment_id=#{ENV.SUBMIT_ASSIGNMENT.ID}"
       else
         preflightUrl = "/api/v1/courses/" + ENV.COURSE_ID + "/assignments/" + ENV.SUBMIT_ASSIGNMENT.ID + "/submissions/" + ENV.current_user_id + "/files"
 

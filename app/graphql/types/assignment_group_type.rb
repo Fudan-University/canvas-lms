@@ -19,7 +19,7 @@ module Types
   class AssignmentGroupType < ApplicationObjectType
     graphql_name "AssignmentGroup"
 
-    implements GraphQL::Relay::Node.interface
+    implements GraphQL::Types::Relay::Node
     implements Interfaces::TimestampInterface
 
     AssignmentGroupState = GraphQL::EnumType.define do
@@ -29,6 +29,7 @@ module Types
       value "deleted"
     end
 
+    global_id_field :id
     field :_id, ID, "legacy canvas id", method: :id, null: false
     field :name, String, null: true
     field :rules, AssignmentGroupRulesType, method: :rules_hash, null: true

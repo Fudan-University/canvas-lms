@@ -80,22 +80,33 @@ module Api::V1::Course
   #     "uuid" => "WvAHhY5FINzq5IyRIJybGeiXyFkG3SqHUPb7jZY5"
   #   }
   #
-  def course_json(course, user, session, includes, enrollments, subject_user = user)
-    if includes.include?('access_restricted_by_date') && enrollments && enrollments.all?(&:inactive?)
+  def course_json(course, user, session, includes, enrollments, subject_user = user, preloaded_progressions: nil, precalculated_permissions: nil)
+    if includes.include?('access_restricted_by_date') && enrollments&.all?(&:inactive?) && !course.grants_right?(user, :read_as_admin)
       return {'id' => course.id, 'access_restricted_by_date' => true}
     end
 
-    Api::V1::CourseJson.to_hash(course, user, includes, enrollments) do |builder, allowed_attributes, methods, permissions_to_include|
+    Api::V1::CourseJson.to_hash(course, user, includes, enrollments,
+        precalculated_permissions: precalculated_permissions) do |builder, allowed_attributes, methods, permissions_to_include|
       hash = api_json(course, user, session, { :only => allowed_attributes, :methods => methods }, permissions_to_include)
       hash['term'] = enrollment_term_json(course.enrollment_term, user, session, enrollments, []) if includes.include?('term')
-      hash['course_progress'] = CourseProgress.new(course, subject_user).to_json if includes.include?('course_progress')
+      if includes.include?('course_progress')
+        hash['course_progress'] = CourseProgress.new(course,
+                                                     subject_user,
+                                                     preloaded_progressions: preloaded_progressions).to_json
+      end
       hash['apply_assignment_group_weights'] = course.apply_group_weights?
       hash['sections'] = section_enrollments_json(enrollments) if includes.include?('sections')
       hash['total_students'] = course.student_count || course.student_enrollments.not_fake.distinct.count(:user_id) if includes.include?('total_students')
       hash['passback_status'] = post_grades_status_json(course) if includes.include?('passback_status')
       hash['is_favorite'] = course.favorite_for_user?(user) if includes.include?('favorites')
-      hash['teachers'] = course.teachers.distinct.map { |teacher| user_display_json(teacher) } if includes.include?('teachers')
-      hash['tabs'] = tabs_available_json(course, user, session, ['external']) if includes.include?('tabs')
+      if includes.include?('teachers')
+        if course.teacher_count
+          hash['teacher_count'] = course.teacher_count
+        else
+          hash['teachers'] = course.teachers.distinct.map { |teacher| user_display_json(teacher) }
+        end
+      end
+      hash['tabs'] = tabs_available_json(course, user, session, ['external'], precalculated_permissions: precalculated_permissions) if includes.include?('tabs')
       hash['locale'] = course.locale unless course.locale.nil?
       hash['account'] = account_json(course.account, user, session, []) if includes.include?('account')
       # undocumented, but leaving for backwards compatibility.
@@ -146,7 +157,6 @@ module Api::V1::Course
   end
 
   def apply_master_course_settings(hash, course, user)
-    return unless respond_to?(:master_courses?) && master_courses?
     is_mc = MasterCourses::MasterTemplate.is_master_course?(course)
     hash['blueprint'] = is_mc
 
@@ -157,6 +167,25 @@ module Api::V1::Course
       else
         hash['blueprint_restrictions'] = template.default_restrictions
       end
+    end
+  end
+
+  def preload_teachers(courses)
+    threshold = params[:teacher_limit].presence&.to_i
+    if threshold
+      teacher_counts = Course.where(:id => courses).joins(:teacher_enrollments).group("courses.id").count
+      to_preload = []
+      courses.each do |course|
+        next unless count = teacher_counts[course.id]
+        if count > threshold
+          course.teacher_count = count
+        else
+          to_preload << course
+        end
+      end
+      ActiveRecord::Associations::Preloader.new.preload(to_preload, [:teachers]) if to_preload.any?
+    else
+      ActiveRecord::Associations::Preloader.new.preload(courses, [:teachers])
     end
   end
 end

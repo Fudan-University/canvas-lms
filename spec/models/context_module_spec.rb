@@ -25,16 +25,18 @@ describe ContextModule do
   end
 
   describe "publish_items!" do
+    before :once do
+      course_module
+      @file = @course.attachments.create!(:display_name => "some file", :uploaded_data => default_uploaded_data, :locked => true)
+      @tag = @module.add_item(:id => @file.id, :type => "attachment")
+    end
+
     context "with file usage rights required" do
-      before :each do
-        course_module
+      before :once do
         @course.enable_feature! :usage_rights_required
-        @file = @course.attachments.create!(:display_name => "some file", :uploaded_data => default_uploaded_data, :locked => true)
-        @tag = @module.add_item(:id => @file.id, :type => "attachment")
       end
 
       it "should not publish Attachment module items if usage rights are missing" do
-        @file.usage_rights = nil
         @module.publish_items!
         expect(@tag.published?).to eql(false)
         expect(@file.published?).to eql(false)
@@ -44,14 +46,17 @@ describe ContextModule do
         @file.usage_rights = @course.usage_rights.create(:use_justification => 'own_copyright')
         @file.save!
 
-        # ensure models are in sync around publish_items!
-        @module.reload
-        @module.publish_items!
-        @file.reload
-        @tag.reload
+        @module.reload.publish_items!
+        expect(@tag.reload.published?).to eql(true)
+        expect(@file.reload.published?).to eql(true)
+      end
+    end
 
-        expect(@tag.published?).to eql(true)
-        expect(@file.published?).to eql(true)
+    context "without file usage rights required" do
+      it "should publish Attachment module items" do
+        @module.publish_items!
+        expect(@tag.reload.published?).to eql(true)
+        expect(@file.reload.published?).to eql(true)
       end
     end
   end
@@ -100,6 +105,8 @@ describe ContextModule do
     assignment2 = @course.assignments.create!(:title => "assignment copy")
     @module.add_item(type: 'context_module_sub_header', title: 'unpublished header')
     @module.add_item({:id => assignment1.id, :type => 'assignment'})
+    @module.unlock_at = Time.zone.now # doesn't matter what, just not nil
+    @module.prerequisites = @module # This is silly, but just want something not nil
     quiz = @course.quizzes.build(:title => "some quiz", :quiz_type => "assignment")
     quiz.save!
     # It is permitted to duplicate a module with a deleted quiz tag, but the deleted
@@ -108,17 +115,31 @@ describe ContextModule do
     @module.content_tags[2].workflow_state = 'deleted'
     @module.add_item({:id => assignment2.id, :type => 'assignment'})
 
+    @module.add_item(
+      :type => 'external_url',
+      :url => "http://www.instructure.com",
+      :new_tab => true,
+      :title => "Instructure",
+      :indent => 0
+    )
+
     @module.workflow_state = 'published'
     @module.save!
     new_module = @module.duplicate
     expect(new_module.name).to eq "some module Copy"
-    expect(new_module.content_tags.length).to eq 3
+    expect(new_module.content_tags.length).to eq 4
     # Stuff with actual content should get unique names, but not stuff like headers.
     expect(new_module.content_tags[0].title).to eq('unpublished header')
     expect(new_module.content_tags[1].content.title).to eq('assignment Copy 2')
     # Respect original choice of "copy" if the thing I copied already made a decision.
     expect(new_module.content_tags[2].content.title).to eq('assignment copy 3')
     expect(new_module.workflow_state).to eq('unpublished')
+
+    expect(new_module.content_tags[3].title).to eq('Instructure')
+    expect(new_module.content_tags[3].url).to eq('http://www.instructure.com')
+    expect(new_module.content_tags[3].new_tab).to eq(true)
+    expect(new_module.unlock_at).to be_nil
+    expect(new_module.prerequisites).to be_nil
   end
 
   describe "available_for?" do
@@ -286,6 +307,21 @@ describe ContextModule do
       course_module
       tag = @module.add_item(type: 'context_module_sub_header', title: 'unpublished header')
       expect(tag.unpublished?).to be_truthy
+    end
+
+    it "should add an external url" do
+      course_module
+      @tag = @module.add_item(
+        :type => 'external_url',
+        :url => "http://www.instructure.com",
+        :new_tab => true,
+        :title => "Instructure",
+        :indent => 0
+      )
+      @module.workflow_state = 'published'
+      @module.save!
+
+      expect(@module.content_tags).to be_include(@tag)
     end
   end
 
@@ -750,7 +786,7 @@ describe ContextModule do
     end
 
     describe "must_submit requirement" do
-      before :each do
+      before :once do
         course_module
         student_in_course course: @course, active_all: true
 
@@ -1112,7 +1148,7 @@ describe ContextModule do
   end
 
   context 'unpublished completion requirements' do
-    before do
+    before :once do
       course_module
       course_with_student(course: @course, user: @student, active_all: true)
 
@@ -1158,7 +1194,7 @@ describe ContextModule do
   end
 
   describe "content_tags_visible_to" do
-    before do
+    before :once do
       course_module
       @student_1 = student_in_course(course: @course, active_all: true).user
       @student_2 = student_in_course(course: @course, active_all: true).user
@@ -1276,7 +1312,7 @@ describe ContextModule do
   end
 
   describe "#relock_warning?" do
-    before :each do
+    before :once do
       course_factory(active_all: true)
     end
 

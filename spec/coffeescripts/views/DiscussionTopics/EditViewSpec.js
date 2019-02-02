@@ -184,6 +184,11 @@ test('routes to return_to', function() {
   equal(view.locationAfterSave({return_to: 'http://bar'}), 'http://bar')
 })
 
+test('does not route to return_to with javascript protocol', function() {
+  const view = this.editView({}, {html_url: 'http://foo'})
+  equal(view.locationAfterSave({return_to: 'javascript:alert(1)'}), 'http://foo')
+})
+
 test('cancels to env normally', function() {
   ENV.CANCEL_TO = 'http://foo'
   const view = this.editView()
@@ -194,6 +199,12 @@ test('cancels to return_to', function() {
   ENV.CANCEL_TO = 'http://foo'
   const view = this.editView()
   equal(view.locationAfterCancel({return_to: 'http://bar'}), 'http://bar')
+})
+
+test('does not cancel to return_to with javascript protocol', function() {
+  ENV.CANCEL_TO = 'http://foo'
+  const view = this.editView()
+  equal(view.locationAfterCancel({return_to: 'javascript:alert(1)'}), 'http://foo')
 })
 
 test('shows todo checkbox', function() {
@@ -548,4 +559,32 @@ test('switches to details tab if save error does not contain conditional release
 test('Does not change the locked status of an existing discussion topic', function() {
   const view = this.editView({}, {locked: true})
   equal(true, view.model.get('locked'))
+})
+
+QUnit.module('EditView: Assignment External Tools', {
+  setup() {
+    fakeENV.setup({})
+    this.server = sinon.fakeServer.create()
+  },
+
+  teardown() {
+    this.server.restore()
+    fakeENV.teardown()
+  },
+
+  editView() {
+    return editView.apply(this, arguments)
+  }
+})
+
+test('it attaches assignment external tools component in course context', function() {
+  ENV.context_asset_string = "course_1"
+  const view = this.editView()
+  equal(view.$AssignmentExternalTools.children().size(), 1)
+})
+
+test('it does not attach assignment external tools component in group context', function() {
+  ENV.context_asset_string = "group_1"
+  const view = this.editView()
+  equal(view.$AssignmentExternalTools.children().size(), 0)
 })

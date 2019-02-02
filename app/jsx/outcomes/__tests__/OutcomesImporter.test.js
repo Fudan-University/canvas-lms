@@ -44,13 +44,13 @@ const defaultProps = (props = {}) => (
 )
 
 it('renders the OutcomesImporter component', () => {
-  const modal = shallow(<OutcomesImporter {...defaultProps()}/>)
+  const modal = shallow(<OutcomesImporter {...defaultProps()}/>, {disableLifecycleMethods: true})
   expect(modal.exists()).toBe(true)
 })
 
 it('disables the Outcome Views when upload starts', () => {
   const disableOutcomeViews = jest.fn()
-  const modal = shallow(<OutcomesImporter {...defaultProps({ disableOutcomeViews })}/>)
+  const modal = shallow(<OutcomesImporter {...defaultProps({ disableOutcomeViews })}/>, {disableLifecycleMethods: true})
   apiClient.createImport.mockReturnValue(Promise.resolve({data: {id: 3}}))
   modal.instance().beginUpload()
   expect(disableOutcomeViews).toBeCalled()

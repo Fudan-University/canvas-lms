@@ -25,7 +25,6 @@ describe "master courses - add and remove course associations" do
 
   before :once do
     # create the master course
-    Account.default.enable_feature!(:master_courses)
     @master = course_factory(active_all: true)
     @template = MasterCourses::MasterTemplate.set_as_master_course(@master)
 
@@ -66,6 +65,7 @@ describe "master courses - add and remove course associations" do
     open_courses_list
 
     expect(available_courses_table).to be_displayed
+    wait_for_ajaximations
     expect(f('.bca-associations-table').text).to eq('There are currently no associated courses.')
 
     courses = available_courses

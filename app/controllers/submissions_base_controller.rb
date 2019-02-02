@@ -19,6 +19,7 @@
 class SubmissionsBaseController < ApplicationController
   include GradebookSettingsHelpers
   include Api::V1::Rubric
+  include Api::V1::SubmissionComment
 
   def show
     @visible_rubric_assessments = @submission.visible_rubric_assessments_for(@current_user)
@@ -113,7 +114,7 @@ class SubmissionsBaseController < ApplicationController
       respond_to do |format|
         if @submissions
           @submissions = @submissions.select{|s| s.grants_right?(@current_user, session, :read) }
-          is_final = provisional && params[:submission][:final] && @context.grants_right?(@current_user, :moderate_grades)
+          is_final = provisional && params[:submission][:final] && @assignment.permits_moderation?(@current_user)
           @submissions.each do |s|
             s.limit_comments(@current_user, session) unless @submission.grants_right?(@current_user, session, :submit)
             s.apply_provisional_grade_filter!(s.provisional_grade(@current_user, final: is_final)) if provisional
@@ -123,24 +124,21 @@ class SubmissionsBaseController < ApplicationController
 
           format.html { redirect_to course_assignment_url(@context, @assignment) }
 
-          # TODO: the serialization here needs to be abstracted and shared with speed_grader.rb
-          comments_include = if @assignment.can_view_other_grader_comments?(@current_user)
-            :all_submission_comments
-          elsif admin_in_context
-            :submission_comments
-          else
-            :visible_submission_comments
-          end
-
           json_args = Submission.json_serialization_full_parameters({
-            :except => [:quiz_submission,:submission_history],
-            :comments => comments_include
-          }).merge(:permissions => { :user => @current_user, :session => session, :include_permissions => false })
+            except: [:quiz_submission, :submission_history]
+          }).merge(permissions: { user: @current_user, session: session, include_permissions: false })
           json_args[:methods] << :provisional_grade_id if provisional
 
           submissions_json = @submissions.map do |submission|
             submission_json = submission.as_json(json_args)
-            submission_json[:submission][:submission_comments] = submission_comments_to_json(submission_json[:submission].delete(comments_include))
+            submission_json[:submission][:submission_comments] = anonymous_moderated_submission_comments_json(
+              assignment: @assignment,
+              avatars: service_enabled?(:avatars),
+              submissions: @submissions,
+              submission_comments: submission.visible_submission_comments_for(@current_user),
+              current_user: @current_user,
+              course: @context
+            )
             submission_json
           end
 
@@ -162,6 +160,26 @@ class SubmissionsBaseController < ApplicationController
     end
   end
 
+  def turnitin_report
+    plagiarism_report('turnitin')
+  end
+
+  def resubmit_to_turnitin
+    resubmit_to_plagiarism('turnitin')
+  end
+
+  def vericite_report
+    plagiarism_report('vericite')
+  end
+
+  def resubmit_to_vericite
+    resubmit_to_plagiarism('vericite')
+  end
+
+  def originality_report
+    plagiarism_report('originality_report')
+  end
+
   private
 
   def update_student_entered_score(score)
@@ -178,85 +196,70 @@ class SubmissionsBaseController < ApplicationController
     end
   end
 
-  def submission_comments_to_json(submission_comments)
-    @submission_comment_methods ||= avatars ? [:avatar_path] : []
-    @submission_comment_fields ||= %i(attachments author_id author_name cached_attachments comment
-                                      created_at draft group_comment_id id media_comment_id
-                                      media_comment_type)
+  def legacy_plagiarism_report(submission, asset_string, type)
+    plag_data = type == 'vericite' ? submission.vericite_data : submission.turnitin_data
 
-    visible_submission_comments(submission_comments).map do |submission_comment|
-      json = submission_comment.as_json(include_root: false,
-                                        methods: @submission_comment_methods,
-                                        only: @submission_comment_fields)
-      author_id = submission_comment.author_id.to_s
+    if plag_data.dig(asset_string, :report_url).present?
+      polymorphic_url([:retrieve, @context, :external_tools], url: plag_data[asset_string][:report_url], display:'borderless')
+    elsif type == 'vericite'
+      # VeriCite URL
+      submission.vericite_report_url(asset_string, @current_user, session)
+    else
+      # Turnitin URL
+      submission.turnitin_report_url(asset_string, @current_user)
+    end
+  rescue
+    # vericite_report_url or turnitin_report_url may throw an error
+    nil
+  end
 
-      json[:publishable] = submission_comment.publishable_for?(@current_user)
-      if anonymous_students? && student_ids_to_anonymous_ids.key?(author_id)
-        json.delete(:author_id)
-        json.delete(:author_name)
-        json[:anonymous_id] = student_ids_to_anonymous_ids[author_id]
-        json[:avatar_path] = User.default_avatar_fallback if avatars
-      elsif anonymous_graders? && grader_ids_to_anonymous_ids.key?(author_id)
-        json.delete(:author_id)
-        json[:anonymous_id] = grader_ids_to_anonymous_ids[author_id]
-        unless author_id == @current_user.id.to_s
-          json[:avatar_path] = User.default_avatar_fallback if avatars
-          json.delete(:author_name)
+  protected
+  def plagiarism_report(type)
+    return head(:bad_request) if @submission.blank?
+
+    @asset_string = params[:asset_string]
+    if authorized_action(@submission, @current_user, :read)
+      url = if type == 'originality_report'
+        @submission.originality_report_url(@asset_string, @current_user)
+      else
+        legacy_plagiarism_report(@submission, @asset_string, type)
+      end
+
+      if url
+        redirect_to url
+      else
+        flash[:error] = t('errors.no_report', "Couldn't find a report for that submission item")
+        redirect_to default_plagiarism_redirect_url
+      end
+    end
+  end
+
+  def resubmit_to_plagiarism(type)
+    return head(:bad_request) if @submission.blank?
+
+    if authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
+      Canvas::LiveEvents.plagiarism_resubmit(@submission)
+
+      if type == 'vericite'
+        # VeriCite
+        @submission.resubmit_to_vericite
+        message = t("Successfully resubmitted to VeriCite.")
+      else
+        # turnitin
+        @submission.resubmit_to_turnitin
+        message = t("Successfully resubmitted to turnitin.")
+      end
+      respond_to do |format|
+        format.html do
+          flash[:notice] = message
+          redirect_to default_plagiarism_redirect_url
         end
-      end
-
-      json
-    end
-  end
-
-  def anonymous_students?
-    return @anonymous_students if defined? @anonymous_students
-    @anonymous_students = !@assignment.can_view_student_names?(@current_user)
-  end
-
-  def anonymous_graders?
-    return @anonymous_graders if defined? @anonymous_graders
-    @anonymous_graders = !@assignment.can_view_other_grader_identities?(@current_user)
-  end
-
-  def grader_comments_hidden?
-    return @grader_comments_hidden if defined? @grader_comments_hidden
-    @grader_comments_hidden = !@assignment.can_view_other_grader_comments?(@current_user)
-  end
-
-  def visible_submission_comments(submission_comments)
-    return submission_comments unless grader_comments_hidden?
-    submission_comments.reject {|submission_comment| other_grader?(submission_comment.author_id)}
-  end
-
-  def student_ids_to_anonymous_ids
-    return @student_ids_to_anonymous_ids if defined? @student_ids_to_anonymous_ids
-    # ensure each student has membership, even without a submission
-    @student_ids_to_anonymous_ids = students.each_with_object({}) {|student, map| map[student.id.to_s] = nil}
-    @submissions.each do |submission|
-      @student_ids_to_anonymous_ids[submission.user_id.to_s] = submission.anonymous_id
-    end
-    @student_ids_to_anonymous_ids
-  end
-
-  def students
-    @students ||= begin
-      includes = gradebook_includes(user: @current_user, course: @context)
-      @assignment.representatives(@current_user, includes: includes) do |rep, others|
-        others.each { |s| res[:context][:rep_for_student][s.id] = rep.id }
+        format.json { head :no_content }
       end
     end
   end
 
-  def grader_ids_to_anonymous_ids
-    @assignment.grader_ids_to_anonymous_ids
-  end
-
-  def other_grader?(user_id)
-    !student_ids_to_anonymous_ids.key?(user_id.to_s) && user_id != @current_user.id
-  end
-
-  def avatars
-    @avatars ||= service_enabled?(:avatars) && !@assignment.grade_as_group?
+  def default_plagiarism_redirect_url
+    named_context_url(@context, :context_assignment_submission_url, @assignment.id, @submission.user_id)
   end
 end

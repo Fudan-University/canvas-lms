@@ -66,7 +66,7 @@ describe "speed grader" do
     it "should alert the teacher before leaving the page if comments are not saved", priority: "1", test_id: 283736 do
       student_in_course(active_user: true).user
       get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{@assignment.id}"
-      comment_textarea = f("#speedgrader_comment_textarea")
+      comment_textarea = f("#speed_grader_comment_textarea")
       replace_content(comment_textarea, "oh no i forgot to save this comment!")
       # navigate away
       driver.navigate.refresh
@@ -135,7 +135,7 @@ describe "speed grader" do
     replace_content f('#grading-box-extended'), "5", tab_out: true
     expect { @submission.reload.score }.to become 5
 
-    f('#speedgrader_comment_textarea').send_keys('srsly')
+    f('#speed_grader_comment_textarea').send_keys('srsly')
     f('#add_a_comment button[type="submit"]').click
     expect { @submission.submission_comments.where(comment: 'srsly').any? }.to become(true)
     # doesn't get inserted into the menu
@@ -244,9 +244,9 @@ describe "speed grader" do
       sections = @course.course_sections
       section_options_text = f("#section-menu ul")[:textContent] # hidden
       expect(section_options_text).to include(@course_section.name)
-      goto_section(sections[0].id)
+      Speedgrader.visit_section(Speedgrader.section_with_id(sections[0].id))
       expect(ff("#students_selectmenu > option")).to have_size 1
-      goto_section(sections[1].id)
+      Speedgrader.visit_section(Speedgrader.section_with_id(sections[1].id))
       expect(ff("#students_selectmenu > option")).to have_size 1
     end
   end
@@ -365,27 +365,36 @@ describe "speed grader" do
     end
   end
 
-  it 'should let you enter in a float for a quiz question point value', priority: "1", test_id: 369250 do
-    init_course_with_students
-    user_session(@teacher)
-    quiz = seed_quiz_with_submission
-    get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{quiz.assignment_id}"
-    # In the left panel modify the grade to 0.5
-    in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
-      points_input = ff('#questions .user_points input')
-      driver.execute_script("$('#questions .user_points input').focus()")
-      replace_content(points_input[0], '0')
-      replace_content(points_input[1], '.5')
-      replace_content(points_input[2], '0')
-      f('.update_scores button[type="submit"]').click
-      wait_for_ajaximations
+  context 'quizzes' do
+    before(:once) do
+      init_course_with_students
     end
-    # Switch to the right panel
-    # Verify that the grade is .5
-    wait_for_ajaximations
-    expect{f('#grading-box-extended')['value']}.to become('0.5')
-    expect(f("#students_selectmenu-button")).to_not have_class("not_graded")
-    expect(f("#students_selectmenu-button")).to have_class("graded")
+
+    let_once(:quiz) { seed_quiz_with_submission }
+
+    it 'should let you enter in a float for a quiz question point value', priority: "1", test_id: 369250 do
+      user_session(@teacher)
+      get "/courses/#{@course.id}/gradebook/speed_grader?assignment_id=#{quiz.assignment_id}"
+      # In the left panel modify the grade to 0.5
+      in_frame 'speedgrader_iframe', '.quizzes-speedgrader' do
+        points_input = ff('#questions .user_points input.question_input')
+        driver.execute_script("$('#questions .user_points input.question_input').focus()")
+        replace_content(points_input[0], '2')
+        driver.execute_script("$('#questions .user_points input.question_input')[0].blur()")
+        replace_content(points_input[1], '.5')
+        driver.execute_script("$('#questions .user_points input.question_input')[1].blur()")
+        replace_content(points_input[2], '1')
+        driver.execute_script("$('#questions .user_points input.question_input')[2].blur()")
+        f('.update_scores button[type="submit"]').click
+        wait_for_ajaximations
+      end
+      # Switch to the right panel
+      # Verify that the grade is .5
+      wait_for_ajaximations
+      expect{f('#grading-box-extended')['value']}.to become('3.5')
+      expect(f("#students_selectmenu-button")).to_not have_class("not_graded")
+      expect(f("#students_selectmenu-button")).to have_class("graded")
+    end
   end
 
   context 'Crocodocable Submissions' do

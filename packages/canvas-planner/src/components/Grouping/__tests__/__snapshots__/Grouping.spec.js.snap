@@ -4,7 +4,9 @@ exports[`grouping contains link pointing to course url 1`] = `
 <div
   className="planner-grouping"
 >
-  <NotificationBadge />
+  <NotificationBadge
+    responsiveSize="large"
+  />
   <a
     className="undefined undefined"
     href="example.com"
@@ -33,7 +35,9 @@ exports[`grouping contains link pointing to course url 1`] = `
       }
     }
   >
-    <li>
+    <li
+      key="five"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={101}
         color="#5678"
@@ -41,7 +45,6 @@ exports[`grouping contains link pointing to course url 1`] = `
           Object {
             "color": "#5678",
             "id": 256,
-            "inform_students_of_overdue_submissions": true,
             "url": "example.com",
           }
         }
@@ -54,13 +57,16 @@ exports[`grouping contains link pointing to course url 1`] = `
             "iconColor": "#5678",
           }
         }
+        timeZone="America/Denver"
         title="San Juan"
         toggleCompletion={[Function]}
         uniqueId="five"
         updateTodo={[Function]}
       />
     </li>
-    <li>
+    <li
+      key="six"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={102}
         color="#5678"
@@ -68,7 +74,6 @@ exports[`grouping contains link pointing to course url 1`] = `
           Object {
             "color": "#5678",
             "id": 256,
-            "inform_students_of_overdue_submissions": true,
           }
         }
         courseName="Board Games"
@@ -80,6 +85,7 @@ exports[`grouping contains link pointing to course url 1`] = `
             "iconColor": "#5678",
           }
         }
+        timeZone="America/Denver"
         title="Roll for the Galaxy"
         toggleCompletion={[Function]}
         uniqueId="six"
@@ -94,7 +100,9 @@ exports[`renders a CompletedItemsFacade when completed items are present by defa
 <div
   className="planner-grouping"
 >
-  <NotificationBadge />
+  <NotificationBadge
+    responsiveSize="large"
+  />
   <a
     className="undefined undefined"
     href="example.com"
@@ -123,7 +131,9 @@ exports[`renders a CompletedItemsFacade when completed items are present by defa
       }
     }
   >
-    <li>
+    <li
+      key="six"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={101}
         color="#5678"
@@ -131,7 +141,6 @@ exports[`renders a CompletedItemsFacade when completed items are present by defa
           Object {
             "color": "#5678",
             "id": 256,
-            "inform_students_of_overdue_submissions": true,
           }
         }
         courseName="Board Games"
@@ -143,13 +152,16 @@ exports[`renders a CompletedItemsFacade when completed items are present by defa
             "iconColor": "#5678",
           }
         }
+        timeZone="America/Denver"
         title="Roll for the Galaxy"
         toggleCompletion={[Function]}
         uniqueId="six"
         updateTodo={[Function]}
       />
     </li>
-    <li>
+    <li
+      key="completed"
+    >
       <Animatable(CompletedItemsFacade)
         animatableIndex={102}
         animatableItemIds={
@@ -162,6 +174,7 @@ exports[`renders a CompletedItemsFacade when completed items are present by defa
         itemCount={1}
         notificationBadge="none"
         onClick={[Function]}
+        responsiveSize="large"
         theme={
           Object {
             "labelColor": "#5678",
@@ -177,7 +190,9 @@ exports[`renders the base component with required props 1`] = `
 <div
   className="planner-grouping"
 >
-  <NotificationBadge />
+  <NotificationBadge
+    responsiveSize="large"
+  />
   <a
     className="undefined undefined"
     href="example.com"
@@ -206,7 +221,9 @@ exports[`renders the base component with required props 1`] = `
       }
     }
   >
-    <li>
+    <li
+      key="five"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={101}
         color="#5678"
@@ -214,7 +231,6 @@ exports[`renders the base component with required props 1`] = `
           Object {
             "color": "#5678",
             "id": 256,
-            "inform_students_of_overdue_submissions": true,
             "url": "example.com",
           }
         }
@@ -227,13 +243,16 @@ exports[`renders the base component with required props 1`] = `
             "iconColor": "#5678",
           }
         }
+        timeZone="America/Denver"
         title="San Juan"
         toggleCompletion={[Function]}
         uniqueId="five"
         updateTodo={[Function]}
       />
     </li>
-    <li>
+    <li
+      key="six"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={102}
         color="#5678"
@@ -241,7 +260,6 @@ exports[`renders the base component with required props 1`] = `
           Object {
             "color": "#5678",
             "id": 256,
-            "inform_students_of_overdue_submissions": true,
           }
         }
         courseName="Board Games"
@@ -253,6 +271,7 @@ exports[`renders the base component with required props 1`] = `
             "iconColor": "#5678",
           }
         }
+        timeZone="America/Denver"
         title="Roll for the Galaxy"
         toggleCompletion={[Function]}
         uniqueId="six"
@@ -267,7 +286,9 @@ exports[`renders to do items correctly 1`] = `
 <div
   className="planner-grouping"
 >
-  <NotificationBadge />
+  <NotificationBadge
+    responsiveSize="large"
+  />
   <span>
     <span
       className=""
@@ -288,7 +309,9 @@ exports[`renders to do items correctly 1`] = `
       }
     }
   >
-    <li>
+    <li
+      key="seven hundred"
+    >
       <Animatable(ResponsivePlannerItem)
         animatableIndex={101}
         color={null}
@@ -302,6 +325,7 @@ exports[`renders to do items correctly 1`] = `
             "iconColor": null,
           }
         }
+        timeZone="America/Denver"
         title="To Do 700"
         toggleCompletion={[Function]}
         uniqueId="seven hundred"

@@ -28,8 +28,10 @@ class DeveloperKey < ActiveRecord::Base
   has_many :page_views
   has_many :access_tokens, -> { where(:workflow_state => "active") }
   has_many :developer_key_account_bindings, inverse_of: :developer_key, dependent: :destroy
+  has_many :context_external_tools
 
-  has_one :tool_consumer_profile, :class_name => 'Lti::ToolConsumerProfile'
+  has_one :tool_consumer_profile, :class_name => 'Lti::ToolConsumerProfile', inverse_of: :developer_key
+  has_one :tool_configuration, class_name: 'Lti::ToolConfiguration', dependent: :destroy, inverse_of: :developer_key
   serialize :scopes, Array
 
   before_validation :validate_scopes!
@@ -38,12 +40,16 @@ class DeveloperKey < ActiveRecord::Base
   before_create :set_visible
   before_save :nullify_empty_icon_url
   before_save :protect_default_key
+  before_save :set_require_scopes
   after_save :clear_cache
   after_update :invalidate_access_tokens_if_scopes_removed!
   after_create :create_default_account_binding
 
   validates_as_url :redirect_uri, allowed_schemes: nil
   validate :validate_redirect_uris
+  validate :validate_public_jwk
+
+  attr_reader :private_jwk
 
   scope :nondeleted, -> { where("workflow_state<>'deleted'") }
   scope :not_active, -> { where("workflow_state<>'active'") } # search for deleted & inactive keys
@@ -103,6 +109,13 @@ class DeveloperKey < ActiveRecord::Base
     self.api_key = CanvasSlug.generate(nil, 64) if overwrite || !self.api_key
   end
 
+  def generate_rsa_keypair!(overwrite: false)
+    return if public_jwk.present? && !overwrite
+    key_pair = Lti::RSAKeyPair.new
+    @private_jwk = key_pair.to_jwk
+    self.public_jwk = key_pair.public_jwk.to_h
+  end
+
   def set_auto_expire_tokens
     self.auto_expire_tokens = true
   end
@@ -132,6 +145,7 @@ class DeveloperKey < ActiveRecord::Base
         end
         return @special_keys[default_key_name] = key if key
         key = DeveloperKey.create!(:name => default_key_name)
+        key.developer_key_account_bindings.update_all(workflow_state: 'on')
         Setting.set("#{default_key_name}_developer_key_id", key.id)
         return @special_keys[default_key_name] = key
       end
@@ -224,10 +238,22 @@ class DeveloperKey < ActiveRecord::Base
     account || Account.site_admin
   end
 
+  def binding_on_in_account?(target_account)
+    account_binding_for(target_account)&.workflow_state == DeveloperKeyAccountBinding::ON_STATE
+  end
+
   private
 
+  def validate_public_jwk
+    return true if public_jwk.blank?
+
+    jwk_errors = Schemas::Lti::PublicJwk.simple_validation_errors(public_jwk)
+    return true if jwk_errors.blank?
+
+    errors.add :public_jwk, jwk_errors
+  end
+
   def invalidate_access_tokens_if_scopes_removed!
-    return unless developer_key_management_and_scoping_on?
     return unless saved_change_to_scopes?
     return if (scopes_before_last_save - scopes).blank?
     send_later_if_production(:invalidate_access_tokens!)
@@ -237,28 +263,16 @@ class DeveloperKey < ActiveRecord::Base
     access_tokens.destroy_all
   end
 
-  def binding_on_in_account?(target_account)
-    if target_account.site_admin?
-      return true unless Setting.get(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, nil).present?
-    else
-      return true unless target_account.root_account.feature_enabled?(:developer_key_management_and_scoping)
-    end
-
-    account_binding_for(target_account)&.workflow_state == DeveloperKeyAccountBinding::ON_STATE
-  end
-
-  def developer_key_management_and_scoping_on?
-    owner_account.root_account.feature_enabled?(:developer_key_management_and_scoping) || (
-      owner_account.site_admin? && Setting.get(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, nil).present?
-    )
-  end
-
   def create_default_account_binding
     owner_account.developer_key_account_bindings.create!(developer_key: self)
   end
 
+  def set_require_scopes
+    # Prevent RSA keys from having API access
+    self.require_scopes = true if public_jwk.present?
+  end
+
   def validate_scopes!
-    return true unless developer_key_management_and_scoping_on?
     return true if self.scopes.empty?
     invalid_scopes = self.scopes - TokenScopes.all_scopes
     return true if invalid_scopes.empty?

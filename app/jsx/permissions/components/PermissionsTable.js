@@ -22,16 +22,23 @@ import {arrayOf, func} from 'prop-types'
 import {connect} from 'react-redux'
 import $ from 'jquery'
 // For screenreaderFlashMessageExclusive  Maybe there's a better way
-import 'compiled/jquery.rails_flash_notifications' // eslint-disable-line
+import 'compiled/jquery.rails_flash_notifications'
 
 import Link from '@instructure/ui-elements/lib/components/Link'
 import Text from '@instructure/ui-elements/lib/components/Text'
-
+import Tooltip from '@instructure/ui-overlays/lib/components/Tooltip'
 import View from '@instructure/ui-layout/lib/components/View'
 
 import actions from '../actions'
 import {ConnectedPermissionButton} from './PermissionButton'
 import propTypes from '../propTypes'
+
+const rowTypes = {
+  create: I18n.t('create'),
+  read: I18n.t('read'),
+  update: I18n.t('update'),
+  delete: I18n.t('delete')
+}
 
 export default class PermissionsTable extends Component {
   static propTypes = {
@@ -45,7 +52,13 @@ export default class PermissionsTable extends Component {
     expanded: {}
   }
 
+  // just a heads up: these likely break in RTL. the best thing would be to
+  // change the css so you don't manually have to scroll the table in JS but
+  // if you do have to do this in JS, you need to use something like
+  // 'normalize-scroll-left' from npm (grep for where we use it in the graebook)
+  // so that it works cross browser in RTL
   fixScroll = (leftOffset, leftScroll) => {
+    if (!this.contentWrapper) return
     const sidebarWidth = 300
     if (leftOffset - sidebarWidth < leftScroll) {
       const newScroll = Math.max(0, leftScroll - sidebarWidth)
@@ -54,12 +67,14 @@ export default class PermissionsTable extends Component {
   }
 
   fixScrollButton = e => {
+    if (!this.contentWrapper) return
     const leftOffset = e.target.offsetParent.offsetLeft
     const leftScroll = this.contentWrapper.scrollLeft
     this.fixScroll(leftOffset, leftScroll)
   }
 
   fixScrollHeader = e => {
+    if (!this.contentWrapper) return
     const leftOffset = e.target.offsetParent.offsetParent.offsetLeft
     const leftScroll = this.contentWrapper.scrollLeft
     this.fixScroll(leftOffset, leftScroll)
@@ -90,7 +105,7 @@ export default class PermissionsTable extends Component {
   renderTopHeader() {
     return (
       <tr className="ic-permissions__top-header">
-        <th className="ic-permissions__corner-stone">
+        <th scope="col" className="ic-permissions__corner-stone">
           <span className="ic-permission-corner-text">
             <Text weight="bold" size="small">
               {I18n.t('Permissions')}
@@ -109,14 +124,24 @@ export default class PermissionsTable extends Component {
                 className="ic-permissions__header-content ic-permissions__header-content-col"
                 id={`ic-permissions__role-header-for-role-${role.id}`}
               >
-                <Link
-                  as="button"
+                <Tooltip
+                  as={Link}
+                  tip={role.label}
                   onClick={() => this.openRoleTray(role)}
                   id={`role_${role.id}`}
                   onFocus={this.fixScrollHeader}
                 >
-                  <Text size="small">{role.label} </Text>
-                </Link>
+                  <div
+                    style={{
+                      width: '140px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    <Text size="small">{role.label}</Text>
+                  </div>
+                </Tooltip>
               </div>
             </div>
           </th>
@@ -138,7 +163,6 @@ export default class PermissionsTable extends Component {
             </button>
             */}
             <View margin="small">
-              {/* eslint-disable-next-line */}
               <Link
                 as="button"
                 onClick={() => this.props.setAndOpenPermissionTray(perm)}
@@ -154,13 +178,6 @@ export default class PermissionsTable extends Component {
   }
 
   renderExapndedRows() {
-    const rowTypes = {
-      create: I18n.t('create'),
-      read: I18n.t('read'),
-      update: I18n.t('update'),
-      delete: I18n.t('delete')
-    }
-
     return Object.keys(rowTypes).map(rowType => (
       <tr key={rowType}>
         <th scope="row" className="ic-permissions__left-header__expanded">
@@ -173,7 +190,7 @@ export default class PermissionsTable extends Component {
         {this.props.roles.map(role => (
           <td key={role.id}>
             <div className="ic-permissions__cell-content">
-              <input type="checkbox" aria-label="toggle some mini permission" />
+              <input type="checkbox" aria-label="toggle sub-permission" />
             </div>
           </td>
         ))}
@@ -216,9 +233,7 @@ export default class PermissionsTable extends Component {
     return (
       <div
         className="ic-permissions__table-container"
-        ref={c => {
-          this.contentWrapper = c
-        }}
+        ref={c => (this.contentWrapper = c)}
       >
         {this.renderTable()}
       </div>

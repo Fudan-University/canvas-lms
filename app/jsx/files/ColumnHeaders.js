@@ -20,6 +20,7 @@ import $ from 'jquery'
 import _ from 'underscore'
 import I18n from 'i18n!react_files'
 import React from 'react'
+import createReactClass from 'create-react-class';
 import classnames from 'classnames'
 import ColumnHeaders from 'compiled/react_files/components/ColumnHeaders'
 
@@ -95,41 +96,22 @@ import ColumnHeaders from 'compiled/react_files/components/ColumnHeaders'
       const sort = this.props.query.sort || 'name';
       const order = this.props.query.order || 'asc';
 
-      const selectAllCheckboxClass = classnames({
-        'screenreader-only': this.state.hideToggleAll
-      });
-
-      const selectAllLabelClass = classnames({
-        'screenreader-only': !this.state.hideToggleAll
-      });
-
       return (
         <header className='ef-directory-header' role='row'>
-          <div className={selectAllCheckboxClass} role='gridcell'>
-            <label htmlFor='selectAllCheckbox' className={selectAllLabelClass}>
-              {I18n.t('select_all', 'Select All')}
-            </label>
-            <input
-              id='selectAllCheckbox'
-              className={selectAllCheckboxClass}
-              type='checkbox'
-              onFocus={(event) => this.setState({hideToggleAll: false})}
-              onBlur={(event) => this.setState({hideToggleAll: true})}
-              checked={this.props.areAllItemsSelected()}
-              onChange={(event) => this.props.toggleAllSelected(event.target.checked)}
-            />
+          <div className='screenreader-only' role='columnheader'>
+            {I18n.t('Select')}
           </div>
-        {this.renderColumns(sort, order)}
-        <div
-          className='ef-links-col'
-          role='columnheader'
-        >
-          <span className='screenreader-only'>
-            {I18n.t('Actions')}
-          </span>
-        </div>
-      </header>
-    );
-  }
+          {this.renderColumns(sort, order)}
+          <div
+            className='ef-links-col'
+            role='columnheader'
+          >
+            <span className='screenreader-only'>
+              {I18n.t('Actions')}
+            </span>
+          </div>
+        </header>
+      );
+    }
 
-export default React.createClass(ColumnHeaders)
+export default createReactClass(ColumnHeaders);

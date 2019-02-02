@@ -17,69 +17,70 @@
 #
 
 module Types
-  AssignmentOverrideType = GraphQL::ObjectType.define do
-    name "AssignmentOverride"
+  class AdhocStudentsType < ApplicationObjectType
+    graphql_name "AdhocStudents"
 
-    interfaces [Interfaces::TimestampInterface]
+    description "A list of students that an `AssignmentOverride` applies to"
 
-    field :_id, !types.ID, "legacy canvas id", property: :id
+    alias override object
 
-    field :assignment, AssignmentType, resolve: ->(override, _, _) {
-      Loaders::AssociationLoader.for(AssignmentOverride, :assignment)
-        .load(override)
-        .then { override.assignment }
-    }
+    field :students, [UserType], null: true
 
-    field :title, types.String
-
-    field :set, AssignmentOverrideSetUnion do
-      description "This object specifies what students this override applies to"
-
-      resolve ->(override, _, _) {
-        if override.set_type == "ADHOC"
-          # AdhocStudentsType will load the actual students
-          override
-        else
-          Loaders::AssociationLoader.for(AssignmentOverride, :set)
-            .load(override)
-            .then { override.set }
-        end
-      }
+    def students
+      Loaders::AssociationLoader.for(AssignmentOverride,
+                                     assignment_override_students: :user)
+      .load(override)
+      .then { override.assignment_override_students.map(&:user) }
     end
-
-    field :dueAt, DateTimeType, property: :due_at
-    field :lockAt, DateTimeType, property: :lock_at
-    field :unlockAt, DateTimeType, property: :unlock_at
-    field :allDay, types.Boolean, property: :all_day
   end
 
-  AssignmentOverrideSetUnion = GraphQL::UnionType.define do
-    name "AssignmentOverrideSet"
+  class AssignmentOverrideSetUnion < BaseUnion
+    graphql_name "AssignmentOverrideSet"
 
     description "Objects that can be assigned overridden dates"
 
-    possible_types [SectionType, GroupType, AdhocStudentsType]
+    possible_types SectionType, GroupType, AdhocStudentsType
 
-    resolve_type ->(obj, _) {
+    def self.resolve_type(obj, _)
       case obj
       when CourseSection then SectionType
       when Group then GroupType
       when AssignmentOverride then AdhocStudentsType
       end
-    }
+    end
   end
 
-  AdhocStudentsType = GraphQL::ObjectType.define do
-    name "AdhocStudents"
+  class AssignmentOverrideType < ApplicationObjectType
+    graphql_name "AssignmentOverride"
 
-    description "A list of students that an `AssignmentOverride` applies to"
+    implements GraphQL::Types::Relay::Node
+    implements Interfaces::TimestampInterface
 
-    field :students, types[UserType], resolve: ->(override, _, _) {
-      Loaders::AssociationLoader.for(AssignmentOverride,
-                                     assignment_override_students: :user)
-      .load(override)
-      .then { override.assignment_override_students.map(&:user) }
-    }
+    alias :override :object
 
+    field :_id, ID, "legacy canvas id", method: :id, null: false
+
+    field :assignment, AssignmentType, null: true
+    def assignment
+      load_association(:assignment)
+    end
+
+    field :title, String, null: true
+
+    field :set, AssignmentOverrideSetUnion,
+      "This object specifies what students this override applies to",
+      null: true
+    def set
+      if override.set_type == "ADHOC"
+        override
+      else
+        load_association(:set)
+      end
+    end
+
+    field :due_at, DateTimeType, null: true
+    field :lock_at, DateTimeType, null: true
+    field :unlock_at, DateTimeType, null: true
+    field :all_day, Boolean, null: true
   end
 end

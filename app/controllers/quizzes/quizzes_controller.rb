@@ -239,6 +239,7 @@ class Quizzes::QuizzesController < ApplicationController
         COURSE_ID: @context.id,
         LOCKDOWN_BROWSER: @quiz.require_lockdown_browser?,
         QUIZ: quiz_json(@quiz,@context,@current_user,session),
+        QUIZ_DETAILS_URL: course_quiz_managed_quiz_data_url(@context.id, @quiz.id),
         QUIZZES_URL: course_quizzes_url(@context),
         MAX_GROUP_CONVERSATION_SIZE: Conversation.max_group_conversation_size
       }
@@ -337,6 +338,10 @@ class Quizzes::QuizzesController < ApplicationController
         hash[:active_grading_periods] = GradingPeriod.json_for(@context, @current_user)
       end
 
+      if @context.is_a?(Course) && @context.grants_right?(@current_user, session, :read)
+        hash[:COURSE_ID] = @context.id.to_s
+      end
+
       append_sis_data(hash)
       js_env(hash)
 
@@ -361,6 +366,7 @@ class Quizzes::QuizzesController < ApplicationController
       quiz_params = get_quiz_params
       quiz_params[:title] = nil if quiz_params[:title] == "undefined"
       quiz_params[:title] ||= t(:default_title, "New Quiz")
+      quiz_params[:description] = process_incoming_html_content(quiz_params[:description]) if quiz_params.key?(:description)
       quiz_params.delete(:points_possible) unless quiz_params[:quiz_type] == 'graded_survey'
       quiz_params[:access_code] = nil if quiz_params[:access_code] == ""
       if quiz_params[:quiz_type] == 'assignment' || quiz_params[:quiz_type] == 'graded_survey'
@@ -387,7 +393,7 @@ class Quizzes::QuizzesController < ApplicationController
       end
 
       if params[:post_to_sis]
-        @quiz.assignment.post_to_sis = params[:post_to_sis] == '1' ? true : false
+        @quiz.assignment.post_to_sis = params[:post_to_sis] == '1'
       end
 
 
@@ -419,6 +425,8 @@ class Quizzes::QuizzesController < ApplicationController
       end
 
       quiz_params[:title] = t("New Quiz") if quiz_params[:title] == "undefined"
+      quiz_params[:description] = process_incoming_html_content(quiz_params[:description]) if quiz_params.key?(:description)
+
       quiz_params.delete(:points_possible) unless quiz_params[:quiz_type] == 'graded_survey'
       quiz_params[:access_code] = nil if quiz_params[:access_code] == ""
       if quiz_params[:quiz_type] == 'assignment' || quiz_params[:quiz_type] == 'graded_survey' #'new' && params[:quiz][:assignment_group_id]
@@ -453,7 +461,8 @@ class Quizzes::QuizzesController < ApplicationController
               old_assignment = @quiz.assignment.clone
               old_assignment.id = @quiz.assignment.id
 
-              @quiz.assignment.post_to_sis = params[:post_to_sis] == '1' ? true : false
+              @quiz.assignment.post_to_sis = params[:post_to_sis] == '1'
+              @quiz.assignment.validate_overrides_for_sis(overrides) unless overrides.nil?
             end
 
             auto_publish = @quiz.published?
@@ -499,7 +508,7 @@ class Quizzes::QuizzesController < ApplicationController
         end
 
         if @quiz.assignment && (@overrides_affected.to_i > 0 || cached_due_dates_changed || created_quiz)
-          DueDateCacher.recompute(@quiz.assignment, update_grades: true)
+          DueDateCacher.recompute(@quiz.assignment, update_grades: true, executing_user: @current_user)
         end
 
         flash[:notice] = t("Quiz successfully updated")

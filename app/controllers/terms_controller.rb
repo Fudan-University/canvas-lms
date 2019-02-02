@@ -26,7 +26,7 @@ class TermsController < ApplicationController
     @context.default_enrollment_term
     @terms = @context.enrollment_terms.active.
       preload(:enrollment_dates_overrides).
-      order("COALESCE(start_at, created_at) DESC").to_a
+      order(Arel.sql("COALESCE(start_at, created_at) DESC")).to_a
     @course_counts_by_term = EnrollmentTerm.course_counts(@terms)
   end
 
@@ -133,11 +133,13 @@ class TermsController < ApplicationController
     handle_sis_id_param(sis_id)
 
     term_params = params.require(:enrollment_term).permit(:name, :start_at, :end_at)
-    if validate_dates(@term, term_params, overrides) && @term.update_attributes(term_params)
-      @term.set_overrides(@context, overrides)
-      render :json => serialized_term
-    else
-      render :json => @term.errors, :status => :bad_request
+    DueDateCacher.with_executing_user(@current_user) do
+      if validate_dates(@term, term_params, overrides) && @term.update_attributes(term_params)
+        @term.set_overrides(@context, overrides)
+        render :json => serialized_term
+      else
+        render :json => @term.errors, :status => :bad_request
+      end
     end
   end
 

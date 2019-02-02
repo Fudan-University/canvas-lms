@@ -16,7 +16,8 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-# @API Planner override
+# @API Planner
+# @subtopic Planner Overrides
 #
 # API for creating, accessing and updating planner override. PlannerOverrides are used
 # to control the visibility of objects displayed on the Planner.
@@ -43,6 +44,11 @@
 #         },
 #         "user_id": {
 #           "description": "The id of the associated user for the planner override",
+#           "example": 1578941,
+#           "type": "integer"
+#         },
+#         "assignment_id": {
+#           "description": "The id of the plannable's associated assignment, if it has one",
 #           "example": 1578941,
 #           "type": "integer"
 #         },
@@ -81,13 +87,11 @@
 #
 class PlannerOverridesController < ApplicationController
   include Api::V1::PlannerOverride
-  include PlannerHelper
 
   before_action :require_user
   before_action :require_planner_enabled
 
   # @API List planner overrides
-  # @beta
   #
   # Retrieve a planner override for the current user
   #
@@ -98,7 +102,6 @@ class PlannerOverridesController < ApplicationController
   end
 
   # @API Show a planner override
-  # @beta
   #
   # Retrieve a planner override for the current user
   #
@@ -109,7 +112,6 @@ class PlannerOverridesController < ApplicationController
   end
 
   # @API Update a planner override
-  # @beta
   #
   # Update a planner override's visibilty for the current user
   #
@@ -124,6 +126,7 @@ class PlannerOverridesController < ApplicationController
     planner_override = PlannerOverride.find(params[:id])
     planner_override.marked_complete = value_to_boolean(params[:marked_complete])
     planner_override.dismissed = value_to_boolean(params[:dismissed])
+    sync_module_requirement_done(planner_override.plannable, @current_user, value_to_boolean(params[:marked_complete]))
 
     if planner_override.save
       Rails.cache.delete(planner_meta_cache_key)
@@ -134,14 +137,13 @@ class PlannerOverridesController < ApplicationController
   end
 
   # @API Create a planner override
-  # @beta
   #
   # Create a planner override for the current user
   #
-  # @argument plannable_type [String, "announcement"|"assignment"|"discussion_topic"|"quiz"|"wiki_page"|"planner_note"]
+  # @argument plannable_type [Required, String, "announcement"|"assignment"|"discussion_topic"|"quiz"|"wiki_page"|"planner_note"]
   #   Type of the item that you are overriding in the planner
   #
-  # @argument plannable_id [Integer]
+  # @argument plannable_id [Required, Integer]
   #   ID of the item that you are overriding in the planner
   #
   # @argument marked_complete [Boolean]
@@ -153,11 +155,11 @@ class PlannerOverridesController < ApplicationController
   #
   # @returns PlannerOverride
   def create
-    plannable_type = PLANNABLE_TYPES[params[:plannable_type]]
+    plannable_type = PlannerHelper::PLANNABLE_TYPES[params[:plannable_type]]
     plannable = plannable_type.constantize.find(params[:plannable_id])
-    planner_override = PlannerOverride.new(plannable_type: plannable_type,
-      plannable_id: params[:plannable_id], marked_complete: value_to_boolean(params[:marked_complete]),
+    planner_override = PlannerOverride.new(plannable: plannable, marked_complete: value_to_boolean(params[:marked_complete]),
       user: @current_user, dismissed: value_to_boolean(params[:dismissed]))
+    sync_module_requirement_done(plannable, @current_user, value_to_boolean(params[:marked_complete]))
 
     if planner_override.save
       Rails.cache.delete(planner_meta_cache_key)
@@ -168,7 +170,6 @@ class PlannerOverridesController < ApplicationController
   end
 
   # @API Delete a planner override
-  # @beta
   #
   # Delete a planner override for the current user
   #

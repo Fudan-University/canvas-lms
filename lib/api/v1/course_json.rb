@@ -18,7 +18,7 @@
 module Api::V1
   class CourseJson
 
-    BASE_ATTRIBUTES = %w(id name course_code account_id start_at default_view enrollment_term_id is_public
+    BASE_ATTRIBUTES = %w(id name course_code account_id created_at start_at default_view enrollment_term_id is_public
                          grading_standard_id root_account_id uuid).freeze
 
     INCLUDE_CHECKERS = {grading: 'needs_grading_count', syllabus: 'syllabus_body',
@@ -28,11 +28,12 @@ module Api::V1
 
     attr_reader :course, :user, :includes, :enrollments, :hash
 
-    def initialize(course, user, includes, enrollments)
+    def initialize(course, user, includes, enrollments, precalculated_permissions: nil)
       @course = course
       @user = user
       @includes = includes.map{ |include_key| include_key.to_sym }
       @enrollments = enrollments
+      @precalculated_permissions = precalculated_permissions
       if block_given?
         @hash = yield(self, self.allowed_attributes, self.methods_to_send, self.permissions_to_include)
       else
@@ -52,8 +53,8 @@ module Api::V1
     end
 
     def to_hash
-      set_sis_course_id(@hash, @course, @user)
-      set_integration_id(@hash, @course, @user)
+      set_sis_course_id(@hash)
+      set_integration_id(@hash)
       @hash['enrollments'] = extract_enrollments(@enrollments)
       @hash['needs_grading_count'] = needs_grading_count(@enrollments, @course)
       @hash['public_description'] = description(@course)
@@ -69,8 +70,8 @@ module Api::V1
       clear_unneeded_fields(@hash)
     end
 
-    def self.to_hash(course, user, includes, enrollments, &block)
-      self.new(course, user, includes, enrollments, &block).to_hash
+    def self.to_hash(course, user, includes, enrollments, precalculated_permissions: nil, &block)
+      self.new(course, user, includes, enrollments, precalculated_permissions: precalculated_permissions, &block).to_hash
     end
 
     def clear_unneeded_fields(hash)
@@ -81,18 +82,28 @@ module Api::V1
       course.public_description if include_description
     end
 
-    def set_sis_course_id(hash, course, user)
-      if course.grants_any_right?(user, :read_sis, :manage_sis)
-        hash['sis_course_id'] = course.sis_source_id
-      end
-      if course.root_account.grants_right?(user, :manage_sis)
-        hash['sis_import_id'] = course.sis_batch_id
+    def has_permission?(*permissions)
+      permissions.any? do |permission|
+        if @precalculated_permissions&.has_key?(permission)
+          @precalculated_permissions[permission]
+        else
+          @course.grants_right?(@user, permission)
+        end
       end
     end
 
-    def set_integration_id(hash, course, user)
-      if course.grants_any_right?(user, :read_sis, :manage_sis)
-        hash['integration_id'] = course.integration_id
+    def set_sis_course_id(hash)
+      if has_permission?(:read_sis, :manage_sis)
+        hash['sis_course_id'] = @course.sis_source_id
+      end
+      if has_permission?(:manage_sis)
+        hash['sis_import_id'] = @course.sis_batch_id
+      end
+    end
+
+    def set_integration_id(hash)
+      if has_permission?(:read_sis, :manage_sis)
+        hash['integration_id'] = @course.integration_id
       end
     end
 
@@ -131,6 +142,7 @@ module Api::V1
     def enrollment_hash(enrollment)
       enrollment_hash = default_enrollment_attributes(enrollment)
       enrollment_hash[:associated_user_id] = enrollment.associated_user_id if enrollment.assigned_observer?
+      enrollment_hash.merge!(grading_period_info) if include_grading_period_info? && enrollment.student?
       enrollment_hash.merge!(total_scores(enrollment)) if include_total_scores? && enrollment.student?
       enrollment_hash
     end
@@ -146,18 +158,29 @@ module Api::V1
     end
 
     def total_scores(student_enrollment)
-      scores = {
-        :computed_current_score => student_enrollment.computed_current_score,
-        :computed_final_score => student_enrollment.computed_final_score,
-        :computed_current_grade => student_enrollment.computed_current_grade,
-        :computed_final_grade => student_enrollment.computed_final_grade
-      }
+      scores = {}
 
       if @course.grants_any_right?(@user, :manage_grades, :view_all_grades)
-        scores[:unposted_current_score] = student_enrollment.unposted_current_score
-        scores[:unposted_final_score] = student_enrollment.unposted_final_score
+        scores[:computed_current_grade] = student_enrollment.computed_current_grade
+        scores[:computed_current_score] = student_enrollment.computed_current_score
+        scores[:computed_final_grade] = student_enrollment.computed_final_grade
+        scores[:computed_final_score] = student_enrollment.computed_final_score
         scores[:unposted_current_grade] = student_enrollment.unposted_current_grade
+        scores[:unposted_current_score] = student_enrollment.unposted_current_score
         scores[:unposted_final_grade] = student_enrollment.unposted_final_grade
+        scores[:unposted_final_score] = student_enrollment.unposted_final_score
+
+        if @course.feature_enabled?(:final_grades_override)
+          override_grade = student_enrollment.override_grade(course_score: true)
+          override_score = student_enrollment.override_score(course_score: true)
+          scores[:override_grade] = override_grade if override_grade.present?
+          scores[:override_score] = override_score if override_score.present?
+        end
+      else
+        scores[:computed_current_grade] = student_enrollment.effective_current_grade
+        scores[:computed_current_score] = student_enrollment.effective_current_score
+        scores[:computed_final_grade] = student_enrollment.effective_final_grade
+        scores[:computed_final_score] = student_enrollment.effective_final_score
       end
 
       if include_current_grading_period_scores?
@@ -166,13 +189,18 @@ module Api::V1
       scores
     end
 
+    def grading_period_info
+      {
+        current_grading_period_id: current_grading_period&.id,
+        current_grading_period_title: current_grading_period&.title,
+        has_grading_periods: @course.grading_periods?,
+        multiple_grading_periods_enabled: @course.grading_periods? # for backwards compatibility
+      }
+    end
+
     def current_grading_period_scores(student_enrollment)
       scores = {
-        has_grading_periods: @course.grading_periods?,
-        multiple_grading_periods_enabled: @course.grading_periods?, # for backwards compatibility
         totals_for_all_grading_periods_option: @course.display_totals_for_all_grading_periods?,
-        current_grading_period_title: current_grading_period&.title,
-        current_grading_period_id: current_grading_period&.id,
         current_period_computed_current_score: grading_period_score(student_enrollment, :current),
         current_period_computed_final_score: grading_period_score(student_enrollment, :final),
         current_period_computed_current_grade: grading_period_grade(student_enrollment, :current),
@@ -188,6 +216,14 @@ module Api::V1
           grading_period_grade(student_enrollment, :current, unposted: true)
         scores[:current_period_unposted_final_grade] =
           grading_period_grade(student_enrollment, :final, unposted: true)
+
+        if current_grading_period
+          opts = { grading_period_id: current_grading_period.id }
+          override_grade = student_enrollment.override_grade(opts)
+          override_score = student_enrollment.override_score(opts)
+          scores[:current_period_override_grade] = override_grade if override_grade.present?
+          scores[:current_period_override_score] = override_score if override_score.present?
+        end
       end
       scores
     end
@@ -203,7 +239,12 @@ module Api::V1
     def grading_period_score_or_grade(enrollment, current_or_final, score_or_grade, unposted)
       return nil unless current_grading_period
 
-      prefix = unposted ? "unposted" : "computed"
+      prefix = if @course.grants_any_right?(@user, :manage_grades, :view_all_grades)
+        unposted ? "unposted" : "computed"
+      else
+        "effective"
+      end
+
       enrollment.send(
         "#{prefix}_#{current_or_final}_#{score_or_grade}",
         grading_period_id: current_grading_period.id
@@ -221,6 +262,12 @@ module Api::V1
       return @include_current_grading_period_scores unless @include_current_grading_period_scores.nil?
       @include_current_grading_period_scores =
         include_total_scores? && @includes.include?(:current_grading_period_scores)
+    end
+
+    def include_grading_period_info?
+      return @include_grading_period_info unless @include_grading_period_info.nil?
+      @include_grading_period_info =
+        @includes.include?(:current_grading_period_scores) && @includes.include?(:total_scores)
     end
   end
 end

@@ -42,6 +42,8 @@ define [
   'jsx/shared/helpers/numberHelper'
   'jsx/due_dates/DueDateCalendarPicker'
   '../../util/SisValidationHelper'
+  'jsx/assignments/AssignmentExternalTools'
+  '../../../jsx/shared/helpers/returnToHelper'
 ], (
     I18n,
     ValidatedFormView,
@@ -68,7 +70,9 @@ define [
     flashMessage,
     numberHelper,
     DueDateCalendarPicker,
-    SisValidationHelper) ->
+    SisValidationHelper,
+    AssignmentExternalTools,
+    returnToHelper) ->
 
   RichContentEditor.preloadRemoteModule()
 
@@ -95,6 +99,7 @@ define [
       '#allow_todo_date': '$allowTodoDate'
       '#allow_user_comments': '$allowUserComments'
       '#require_initial_post' : '$requireInitialPost'
+      '#assignment_external_tools' : '$AssignmentExternalTools'
 
     events: _.extend(@::events,
       'click .removeAttachment' : 'removeAttachment'
@@ -139,7 +144,7 @@ define [
       window.location = @locationAfterSave(deparam())
 
     locationAfterSave: (params) =>
-      if params['return_to']
+      if returnToHelper.isValid(params['return_to'])
         params['return_to']
       else
         @model.get 'html_url'
@@ -149,7 +154,7 @@ define [
       window.location = location if location
 
     locationAfterCancel: (params) =>
-      return params['return_to'] if params['return_to']?
+      return params['return_to'] if returnToHelper.isValid(params['return_to'])
       return ENV.CANCEL_TO if ENV.CANCEL_TO?
       null
 
@@ -213,7 +218,7 @@ define [
             RichContentEditor.callOnRCE($textarea, 'toggle')
             # hide the clicked link, and show the other toggle link.
             # todo: replace .andSelf with .addBack when JQuery is upgraded.
-            $(event.currentTarget).siblings('.rte_switch_views_link').andSelf().toggle()
+            $(event.currentTarget).siblings('.rte_switch_views_link').andSelf().toggle().focus()
       if @assignmentGroupCollection
         (@assignmentGroupFetchDfd ||= @assignmentGroupCollection.fetch()).done @renderAssignmentGroupOptions
 
@@ -235,6 +240,13 @@ define [
 
     afterRender: =>
       @renderStudentTodoAtDate() if ENV.STUDENT_PLANNER_ENABLED && @$todoDateInput.length
+      [context, context_id] = ENV.context_asset_string.split("_")
+      if context == 'course'
+        @AssignmentExternalTools = AssignmentExternalTools.attach(
+          @$AssignmentExternalTools.get(0),
+          "assignment_edit",
+          parseInt(context_id),
+          parseInt(@assignment.id))
 
 
     attachKeyboardShortcuts: =>
@@ -377,7 +389,7 @@ define [
       data.unlock_at = defaultDate?.get('unlock_at') or null
       data.due_at = defaultDate?.get('due_at') or null
       data.assignment_overrides = @dueDateOverrideView.getOverrides()
-      data.only_visible_to_overrides = @dueDateOverrideView.containsSectionsWithoutOverrides()
+      data.only_visible_to_overrides = !@dueDateOverrideView.overridesContainDefault()
 
       assignment = @model.get('assignment')
       assignment or= @model.createAssignment()

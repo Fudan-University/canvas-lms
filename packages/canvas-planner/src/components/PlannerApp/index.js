@@ -55,7 +55,6 @@ export class PlannerApp extends Component {
     loadPastButtonClicked: func,
     loadPastUntilNewActivity: func,
     loadFutureItems: func,
-    stickyOffset: number, // in pixels
     changeDashboardView: func,
     togglePlannerItemCompletion: func,
     updateTodo: func,
@@ -69,7 +68,6 @@ export class PlannerApp extends Component {
   };
   static defaultProps = {
     isLoading: false,
-    stickyOffset: 0,
     triggerDynamicUiUpdates: () => {},
     preTriggerDynamicUiUpdates: () => {},
     plannerActive: () => {return false;},
@@ -101,10 +99,7 @@ export class PlannerApp extends Component {
   }
 
   componentDidUpdate (prevProps) {
-    const additionalOffset = this.newActivityButtonRef ?
-      this.newActivityButtonRef.getBoundingClientRect().height :
-      0;
-    this.props.triggerDynamicUiUpdates(additionalOffset);
+    this.props.triggerDynamicUiUpdates();
     if (this.props.responsiveSize !== prevProps.responsiveSize) {
       this.afterLayoutChange();
     }
@@ -175,6 +170,7 @@ export class PlannerApp extends Component {
   }
 
   renderLoadingPast () {
+    if (this.props.isLoading) return;
     return <LoadingPastIndicator
       loadingPast={this.props.loadingPast}
       allPastItemsLoaded={this.props.allPastItemsLoaded}
@@ -211,6 +207,7 @@ export class PlannerApp extends Component {
         changeDashboardView={this.props.changeDashboardView}
         isCompletelyEmpty={this.props.isCompletelyEmpty}
         onAddToDo={this.onAddToDo}
+        responsiveSize={this.props.responsiveSize}
       />
     );
   }
@@ -272,6 +269,7 @@ export class PlannerApp extends Component {
         key={workingDayKey}
         updateTodo={this.props.updateTodo}
         currentUser={this.props.currentUser}
+        responsiveSize={this.props.responsiveSize}
       />
     );
     workingDay.add(1, 'days');  // step to the next day
@@ -400,18 +398,18 @@ export class PlannerApp extends Component {
   }
 }
 
-const mapStateToProps = (state) => {
+export const mapStateToProps = (state) => {
   return {
     days: state.days,
-    isLoading: state.loading.isLoading,
+    isLoading: state.loading.isLoading || state.loading.hasSomeItems === null,
     loadingPast: state.loading.loadingPast,
     allPastItemsLoaded: state.loading.allPastItemsLoaded,
     loadingFuture: state.loading.loadingFuture,
     allFutureItemsLoaded: state.loading.allFutureItemsLoaded,
     loadingError: state.loading.loadingError,
     timeZone: state.timeZone,
-    isCompletelyEmpty: !state.loading.hasSomeItems &&
-                        state.days.length == 0 &&
+    isCompletelyEmpty:  state.loading.hasSomeItems === false &&
+                        state.days.length === 0 &&
                         state.loading.partialPastDays.length === 0 &&
                         state.loading.partialFutureDays.length === 0,
   };

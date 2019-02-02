@@ -383,7 +383,8 @@ module Api
     }
   end
 
-  PAGINATION_PARAMS = [:current, :next, :prev, :first, :last]
+  PAGINATION_PARAMS = [:current, :next, :prev, :first, :last].freeze
+  LINK_PRIORITY = [:next, :last, :prev, :current, :first].freeze
   EXCLUDE_IN_PAGINATION_LINKS = %w(page per_page access_token api_key)
   def self.build_links(base_url, opts={})
     links = build_links_hash(base_url, opts)
@@ -403,10 +404,27 @@ module Api
     qp = opts[:query_parameters] || {}
     qp = qp.with_indifferent_access.except(*EXCLUDE_IN_PAGINATION_LINKS)
     base_url += "#{qp.to_query}&" if qp.present?
-    PAGINATION_PARAMS.each_with_object({}) do |param, obj|
+
+    # Apache limits the HTTP response headers to 8KB total; with lots of query parameters, link headers can exceed this
+    # so prioritize the links we include and don't exceed (by default) 6KB in total
+    max_link_headers_size = Setting.get('pagination_max_link_headers_size', '6144').to_i
+    link_headers_size = 0
+    LINK_PRIORITY.each_with_object({}) do |param, obj|
       if opts[param].present?
-        obj[param] = "#{base_url}page=#{opts[param]}&per_page=#{opts[:per_page]}"
+        link = "#{base_url}page=#{opts[param]}&per_page=#{opts[:per_page]}"
+        return obj if link_headers_size + link.size > max_link_headers_size
+        link_headers_size += link.size
+        obj[param] = link
       end
+    end
+  end
+
+  def self.pagination_params(base_url)
+    if base_url.length > Setting.get('pagination_max_base_url_for_links', '1000').to_i
+      # to prevent Link headers from consuming too much of the 8KB Apache allows in response headers
+      ESSENTIAL_PAGINATION_PARAMS
+    else
+      PAGINATION_PARAMS
     end
   end
 
@@ -434,7 +452,7 @@ module Api
   end
 
 
-  def api_bulk_load_user_content_attachments(htmls, context = nil)
+  def self.api_bulk_load_user_content_attachments(htmls, context = nil)
 
     regex = context ? %r{/#{context.class.name.tableize}/#{context.id}/files/(\d+)} : %r{/files/(\d+)}
 
@@ -456,6 +474,10 @@ module Api
 
       attachments.preload(:context).index_by(&:id)
     end
+  end
+
+  def api_bulk_load_user_content_attachments(htmls, context = nil)
+    Api.api_bulk_load_user_content_attachments(htmls, context)
   end
 
   PLACEHOLDER_PROTOCOL = 'https'
@@ -494,18 +516,20 @@ module Api
       protocol = HostUrl.protocol
     end
 
-    rewriter = UserContent::HtmlRewriter.new(context, user)
-    rewriter.set_handler('files') do |match|
-      UserContent::FilesHandler.new(
-        match: match,
-        context: context,
-        user: user,
-        preloaded_attachments: preloaded_attachments,
-        is_public: is_public,
-        in_app: (respond_to?(:in_app?, true) && in_app?)
-      ).processed_url
+    html = context.shard.activate do
+      rewriter = UserContent::HtmlRewriter.new(context, user)
+      rewriter.set_handler('files') do |match|
+        UserContent::FilesHandler.new(
+          match: match,
+          context: context,
+          user: user,
+          preloaded_attachments: preloaded_attachments,
+          is_public: is_public,
+          in_app: (respond_to?(:in_app?, true) && in_app?)
+        ).processed_url
+      end
+      rewriter.translate_content(html)
     end
-    html = rewriter.translate_content(html)
 
     url_helper = Html::UrlProxy.new(self,
                                     context,
@@ -589,7 +613,6 @@ module Api
 
   # Return a template url that follows the root links key for the jsonapi.org
   # standard.
-  #
   def templated_url(method, *args)
     format = /^\{.*\}$/
     placeholder = "PLACEHOLDER"

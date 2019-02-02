@@ -23,7 +23,7 @@ $border-sidebar: #c9d0d6;
 $border-dark:  #bbb;
 $default-link-color: #0088cc;
 $font-color: #555;
-$header-child-margin: 10px 8px 2px 8px;
+$header-child-margin: direction-sides(10px 8px 2px 8px);
 $header-font-color: #627382;
 $page-light: #f3f5f7;
 $page-dark: #ebeff2;
@@ -119,7 +119,7 @@ $page-dark: #ebeff2;
 
 .outcome-gradebook-sidebar-header {
   border-bottom: 1px solid $border-sidebar;
-  margin: 0 12px 16px 12px;
+  margin: 0 12px 16px;
   padding: 8px 12px;
 }
 
@@ -128,7 +128,7 @@ $page-dark: #ebeff2;
 
   .outcome-gradebook-sidebar-header {
     padding: 8px 0;
-    margin: 0 6px 16px 6px;
+    margin: 0 6px 16px;
   }
 
   .outcome-gradebook-sidebar-content {
@@ -157,8 +157,8 @@ $page-dark: #ebeff2;
 
 .outcome-gradebook-sidebar-content {
   width: auto;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-#{direction(left)}: 12px;
+  padding-#{direction(right)}: 12px;
   .operations {
     border-top: 1px solid $border-sidebar;
     a {
@@ -344,7 +344,7 @@ $page-dark: #ebeff2;
 
 .outcome-description {
   width: 70%;
-  float: left;
+  float: direction(left);
   display: inline-block;
   white-space: nowrap;
   overflow: hidden;

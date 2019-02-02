@@ -58,8 +58,8 @@ const editView = function(assignmentOpts = {}) {
     assignment_overrides: []
   }
   assignmentOpts = {
-    ...assignmentOpts,
-    ...defaultAssignmentOpts
+    ...defaultAssignmentOpts,
+    ...assignmentOpts
   }
   const assignment = new Assignment(assignmentOpts)
 
@@ -363,6 +363,12 @@ test('routes to return_to', function() {
   equal(view.locationAfterSave({return_to: 'http://bar'}), 'http://bar')
 })
 
+test('does not route to return_to with javascript protocol', function() {
+  const view = this.editView({html_url: 'http://foo'})
+  // eslint-disable-next-line no-script-url
+  equal(view.locationAfterSave({return_to: 'javascript:alert(1)'}), 'http://foo')
+})
+
 test('cancels to env normally', function() {
   ENV.CANCEL_TO = 'http://foo'
   const view = this.editView()
@@ -373,6 +379,13 @@ test('cancels to return_to', function() {
   ENV.CANCEL_TO = 'http://foo'
   const view = this.editView()
   equal(view.locationAfterCancel({return_to: 'http://bar'}), 'http://bar')
+})
+
+test('does not cancel to return_to with javascript protocol', function() {
+  ENV.CANCEL_TO = 'http://foo'
+  const view = this.editView()
+  // eslint-disable-next-line no-script-url
+  equal(view.locationAfterCancel({return_to: 'javascript:alert(1)'}), 'http://foo')
 })
 
 test('disables fields when inClosedGradingPeriod', function() {
@@ -478,6 +491,99 @@ test('rounds points_possible', function() {
   view.$assignmentPointsPossible.val('1.234')
   const data = view.getFormData()
   equal(data.points_possible, 1.23)
+})
+
+test('sets seconds of due_at to 59 if the new minute value is 59', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:58:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T11:59:59.000Z')
+})
+
+test('sets seconds of due_at to 00 if the new minute value is not 59', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-09-28T11:58:23'))
+  strictEqual(view.getFormData().due_at, '2000-09-28T11:58:00.000Z')
+})
+
+// The UI doesn't allow editing the seconds value and always returns 00. If
+// the seconds value was set to something different prior to the update, keep
+// that value.
+test('keeps original due_at seconds if only the seconds value has changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:59'))
+  strictEqual(view.getFormData().due_at, '2000-08-29T11:59:23.000Z')
+})
+
+test('keeps original due_at seconds if the date has not changed', function() {
+  const view = this.editView({due_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.due_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().due_at, '2000-08-28T11:59:23.000Z')
+})
+
+test('sets seconds of unlock_at to 59 if the new minute value is 59', function() {
+  const view = this.editView({unlock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:58:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.unlock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().unlock_at, '2000-08-28T11:59:59.000Z')
+})
+
+test('sets seconds of unlock_at to 00 if the new minute value is not 59', function() {
+  const view = this.editView({unlock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.unlock_at = $.unfudgeDateForProfileTimezone(new Date('2000-09-28T11:58:23'))
+  strictEqual(view.getFormData().unlock_at, '2000-09-28T11:58:00.000Z')
+})
+
+// The UI doesn't allow editing the seconds value and always returns 00. If
+// the seconds value was set to something different prior to the update, keep
+// that value.
+test('keeps original unlock_at seconds if only the seconds value has changed', function() {
+  const view = this.editView({unlock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.unlock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:59'))
+  strictEqual(view.getFormData().unlock_at, '2000-08-29T11:59:23.000Z')
+})
+
+test('keeps original unlock_at seconds if the date has not changed', function() {
+  const view = this.editView({unlock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.unlock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().unlock_at, '2000-08-28T11:59:23.000Z')
+})
+
+test('sets seconds of lock_at to 59 if the new minute value is 59', function() {
+  const view = this.editView({lock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:58:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.lock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().lock_at, '2000-08-28T11:59:59.000Z')
+})
+
+test('sets seconds of lock_at to 00 if the new minute value is not 59', function() {
+  const view = this.editView({lock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.lock_at = $.unfudgeDateForProfileTimezone(new Date('2000-09-28T11:58:23'))
+  strictEqual(view.getFormData().lock_at, '2000-09-28T11:58:00.000Z')
+})
+
+// The UI doesn't allow editing the seconds value and always returns 00. If
+// the seconds value was set to something different prior to the update, keep
+// that value.
+test('keeps original lock_at seconds if only the seconds value has changed', function() {
+  const view = this.editView({lock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.lock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-29T11:59:59'))
+  strictEqual(view.getFormData().lock_at, '2000-08-29T11:59:23.000Z')
+})
+
+test('keeps original lock_at seconds if the date has not changed', function() {
+  const view = this.editView({lock_at: $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))})
+  const override = view.assignment.attributes.assignment_overrides.models[0]
+  override.attributes.lock_at = $.unfudgeDateForProfileTimezone(new Date('2000-08-28T11:59:23'))
+  strictEqual(view.getFormData().lock_at, '2000-08-28T11:59:23.000Z')
 })
 
 QUnit.module('EditView: handleGroupCategoryChange', {
@@ -606,6 +712,14 @@ QUnit.module('#handleAnonymousGradingChange', (hooks) => {
   test('leaves the group category box disabled if the assignment is moderated', () => {
     view.assignment.moderatedGrading(true)
     disableCheckbox('has_group_category')
+    view.handleAnonymousGradingChange()
+    const groupCategoryCheckbox = document.getElementById('has_group_category')
+    strictEqual(groupCategoryCheckbox.disabled, true)
+  })
+
+  test('leaves the group category box disabled if the assignment has submissions', () => {
+    disableCheckbox('has_group_category')
+    view.model.set('has_submitted_submissions', true)
     view.handleAnonymousGradingChange()
     const groupCategoryCheckbox = document.getElementById('has_group_category')
     strictEqual(groupCategoryCheckbox.disabled, true)
@@ -1131,6 +1245,27 @@ test('it is hidden if the plagiarism_detection_platform flag is disabled', funct
   equal(view.$('#similarity_detection_tools').css('display'), 'none')
 })
 
+QUnit.module('EditView: Assignment External Tools', {
+  setup() {
+    fakeENV.setup({})
+    this.server = sinon.fakeServer.create()
+  },
+
+  teardown() {
+    this.server.restore()
+    fakeENV.teardown()
+  },
+
+  editView() {
+    return editView.apply(this, arguments)
+  }
+})
+
+test('it attaches assignment external tools component', function() {
+  const view = this.editView()
+  equal(view.$assignmentExternalTools.children().size(), 1)
+})
+
 QUnit.module('EditView: Quizzes 2', {
   setup() {
     fakeENV.setup({
@@ -1228,8 +1363,7 @@ QUnit.module('EditView: anonymous grading', (hooks) => {
 QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
   let server
 
-  hooks.beforeEach(() => {
-    fixtures.innerHTML = '<span data-component="ModeratedGradingFormFieldGroup"></span>'
+  function setupFakeEnv(envOptions = {}) {
     fakeENV.setup({
       AVAILABLE_MODERATORS: [],
       current_user_roles: ['teacher'],
@@ -1238,8 +1372,13 @@ QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
       MODERATED_GRADING_ENABLED: true,
       MODERATED_GRADING_MAX_GRADER_COUNT: 2,
       VALID_DATE_RANGE: {},
-      COURSE_ID: 1
+      COURSE_ID: 1,
+      ...envOptions
     })
+  }
+
+  hooks.beforeEach(() => {
+    fixtures.innerHTML = '<span data-component="ModeratedGradingFormFieldGroup"></span>'
     server = sinon.fakeServer.create()
   })
 
@@ -1249,9 +1388,19 @@ QUnit.module('EditView: Anonymous Instructor Annotations', (hooks) => {
     fixtures.innerHTML = ''
   })
 
-  test('shows a checkbox', () => {
-    const view = editView()
-    strictEqual(view.$el.find('input#assignment_anonymous_instructor_annotations').length, 1)
+  test('when environment is not set, does not enable editing the property', function() {
+    setupFakeEnv()
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 0)
+  })
+
+  test('when environment is set to false, does not enable editing the property', function() {
+    setupFakeEnv({ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED: false})
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 0)
+  })
+
+  test('when environment is set to true, enables editing the property', function() {
+    setupFakeEnv({ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED: true})
+    strictEqual(editView().$el.find('input#assignment_anonymous_instructor_annotations').length, 1)
   })
 })
 

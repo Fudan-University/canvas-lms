@@ -26,6 +26,7 @@ function createRowProps(title, roleId) {
   const role = ROLES.find(r => r.id === roleId)
   const permissionName = Object.keys(role.permissions)[0]
   const permission = role.permissions[permissionName]
+  permission.permissionLabel = 'test'
   return {title, role, permission, permissionName}
 }
 
@@ -33,12 +34,7 @@ it('renders the title', () => {
   const tree = shallow(<RoleTrayTableRow {...createRowProps('banana', '1')} />)
   const node = tree.find('Text')
   expect(node.exists()).toBeTruthy()
-  expect(
-    node
-      .at(0)
-      .dive()
-      .text()
-  ).toEqual('banana')
+  expect(node.children().text()).toEqual('banana')
 })
 
 it('renders the expandable button if expandable prop is true', () => {
@@ -67,7 +63,7 @@ it('renders the description if provided', () => {
   expect(
     node
       .at(1)
-      .dive()
+      .children()
       .text()
   ).toEqual("it's a fruit")
 })

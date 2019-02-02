@@ -19,7 +19,6 @@
 import $ from 'jquery'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import {Simulate, SimulateNative} from 'react-addons-test-utils'
 import DueDateAddRowButton from 'jsx/due_dates/DueDateAddRowButton'
 
 QUnit.module('DueDateAddRowButton with true display prop', {
@@ -32,12 +31,12 @@ QUnit.module('DueDateAddRowButton with true display prop', {
     )
   },
   teardown() {
-    ReactDOM.unmountComponentAtNode(this.DueDateAddRowButton.getDOMNode().parentNode)
+    ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(this.DueDateAddRowButton).parentNode)
   }
 })
 
 test('renders a button', function() {
-  ok(this.DueDateAddRowButton.isMounted())
+  ok(this.DueDateAddRowButton)
   ok(this.DueDateAddRowButton.refs.addButton)
 })
 
@@ -51,13 +50,13 @@ QUnit.module('DueDateAddRowButton with false display prop', {
     )
   },
   teardown() {
-    if (this.DueDateAddRowButton.getDOMNode()) {
-      ReactDOM.unmountComponentAtNode(this.DueDateAddRowButton.getDOMNode().parentNode)
+    if (ReactDOM.findDOMNode(this.DueDateAddRowButton)) {
+      ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(this.DueDateAddRowButton).parentNode)
     }
   }
 })
 
 test('does not render a button', function() {
-  ok(this.DueDateAddRowButton.isMounted())
+  ok(this.DueDateAddRowButton)
   ok(!this.DueDateAddRowButton.refs.addButton)
 })

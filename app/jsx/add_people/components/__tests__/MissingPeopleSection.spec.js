@@ -17,7 +17,6 @@
  */
 
 import React from 'react'
-import ReactDOM from 'react-dom'
 import { mount, shallow } from 'enzyme'
 import MissingPeopleSection from '../missing_people_section'
 
@@ -89,8 +88,7 @@ describe('MissingPeopleSection', () => {
     const missingPeopleSection = wrapper.find('.namelist')
 
     const rows = missingPeopleSection.find('tbody tr')
-    expect(rows).toHaveLength(1) // two rows
-    const nameInput = rows.get(0).querySelector('input[type="text"]')
-    expect(nameInput.value).toEqual('Searched Name1') // name input
+    expect(rows).toHaveLength(1)
+    expect(rows.find('input[type="text"]').prop('value')).toEqual('Searched Name1') // name input
   })
 })

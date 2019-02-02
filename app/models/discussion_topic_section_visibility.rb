@@ -29,6 +29,8 @@ class DiscussionTopicSectionVisibility < ActiveRecord::Base
 
   validates_uniqueness_of :course_section_id, scope: :discussion_topic_id, conditions: -> { where(:workflow_state => 'active') }
 
+  before_validation :set_discussion_topic_id
+
   workflow do
     state :active
     state :deleted
@@ -46,12 +48,17 @@ class DiscussionTopicSectionVisibility < ActiveRecord::Base
   end
 
   def course_and_topic_share_context
-    return true if self.discussion_topic.context_id == self.course_section.course_id
+    return true if self.deleted? || self.discussion_topic.context_id == self.course_section.course_id
     self.errors.add(:course_section_id,
       t("Section does not belong to course for this discussion topic"))
   end
 
   def new_discussion_topic?
     self.discussion_topic&.new_record?
+  end
+
+  def set_discussion_topic_id
+    # rails 5.2.1 tries to validate the visibility after saving the topic but before setting the topic_id :/
+    self.discussion_topic_id ||= self.discussion_topic&.id
   end
 end

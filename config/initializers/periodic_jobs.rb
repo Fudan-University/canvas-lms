@@ -29,9 +29,13 @@
 class PeriodicJobs
   def self.with_each_shard_by_database_in_region(klass, method, *args)
     Shard.with_each_shard(Shard.in_current_region) do
+      strand = "#{klass}.#{method}:#{Shard.current.database_server.id}"
+      # TODO: allow this to work with redis jobs
+      next if Delayed::Job == Delayed::Backend::ActiveRecord::Job && Delayed::Job.where(strand: strand, shard_id: Shard.current.id, locked_by: nil).exists?
       klass.send_later_enqueue_args(method, {
-          strand: "#{klass}.#{method}:#{Shard.current.database_server.id}",
-          max_attempts: 1
+          strand: strand,
+          max_attempts: 1,
+          priority: 40
       }, *args)
     end
   end
@@ -123,10 +127,6 @@ Rails.configuration.after_initialize do
     with_each_shard_by_database(Ignore, :cleanup)
   end
 
-  Delayed::Periodic.cron 'MessageScrubber.scrub_all', '0 0 * * *' do
-    with_each_shard_by_database(MessageScrubber, :scrub)
-  end
-
   Delayed::Periodic.cron 'DelayedMessageScrubber.scrub_all', '0 1 * * *' do
     with_each_shard_by_database(DelayedMessageScrubber, :scrub)
   end
@@ -159,6 +159,10 @@ Rails.configuration.after_initialize do
 
   Delayed::Periodic.cron 'Version::Partitioner.process', '0 0 * * *' do
     with_each_shard_by_database(Version::Partitioner, :process)
+  end
+
+  Delayed::Periodic.cron 'Messages::Partitioner.process', '0 0 * * *' do
+    with_each_shard_by_database(Messages::Partitioner, :process)
   end
 
   if AuthenticationProvider::SAML.enabled?
@@ -212,8 +216,8 @@ Rails.configuration.after_initialize do
     with_each_shard_by_database(ObserverAlert, :create_assignment_missing_alerts)
   end
 
-  Delayed::Periodic.cron 'LTI::KeyStorage.rotateKeys', '0 0 1 * *', priority: Delayed::LOW_PRIORITY do
-    LTI::KeyStorage.rotateKeys
+  Delayed::Periodic.cron 'Lti::KeyStorage.rotate_keys', '0 0 1 * *', priority: Delayed::LOW_PRIORITY do
+    Lti::KeyStorage.rotate_keys
   end
 
   Delayed::Periodic.cron 'abandoned job cleanup', '*/10 * * * *' do

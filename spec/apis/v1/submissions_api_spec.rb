@@ -574,7 +574,7 @@ describe 'Submissions API', type: :request do
 
       it 'works' do
         put_comment_attachment
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(@assignment.submission_for_student(@student)
         .submission_comments.first
         .attachment_ids).to eq @attachment.id.to_s
@@ -820,7 +820,7 @@ describe 'Submissions API', type: :request do
     expect(Rack::Utils.parse_query(URI(preview_url).query)['version'].to_i).to eq sub.quiz_submission_version
     get preview_url
     follow_redirect! while response.redirect?
-    expect(response).to be_success
+    expect(response).to be_successful
     expect(response.body).to match(/#{@quiz.quiz_title} Results/)
   end
 
@@ -937,7 +937,8 @@ describe 'Submissions API', type: :request do
         "missing"=>false,
         "late_policy_status"=>nil,
         "seconds_late"=>0,
-        "points_deducted"=>nil
+        "points_deducted"=>nil,
+        "extra_attempts"=>nil
     })
 
     # can't access other students' submissions
@@ -999,7 +1000,7 @@ describe 'Submissions API', type: :request do
     url = json[0]['attachments'][0]['url']
     get(url)
     follow_redirect! while response.redirect?
-    expect(response).to be_success
+    expect(response).to be_successful
     expect(response[content_type_key]).to eq 'image/png'
   end
 
@@ -1086,12 +1087,14 @@ describe 'Submissions API', type: :request do
         "cached_due_date" => nil,
         "preview_url" => "http://www.example.com/courses/#{@course.id}/assignments/#{a1.id}/submissions/#{student1.id}?preview=1&version=3",
         "grade_matches_current_submission"=>true,
+        "extra_attempts" => nil,
         "attachments" =>
          [
            { "content-type" => "application/loser",
              "url" => "http://www.example.com/files/#{sub1.attachments.first.id}/download?download_frd=1&verifier=#{sub1.attachments.first.uuid}",
              "filename" => "unknown.loser",
              "display_name" => "unknown.loser",
+             "workflow_state" => "pending_upload",
              "id" => sub1.attachments.first.id,
              "uuid" => sub1.attachments.first.uuid,
              "folder_id" => sub1.attachments.first.folder_id,
@@ -1135,7 +1138,8 @@ describe 'Submissions API', type: :request do
            "missing"=>false,
            "late_policy_status"=>nil,
            "seconds_late"=>0,
-           "points_deducted"=>nil},
+           "points_deducted"=>nil,
+           "extra_attempts"=>nil},
           {"id"=>sub1.id,
            "grade"=>nil,
            "entered_grade"=>nil,
@@ -1166,7 +1170,8 @@ describe 'Submissions API', type: :request do
            "missing"=>false,
            "late_policy_status"=>nil,
            "seconds_late"=>0,
-           "points_deducted"=>nil},
+           "points_deducted"=>nil,
+           "extra_attempts"=>nil},
           {"id"=>sub1.id,
            "grade"=>"A-",
            "entered_grade"=>"A-",
@@ -1186,6 +1191,7 @@ describe 'Submissions API', type: :request do
                 "url" => "http://www.example.com/files/#{sub1.attachments.first.id}/download?download_frd=1&verifier=#{sub1.attachments.first.uuid}",
                 "filename" => "unknown.loser",
                 "display_name" => "unknown.loser",
+                "workflow_state" => "pending_upload",
                 "id" => sub1.attachments.first.id,
                 "uuid" => sub1.attachments.first.uuid,
                 "folder_id" => sub1.attachments.first.folder_id,
@@ -1220,7 +1226,8 @@ describe 'Submissions API', type: :request do
            "missing"=>false,
            "late_policy_status"=>nil,
            "seconds_late"=>0,
-           "points_deducted"=>nil}],
+           "points_deducted"=>nil,
+           "extra_attempts"=>nil}],
         "attempt"=>3,
         "url"=>nil,
         "submission_type"=>"online_text_entry",
@@ -1272,6 +1279,7 @@ describe 'Submissions API', type: :request do
         "preview_url" => "http://www.example.com/courses/#{@course.id}/assignments/#{a1.id}/submissions/#{student2.id}?preview=1&version=1",
         "grade_matches_current_submission"=>true,
         "submitted_at"=>"1970-01-01T04:00:00Z",
+        "extra_attempts" => nil,
         "submission_history"=>
          [{"id"=>sub2.id,
            "grade"=>"F",
@@ -1295,6 +1303,7 @@ describe 'Submissions API', type: :request do
               {"content-type" => "image/png",
                "display_name" => "snapshot.png",
                "filename" => "snapshot.png",
+               "workflow_state" => "pending_upload",
                "url" => "http://www.example.com/files/#{sub2a1.id}/download?download_frd=1&verifier=#{sub2a1.uuid}",
                "id" => sub2a1.id,
                "uuid" => sub2a1.uuid,
@@ -1322,7 +1331,8 @@ describe 'Submissions API', type: :request do
            "missing"=>false,
            "late_policy_status"=>nil,
            "seconds_late"=>0,
-           "points_deducted"=>nil}],
+           "points_deducted"=>nil,
+           "extra_attempts"=>nil}],
         "attempt"=>1,
         "url"=>"http://www.instructure.com",
         "submission_type"=>"online_url",
@@ -1331,6 +1341,7 @@ describe 'Submissions API', type: :request do
          [{"content-type" => "image/png",
            "display_name" => "snapshot.png",
            "filename" => "snapshot.png",
+           "workflow_state" => "pending_upload",
            "url" => "http://www.example.com/files/#{sub2a1.id}/download?download_frd=1&verifier=#{sub2a1.uuid}",
            "id" => sub2a1.id,
            "uuid" => sub2a1.uuid,
@@ -1737,7 +1748,7 @@ describe 'Submissions API', type: :request do
       @provisional_grade.save!
     end
 
-    context "when teacher has moderate_grades rights" do
+    context "when teacher can view provisional grades" do
       it "displays grades" do
         json = api_call(:get,
           "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/submissions.json",
@@ -1787,7 +1798,7 @@ describe 'Submissions API', type: :request do
       end
     end
 
-    context "when a TA does not have moderate_grades rights" do
+    context "when a TA cannot view provisional grades" do
       before do
         course_with_ta(course: @course)
         user_session(@ta)
@@ -3895,7 +3906,6 @@ describe 'Submissions API', type: :request do
 
           it 'encodes capture_params in the token' do
             capture_params = {
-              "submit_assignment" => nil,
               "eula_agreement_timestamp" => nil,
               "context_type" => "User",
               "context_id" => @student1.id.to_s,
@@ -3934,7 +3944,7 @@ describe 'Submissions API', type: :request do
 
       context 'for url upload using DelayedJob' do
         let(:json_response) do
-          preflight(url: 'http://example.com/test', filename: 'test.txt', submit_assignment: true)
+          preflight(url: 'http://example.com/test', filename: 'test.txt')
           JSON.parse(response.body)
         end
 
@@ -4499,14 +4509,12 @@ describe 'Submissions API', type: :request do
 
     describe "include[]=provisional_grades" do
       before(:once) do
+        @course.root_account.enable_service(:avatars)
+        @course.root_account.save!
         @path = "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/gradeable_students?include[]=provisional_grades"
         @params = { :controller => 'submissions_api', :action => 'gradeable_students',
                     :format => 'json', :course_id => @course.to_param, :assignment_id => @assignment.to_param,
                     :include => [ 'provisional_grades' ] }
-      end
-
-      it "requires :moderate_grades permission" do
-        api_call_as_user(@ta, :get, @path, @params, {}, {}, { :expected_status => 401 })
       end
 
       it "is unauthorized when the user is not the assigned final grader" do

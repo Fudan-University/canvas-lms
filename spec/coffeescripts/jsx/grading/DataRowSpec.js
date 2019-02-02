@@ -18,7 +18,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import {Simulate} from 'react-addons-test-utils'
+import {Simulate} from 'react-dom/test-utils'
 import $ from 'jquery'
 import DataRow from 'jsx/grading/dataRow'
 
@@ -161,7 +161,7 @@ test('calls onDeleteRow when the delete button is clicked', function() {
   const deleteRow = sandbox.spy(this.props, 'onDeleteRow')
   const DataRowElement = <DataRow {...this.props} />
   this.dataRow = ReactDOM.render(DataRowElement, $('<table>').appendTo('#fixtures')[0])
-  Simulate.click(this.dataRow.refs.deleteButton.getDOMNode())
+  Simulate.click(this.dataRow.refs.deleteButton)
   ok(deleteRow.calledOnce)
 })
 

@@ -19,11 +19,13 @@
 import fakeENV from 'helpers/fakeENV'
 import SpeedgraderHelpers, {
   setupIsAnonymous,
+  setupAnonymousGraders,
   setupAnonymizableId,
   setupAnonymizableUserId,
   setupAnonymizableStudentId,
   setupAnonymizableAuthorId
 } from 'speed_grader_helpers'
+import $ from 'jquery'
 
 QUnit.module('SpeedGrader', {
   setup() {
@@ -61,6 +63,7 @@ test('setupAnonymizableAuthorId is available on main object', () => {
 test('populateTurnitin sets correct URL for OriginalityReports', () => {
   const submission = {
     id: '7',
+    anonymous_id: 'zxcvb',
     grade: null,
     score: null,
     submitted_at: '2016-11-29T22:29:44Z',
@@ -92,7 +95,7 @@ test('populateTurnitin sets correct URL for OriginalityReports', () => {
           display_name: 'Untitled-2.rtf',
           workflow_state: 'pending_upload',
           viewed_at: null,
-          view_inline_ping_url: '/users/2/files/103/inline_view',
+          view_inline_ping_url: '/assignments/52/files/103/inline_view',
           mime_class: 'doc',
           currently_locked: false,
           'crocodoc_available?': null,
@@ -225,7 +228,7 @@ QUnit.module('SpeedgraderHelpers#setRightBarDisabled', {
     this.testArea.id = 'test_area'
     this.fixtureNode.appendChild(this.testArea)
     this.startingHTML =
-      '<input type="text" id="grading-box-extended"><textarea id="speedgrader_comment_textarea"></textarea><button id="add_attachment"></button><button id="media_comment_button"></button><button id="comment_submit_button"></button>'
+      '<input type="text" id="grading-box-extended"><textarea id="speed_grader_comment_textarea"></textarea><button id="add_attachment"></button><button id="media_comment_button"></button><button id="comment_submit_button"></button>'
   },
   teardown() {
     this.fixtureNode.innerHTML = ''
@@ -237,7 +240,7 @@ test('it properly disables the elements we care about in the right bar', functio
   SpeedgraderHelpers.setRightBarDisabled(true)
   equal(
     this.testArea.innerHTML,
-    '<input type="text" id="grading-box-extended" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""><textarea id="speedgrader_comment_textarea" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></textarea><button id="add_attachment" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button><button id="media_comment_button" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button><button id="comment_submit_button" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button>'
+    '<input type="text" id="grading-box-extended" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""><textarea id="speed_grader_comment_textarea" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></textarea><button id="add_attachment" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button><button id="media_comment_button" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button><button id="comment_submit_button" class="ui-state-disabled" aria-disabled="true" readonly="readonly" disabled=""></button>'
   )
 })
 
@@ -375,15 +378,6 @@ test('returns graded if submission excused', function() {
   equal(result, 'graded')
 })
 
-test('returns the proper submission url', () => {
-  $('#fixtures').append(
-    '<a id="assignment_submission_resubmit_to_turnitin_url" href="http://www.resubmit.com"></a>'
-  )
-  const submission = {user_id: 1}
-  const result = SpeedgraderHelpers.plagiarismResubmitUrl(submission)
-  equal(result, 'http://www.resubmit.com')
-})
-
 test("prevents the button's default action", () => {
   $('#fixtures').append('<button id="resubmit-button">Click Here</button>')
   const ajaxStub = sinon.stub()
@@ -466,6 +460,21 @@ QUnit.module('SpeedgraderHelpers.setupIsAnonymous', suiteHooks => {
   })
 })
 
+QUnit.module('SpeedgraderHelpers.setupAnonymousGraders', suiteHooks => {
+  suiteHooks.afterEach(() => {
+    fakeENV.teardown()
+  })
+
+  test('returns true when assignment has anonymize_graders set to true', () => {
+    strictEqual(setupAnonymousGraders({anonymize_graders: true}), true)
+    fakeENV.teardown()
+  })
+
+  test('returns false when assignment has anonymize_graders set to false', () => {
+    strictEqual(setupAnonymousGraders({anonymize_graders: false}), false)
+  })
+})
+
 QUnit.module('SpeedgraderHelpers.setupAnonymizableId', () => {
   test('returns anonymizable_id when anonymous', () => {
     strictEqual(setupAnonymizableId(true), 'anonymous_id')
@@ -503,5 +512,53 @@ QUnit.module('SpeedgraderHelpers.setupAnonymizableAuthorId', () => {
 
   test('returns author_id when not anonymous', () => {
     strictEqual(setupAnonymizableAuthorId(false), 'author_id')
+  })
+})
+
+QUnit.module('SpeedgraderHelpers.plagiarismResubmitButton', () => {
+  test('hides the container if score is present', () => {
+    const containerStub = {
+      hide: sinon.spy()
+    }
+
+    SpeedgraderHelpers.plagiarismResubmitButton(true, containerStub)
+    ok(containerStub.hide.called)
+  })
+
+  test('showes the container if score is absent', () => {
+    const containerStub = {
+      show: sinon.spy()
+    }
+
+    SpeedgraderHelpers.plagiarismResubmitButton(false, containerStub)
+    ok(containerStub.show.called)
+  })
+})
+
+QUnit.module('SpeedGraderHelpers.plagiarismResubmitUrl', () => {
+  test('populates the "user_id" tag in the resubmission URL when passed the key "user_id"', () => {
+    $('#fixtures').append(
+      '<a id="assignment_submission_resubmit_to_turnitin_url" href="http://www.resubmit.com/{{ user_id }}"></a>'
+    )
+
+    strictEqual(
+      SpeedgraderHelpers.plagiarismResubmitUrl({user_id: 1248}, 'user_id'),
+      'http://www.resubmit.com/1248'
+    )
+
+    $('#assignment_submission_resubmit_to_turnitin_url').remove()
+  })
+
+  test('populates the "anonymous_id" tag in the resubmission URL when passed the key "anonymous_id"', () => {
+    $('#fixtures').append(
+      '<a id="assignment_submission_resubmit_to_turnitin_url" href="http://www.resubmit.com/{{ anonymous_id }}"></a>'
+    )
+
+    strictEqual(
+      SpeedgraderHelpers.plagiarismResubmitUrl({anonymous_id: 'ohnoo'}, 'anonymous_id'),
+      'http://www.resubmit.com/ohnoo'
+    )
+
+    $('#assignment_submission_resubmit_to_turnitin_url').remove()
   })
 })

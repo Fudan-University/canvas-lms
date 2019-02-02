@@ -28,7 +28,7 @@ module Api::V1::DiscussionTopics
 
   # Public: DiscussionTopic fields to serialize.
   ALLOWED_TOPIC_FIELDS  = %w{
-    id title assignment_id delayed_post_at lock_at
+    id title assignment_id delayed_post_at lock_at created_at
     last_reply_at posted_at root_topic_id podcast_has_student_posts
     discussion_type position allow_rating only_graders_can_rate sort_by_rating
     is_section_specific
@@ -67,6 +67,7 @@ module Api::V1::DiscussionTopics
     if opts[:include_sections_user_count] && context
       opts[:context_user_count] = context.enrollments.not_fake.active_or_pending_by_date_ignoring_access.count
     end
+    ActiveRecord::Associations::Preloader.new.preload(topics, [:user, :attachment, :root_topic, :context])
     topics.inject([]) do |result, topic|
       if topic.visible_for?(user)
         result << discussion_topic_api_json(topic, context || topic.context, user, session, opts, root_topics)
@@ -103,7 +104,8 @@ module Api::V1::DiscussionTopics
     )
 
     opts[:user_can_moderate] = context.grants_right?(user, session, :moderate_forum) if opts[:user_can_moderate].nil?
-    json = api_json(topic, user, session, { only: ALLOWED_TOPIC_FIELDS, methods: ALLOWED_TOPIC_METHODS }, [:attach, :update, :reply, :delete])
+    permissions = opts[:skip_permissions] ? [] : [:attach, :update, :reply, :delete]
+    json = api_json(topic, user, session, { only: ALLOWED_TOPIC_FIELDS, methods: ALLOWED_TOPIC_METHODS }, permissions)
 
     json.merge!(serialize_additional_topic_fields(topic, context, user, opts))
 

@@ -17,6 +17,7 @@
  */
 
 import React from 'react'
+import createReactClass from 'create-react-class';
 import I18n from 'i18n!react_files'
 import FilesUsage from 'compiled/react_files/components/FilesUsage'
 import friendlyBytes from 'compiled/util/friendlyBytes'
@@ -34,7 +35,7 @@ import friendlyBytes from 'compiled/util/friendlyBytes'
       });
       return (
         <div className='grid-row ef-quota-usage'>
-          <div className='col-xs-5'>
+          <div className='col-xs-3'>
             <div ref='container' className='progress-bar__bar-container' aria-hidden={true}>
               <div
                 ref='bar'
@@ -45,7 +46,7 @@ import friendlyBytes from 'compiled/util/friendlyBytes'
               />
             </div>
           </div>
-          <div className='col-xs-7' style={{paddingLeft: '0px'}} aria-hidden={true}>
+          <div className='col-xs-9' style={{paddingLeft: '0px'}} aria-hidden={true}>
             {label}
           </div>
           <div className='screenreader-only'>{srLabel}</div>
@@ -56,4 +57,4 @@ import friendlyBytes from 'compiled/util/friendlyBytes'
     }
   };
 
-export default React.createClass(FilesUsage)
+export default createReactClass(FilesUsage);

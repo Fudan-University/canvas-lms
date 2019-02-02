@@ -17,19 +17,38 @@
 #
 
 module Types
-  GradesType = GraphQL::ObjectType.define do
-    name "Grades"
+  class GradesType < ApplicationObjectType
+    graphql_name "Grades"
 
     description "Contains grade information for a course or grading period"
 
-    field :currentScore, types.Float, <<-DESC, property: :current_score
-    The current score includes all graded assignments
+    field :current_score, Float, <<~DESC, null: true
+      The current score includes all graded assignments, excluding muted submissions.
     DESC
-    field :currentGrade, types.String, property: :current_grade
+    field :unposted_current_score, Float, <<~DESC, null: true
+      The current score includes all graded assignments, including muted submissions.
+    DESC
+    field :current_grade, String, null: true
+    field :unposted_current_grade, String, null: true
 
-    field :finalScore, types.Float, <<-DESC, property: :final_score
-    The final score includes all assignments (ungraded assignments are counted as 0 points)
+    field :final_score, Float, <<~DESC, null: true
+      The final score includes all assignments, excluding muted submissions
+      (ungraded assignments are counted as 0 points).
     DESC
-    field :finalGrade, types.String, property: :final_grade
+    field :unposted_final_score, Float, <<~DESC, null: true
+      The final score includes all assignments, including muted submissions
+      (ungraded assignments are counted as 0 points).
+    DESC
+    field :final_grade, String, null: true
+    field :unposted_final_grade, String, null: true
+
+    field :override_score, Float, <<~DESC, null: true
+      The override score. Supersedes the computed final score if set.
+    DESC
+
+    field :grading_period, GradingPeriodType, null: true
+    def grading_period
+      load_association :grading_period
+    end
   end
 end

@@ -18,7 +18,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import TestUtils from 'react-addons-test-utils'
+import TestUtils from 'react-dom/test-utils'
 import _ from 'lodash'
 import MoveToDialog from 'jsx/eportfolios/MoveToDialog'
 import assertions from 'helpers/assertions'
@@ -34,7 +34,7 @@ const mountDialog = (opts = {}) => {
     destinations: [{ label: 'bar', id: '1' }, { label: 'baz', id: '2' }]
   }, opts)
 
-  const element = React.createElement(MoveToDialog, opts)
+  const element = <MoveToDialog {...opts} />
   const dialog = ReactDOM.render(element, root)
   return dialog
 }

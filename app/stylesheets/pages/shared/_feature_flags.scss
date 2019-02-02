@@ -26,7 +26,7 @@ $left-offset:  16px;
 
 #tab-features .alert {
   margin-bottom: 20px;
-  padding: 8px 35px 8px 14px;
+  padding: direction-sides(8px 35px 8px 14px);
 }
 
 .feature-flags {
@@ -34,14 +34,14 @@ $left-offset:  16px;
   border-radius: 3px;
   color: $ic-font-color--subdued;
   list-style: none;
-  margin: 0 0 24px 0;
+  margin: 0 0 24px;
   padding: 0;
 }
 
 .feature-flag {
   border-bottom: 1px solid $border-light;
   line-height: 30px;
-  padding: 6px 6px 6px $left-offset;
+  padding: direction-sides(6px 6px 6px $left-offset);
 
   &:last-child {
     border-bottom: none;

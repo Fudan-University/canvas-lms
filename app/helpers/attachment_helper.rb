@@ -22,7 +22,8 @@ module AttachmentHelper
     url_opts = {
       anonymous_instructor_annotations: attrs.delete(:anonymous_instructor_annotations),
       enable_annotations: attrs.delete(:enable_annotations),
-      moderated_grading_whitelist: attrs[:moderated_grading_whitelist]
+      moderated_grading_whitelist: attrs[:moderated_grading_whitelist],
+      submission_id: attrs.delete(:submission_id)
     }
     url_opts[:enrollment_type] = attrs.delete(:enrollment_type) if url_opts[:enable_annotations]
 
@@ -72,8 +73,9 @@ module AttachmentHelper
       @headers = false if @files_domain
       send_file(attachment.full_filename, :type => attachment.content_type_with_encoding, :disposition => (inline ? 'inline' : 'attachment'), :filename => attachment.display_name)
     elsif inline && attachment.can_be_proxied?
-      send_file_headers!( :length=> attachment.s3object.content_length, :filename=>attachment.filename, :disposition => 'inline', :type => attachment.content_type_with_encoding)
-      render body: attachment.s3object.get.body.read
+      body = attachment.open.read
+      send_file_headers!(length: body.length, filename: attachment.filename, disposition: 'inline', type: attachment.content_type_with_encoding)
+      render body: body
     elsif inline
       redirect_to authenticated_inline_url(attachment)
     else

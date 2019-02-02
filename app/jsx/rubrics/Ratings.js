@@ -29,13 +29,13 @@ import { ratingShape, tierShape } from './types'
 const pointString = (points, endOfRangePoints) => {
   if (endOfRangePoints !== null) {
     return I18n.t('%{points} to >%{endOfRangePoints} pts', {
-      points: I18n.toNumber(points, { precision : 1 }),
-      endOfRangePoints: I18n.toNumber(endOfRangePoints, { precision : 1 })
+      points: I18n.toNumber(points, { precision: 2, strip_insignificant_zeros: true }),
+      endOfRangePoints: I18n.toNumber(endOfRangePoints, { precision: 2, strip_insignificant_zeros: true })
     })
   }
   else {
     return I18n.t('%{points} pts', {
-      points: I18n.toNumber(points, { precision : 1 })
+      points: I18n.toNumber(points, { precision: 2, strip_insignificant_zeros: true })
     })
   }
 }
@@ -134,6 +134,7 @@ Rating.defaultProps = {
 const Ratings = (props) => {
   const {
     assessing,
+    selectedRatingId,
     customRatings,
     defaultMasteryThreshold,
     footer,
@@ -151,12 +152,19 @@ const Ratings = (props) => {
     return { current: tier.points, next: next ? next.points : null }
   })
 
-  const currentIndex = () => pairs.findIndex(({ current, next }) => {
-    const currentMatch = points === current
-    const withinRange = points > next && points <= current
-    const zeroAndInLastRange = points === 0 && next === null
-    return currentMatch || (useRange && (withinRange || zeroAndInLastRange))
-  })
+  const currentIndex = () => {
+      if (selectedRatingId) {
+        return _.findIndex(tiers, (tier) => tier.id === selectedRatingId && (useRange || tier.points === points))
+      }
+      else {
+        return pairs.findIndex(({ current, next }) => {
+          const currentMatch = points === current
+          const withinRange = points > next && points <= current
+          const zeroAndInLastRange = points === 0 && next === null
+          return currentMatch || (useRange && (withinRange || zeroAndInLastRange))
+        })
+      }
+  }
 
   const getRangePoints = (currentPoints, nextTier) => {
     if (nextTier) {
@@ -191,12 +199,13 @@ const Ratings = (props) => {
     }
   }
 
-  const handleClick = (tierPoints) => {
-    onPointChange(tierPoints)
+  const handleClick = (tier) => {
+    onPointChange(tier)
     $.screenReaderFlashMessage(I18n.t('Rating selected'))
   }
 
   const selectedIndex = points !== undefined ? currentIndex() : null
+
   const visible = tiers.map((tier, index) => ({
     tier,
     index,
@@ -216,8 +225,8 @@ const Ratings = (props) => {
         assessing={assessing}
         classes={classes}
         endOfRangePoints={useRange ? getRangePoints(tier.points, tiers[index + 1]) : null}
-        footer={footer}
-        onClick={() => handleClick(tier.points)}
+        footer={isSummary ? footer : null}
+        onClick={() => handleClick(tier)}
         shaderClass={getShaderClass(selected)}
         tierColor={getTierColor(selected)}
         hidePoints={isSummary || hidePoints}
@@ -242,9 +251,18 @@ const Ratings = (props) => {
     />
   )
 
+  const fullFooter = () => isSummary || _.isNil(footer) ? null : (
+    <div className='rating-all-footer'>
+      {footer}
+    </div>
+  )
+
   return (
-    <div className={classNames("rating-tier-list", { 'react-assessing': assessing })}>
-      {ratings.length > 0 || !isSummary ? ratings : defaultRating()}
+    <div className='rating-all'>
+      <div className={classNames("rating-tier-list", { 'react-assessing': assessing })}>
+        {ratings.length > 0 || !isSummary ? ratings : defaultRating()}
+      </div>
+      {fullFooter()}
     </div>
   )
 }

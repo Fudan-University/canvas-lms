@@ -57,6 +57,7 @@ class CommunicationChannel < ActiveRecord::Base
   def self.country_codes
     # [country code, name, true if email should be used instead of Twilio]
     [
+      ['93',   I18n.t('Afghanistan (+93)'),            false],
       ['54',   I18n.t('Argentina (+54)'),              false],
       ['61',   I18n.t('Australia (+61)'),              false],
       ['43',   I18n.t('Austria (+43)'),                false],
@@ -70,7 +71,7 @@ class CommunicationChannel < ActiveRecord::Base
       ['506',  I18n.t('Costa Rica (+506)'),            false],
       ['45',   I18n.t('Denmark (+45)'),                false],
       ['1',    I18n.t('Dominican Republic (+1)'),      false],
-      ['593',  I18n.t('Ecuador (+593)'),               false],
+      # ['593',  I18n.t('Ecuador (+593)'),               false],
       ['503',  I18n.t('El Salvador (+503)'),           false],
       ['358',  I18n.t('Finland (+358)'),               false],
       ['33',   I18n.t('France (+33)'),                 false],
@@ -86,6 +87,7 @@ class CommunicationChannel < ActiveRecord::Base
       ['972',  I18n.t('Israel (+972)'),                false],
       ['39',   I18n.t('Italy (+39)'),                  false],
       ['81',   I18n.t('Japan (+81)'),                  false],
+      ['7',    I18n.t('Kazakhstan (+7)'),              false],
       ['254',  I18n.t('Kenya (+254)'),                 false],
       ['352',  I18n.t('Luxembourg (+352)'),            false],
       ['60',   I18n.t('Malaysia (+60)'),               false],
@@ -97,11 +99,12 @@ class CommunicationChannel < ActiveRecord::Base
       ['507',  I18n.t('Panama (+507)'),                false],
       ['92',   I18n.t('Pakistan (+92)'),               false],
       ['595',  I18n.t('Paraguay (+595)'),              false],
-      ['51',   I18n.t('Peru (+51)'),                   false],
+      # ['51',   I18n.t('Peru (+51)'),                   false],
       ['63',   I18n.t('Philippines (+63)'),            false],
       ['48',   I18n.t('Poland (+48)'),                 false],
       ['974',  I18n.t('Qatar (+974)'),                 false],
       ['7',    I18n.t('Russia (+7)'),                  false],
+      ['250',  I18n.t('Rwanda (+250)'),                false],
       ['966',  I18n.t('Saudi Arabia (+966)'),          false],
       ['65',   I18n.t('Singapore (+65)'),              false],
       ['27',   I18n.t('South Africa (+27)'),           false],
@@ -456,8 +459,13 @@ class CommunicationChannel < ActiveRecord::Base
     scope = CommunicationChannel.active.by_path(self.path).of_type(self.path_type)
     merge_candidates = {}
     Shard.with_each_shard(shards) do
-      scope = scope.shard(Shard.current)
-      scope.where("user_id<>?", self.user_id).preload(:user).map(&:user).select do |u|
+      scope = scope.shard(Shard.current).where("user_id<>?", self.user_id)
+
+      limit = Setting.get("merge_candidate_search_limit", "100").to_i
+      ccs = scope.preload(:user).limit(limit + 1).to_a
+      return [] if ccs.count > limit # just bail if things are getting out of hand
+
+      ccs.map(&:user).select do |u|
         result = merge_candidates.fetch(u.global_id) do
           merge_candidates[u.global_id] = (u.all_active_pseudonyms.length != 0)
         end

@@ -231,11 +231,17 @@ class EnrollmentState < ActiveRecord::Base
       update_all(["lock_version = COALESCE(lock_version, 0) + 1, state_is_current = ?", false])
   end
 
-  def self.force_recalculation(enrollment_ids)
+  def self.invalidate_states_and_access(enrollment_scope)
+    EnrollmentState.where(:enrollment_id => enrollment_scope, :state => INVALIDATEABLE_STATES).
+      update_all(["lock_version = COALESCE(lock_version, 0) + 1, state_is_current = ?, access_is_current = ?", false, false])
+  end
+
+  def self.force_recalculation(enrollment_ids, strand: nil)
     if enrollment_ids.any?
       EnrollmentState.where(:enrollment_id => enrollment_ids).
         update_all(["lock_version = COALESCE(lock_version, 0) + 1, state_is_current = ?", false])
-      EnrollmentState.send_later_if_production(:process_states_for_ids, enrollment_ids)
+      args = strand ? {n_strand: strand} : {}
+      EnrollmentState.send_later_if_production_enqueue_args(:process_states_for_ids, args, enrollment_ids)
     end
   end
 
@@ -264,9 +270,9 @@ class EnrollmentState < ActiveRecord::Base
     end
   end
 
-  def self.invalidate_states_for_course_or_section(course_or_section)
+  def self.invalidate_states_for_course_or_section(course_or_section, invalidate_access: false)
     scope = course_or_section.enrollments
-    if invalidate_states(scope) > 0
+    if (invalidate_access ? invalidate_states_and_access(scope) : invalidate_states(scope)) > 0
       process_states_for(enrollments_needing_calculation(scope))
     end
   end

@@ -18,8 +18,6 @@
 require_relative '../spec_helper'
 
 describe PlannerNotesController do
-  include PlannerHelper
-
   before :once do
     course_with_teacher(active_all: true)
     student_in_course(active_all: true)
@@ -43,20 +41,6 @@ describe PlannerNotesController do
     end
   end
 
-  context "feature disabled" do
-    before :each do
-      user_session(@student)
-    end
-
-    it "should return forbidden" do
-      get :index
-      assert_forbidden
-
-      post :create, params: {title: 'thing', todo_date: 1.day.from_now}
-      assert_forbidden
-    end
-  end
-
   context "authenticated" do
     before :once do
       @course_1.root_account.enable_feature!(:student_planner)
@@ -71,7 +55,7 @@ describe PlannerNotesController do
       describe "GET #index" do
         it "returns http success" do
           get :index
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
         end
 
         it "excludes deleted courses" do
@@ -140,7 +124,7 @@ describe PlannerNotesController do
       describe "GET #show" do
         it "returns http success for accessing your notes" do
           get :show, params: {id: @student_note.id}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
         end
 
         it "returns http not found for notes not yours" do
@@ -155,19 +139,18 @@ describe PlannerNotesController do
         it "returns http success" do
           updated_title = "updated note title"
           put :update, params: {id: @student_note.id, title: updated_title}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@student_note.reload.title).to eq updated_title
         end
 
         it "invalidates the planner cache" do
-          @current_user = @user
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           put :update, params: {id: @student_note.id, title: 'update'}
         end
 
         it "links to a course" do
           put :update, params: {id: @student_note.id, course_id: @course_1.to_param}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@student_note.reload.course_id).to eq @course_1.id
         end
 
@@ -175,7 +158,7 @@ describe PlannerNotesController do
           @student_note.course = @course_1
           @student_note.save!
           put :update, params: {id: @student_note.id, course_id: ''}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@student_note.reload.course_id).to be_nil
         end
 
@@ -199,7 +182,7 @@ describe PlannerNotesController do
 
           it "does allow other updates" do
             put :update, params: {id: @student_note.id, details: 'this assignment is terrible'}
-            expect(response).to have_http_status(:success)
+            expect(response).to be_successful
             expect(@student_note.reload.details).to eq 'this assignment is terrible'
           end
         end
@@ -213,8 +196,7 @@ describe PlannerNotesController do
         end
 
         it "invalidates the planner cache" do
-          @current_user = @user
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           post :create, params: {title: "A title about things", details: "Details about now", todo_date: 1.day.from_now}
         end
 
@@ -359,7 +341,7 @@ describe PlannerNotesController do
             n.destroy
             post :create, params: {details: 'bar', todo_date: 2.days.from_now, linked_object_type: 'assignment',
                                    course_id: @course_1.id, linked_object_id: a.id}
-            expect(response).to have_http_status(:success)
+            expect(response).to be_successful
 
             scope = @student.planner_notes.where(linked_object_id: a.id, linked_object_type: 'Assignment')
             expect(scope.count).to eq 2
@@ -380,7 +362,7 @@ describe PlannerNotesController do
             it "links to an object in another shard" do
               post :create, params: {todo_date: 1.day.from_now, course_id: @remote_course.id,
                 linked_object_type: 'assignment', linked_object_id: @remote_assignment.id}
-              expect(response).to have_http_status(:success)
+              expect(response).to be_successful
 
               json = JSON.parse(response.body)
               note = PlannerNote.find(json['id'])
@@ -393,13 +375,12 @@ describe PlannerNotesController do
       describe "DELETE #destroy" do
         it "returns http success" do
           delete :destroy, params: {id: @student_note.id}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@student_note.reload).to be_deleted
         end
 
         it "invalidates the planner cache" do
-          @current_user = @user
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           delete :destroy, params: {id: @student_note.id}
         end
       end
@@ -413,14 +394,14 @@ describe PlannerNotesController do
       describe "GET #index" do
         it "returns http success" do
           get :index
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
         end
       end
 
       describe "GET #show" do
         it "returns http success" do
           get :show, params: {id: @teacher_note.id}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
         end
 
         it "returns http not found for notes not yours" do
@@ -439,13 +420,12 @@ describe PlannerNotesController do
         it "returns http success" do
           updated_title = "updated note title"
           put :update, params: {id: @teacher_note.id, title: updated_title}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@teacher_note.reload.title).to eq updated_title
         end
 
         it "invalidates the planner cache" do
-          @current_user = @teacher
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           put :update, params: {id: @teacher_note.id, title: 'updated title'}
         end
       end
@@ -458,8 +438,7 @@ describe PlannerNotesController do
         end
 
         it "invalidates the planner cache" do
-          @current_user = @teacher
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           post :create, params: {title: "A title about things", details: "Details about now", todo_date: 1.day.from_now}
         end
       end
@@ -467,13 +446,12 @@ describe PlannerNotesController do
       describe "DELETE #destroy" do
         it "returns http success" do
           delete :destroy, params: {id: @teacher_note.id}
-          expect(response).to have_http_status(:success)
+          expect(response).to be_successful
           expect(@teacher_note.reload).to be_deleted
         end
 
         it "invalidates the planner cache" do
-          @current_user = @teacher
-          expect(Rails.cache).to receive(:delete).with(planner_meta_cache_key)
+          expect(Rails.cache).to receive(:delete).with(/#{controller.planner_meta_cache_key}/)
           delete :destroy, params: {id: @teacher_note.id}
         end
       end

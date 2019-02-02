@@ -34,14 +34,16 @@ export default function UsersListRow({accountId, user, permissions, handleSubmit
       <th scope="row">
         <UserLink
           href={`/accounts/${accountId}/users/${user.id}`}
-          name={user.name}
+          name={user.sortable_name}
           avatar_url={user.avatar_url}
           size="x-small"
         />
       </th>
       <td>{user.email}</td>
       <td>{user.sis_user_id}</td>
-      <td><FriendlyDatetime dateTime={user.last_login} /></td>
+      <td>
+        <FriendlyDatetime dateTime={user.last_login} />
+      </td>
       <td style={{whiteSpace: 'nowrap'}}>
         {permissions.can_masquerade && (
           <Tooltip tip={I18n.t('Act as %{name}', {name: user.name})}>

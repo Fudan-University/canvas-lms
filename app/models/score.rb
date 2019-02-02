@@ -19,15 +19,16 @@
 class Score < ActiveRecord::Base
   include Canvas::SoftDeletable
 
-  belongs_to :enrollment
+  belongs_to :enrollment, inverse_of: :scores
   belongs_to :grading_period, optional: true
   belongs_to :assignment_group, optional: true
   has_one :course, through: :enrollment
   has_one :score_metadata
 
   validates :enrollment, presence: true
-  validates :current_score, :unposted_current_score, :final_score,
-    :unposted_final_score, numericality: true, allow_nil: true
+  validates :current_score, :unposted_current_score,
+    :final_score, :unposted_final_score, :override_score,
+    numericality: true, allow_nil: true
 
   validate :scorable_association_check
 
@@ -52,7 +53,7 @@ class Score < ActiveRecord::Base
   alias original_destroy_permanently! destroy_permanently!
   private :original_destroy_permanently!
   def destroy_permanently!
-    score_metadata.destroy_permanently! if score_metadata.present?
+    ScoreMetadata.where(score: self).delete_all
     original_destroy_permanently!
   end
 
@@ -79,9 +80,27 @@ class Score < ActiveRecord::Base
     score_to_grade(unposted_final_score)
   end
 
+  def effective_final_score
+    override_score || final_score
+  end
+
+  def effective_final_score_lower_bound
+    score = effective_final_score
+    return score unless course.grading_standard_enabled?
+    course.grading_standard_or_default.lower_bound(score)
+  end
+
+  def effective_final_grade
+    score_to_grade(effective_final_score)
+  end
+
   def scorable
     # if you're calling this method, you might want to preload objects to avoid N+1
     grading_period || assignment_group || enrollment.course
+  end
+
+  def overridden?
+    override_score.present?
   end
 
   def self.params_for_course

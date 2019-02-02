@@ -44,6 +44,11 @@ module Plannable
   end
 
   def planner_override_for(user)
+    if self.respond_to? :submittable_object
+      submittable_override = self.submittable_object&.planner_override_for(user)
+      return submittable_override if submittable_override
+    end
+
     if self.association(:planner_overrides).loaded?
       self.planner_overrides.find{|po| po.user_id == user.id && po.workflow_state != 'deleted'}
     else
@@ -55,7 +60,7 @@ module Plannable
     class Bookmark < Array
       attr_writer :descending
 
-      def <=>(obj)
+      def <=>(other)
         val = super
         val *= -1 if @descending
         val
@@ -66,24 +71,82 @@ module Plannable
     #   Now you can add some hackyness to your life by passing in an array for some sweet coalescing action
     #   as well as the ability to reverse order
     #   e.g. Plannable::Bookmarker.new(Assignment, true, [:due_at, :created_at], :id)
+    #   You can also pass in a hash with the association name as the key and column name as the value
+    #   to order by the joined values:
+    #   e.g. Plannable::Bookmarker.new(AssessmentRequest, true, {submission: {assignment: :due_at}}, :id)
 
     def initialize(model, descending, *columns)
       @model = model
       @descending = !!descending
-      @columns = columns.map{|c| c.is_a?(Array) ? c.map(&:to_s) : c.to_s}
+      @columns = format_columns(columns)
+    end
+
+    def format_columns(columns)
+      columns.map do |col|
+        col.is_a?(Array) ? col.map {|c| format_column(c)} : format_column(col)
+      end
+    end
+
+    def format_column(col)
+      return col if col.is_a?(Hash)
+      col.to_s
+    end
+
+    # Gets the association from a hash or single nested hash to use for preloading
+    # e.g. {submission: :cached_due_date} => :submission
+    # or   {submission: {assignment: :due_at}} => {submission: :assignment}
+    # or   {submission: {assignment: {course: id}}} => {submission: {assignment: :course}}
+    def association_to_preload(col)
+      result = {}
+      col.each_pair do |key, value|
+        return key if value.is_a?(Symbol)
+        result[key] = value.is_a?(Hash) ? association_to_preload(value) : value
+      end
+      result
+    end
+
+    def association_value(object, col)
+      rel_array = []
+      rel_hash = col.clone
+      while rel_hash
+        rel_array << rel_hash.keys.first
+        curr_val = rel_hash[rel_array.last]
+        if curr_val.is_a?(Hash)
+          rel_hash = curr_val
+        else
+          rel_array << curr_val
+          rel_hash = nil
+        end
+      end
+      rel_array.reduce(object) {|val, key| val = val.send(key)}
+    end
+
+    # Grabs the value to use for the bookmark & comparison
+    def column_value(object, col)
+      if col.is_a?(Array)
+        object.attributes.values_at(*col).compact.first # coalesce nulls
+      elsif col.is_a?(Hash)
+        association_value(object, col)
+      else
+        object.attributes[col]
+      end
     end
 
     def bookmark_for(object)
       bookmark = Bookmark.new
       bookmark.descending = @descending
-      @columns.each do |col|
-        val = col.is_a?(Array) ?
-          object.attributes.values_at(*col).compact.first : # coalesce nulls
-          object.attributes[col]
+      # coming from users_controller, @columns looks like ["due_at", "id"]
+      # coming from planner_controller, like [[:due_at, :created_at], :id]
+      #   or [[{:submission=>{:assignment=>:peer_reviews_due_at}}, {:assessor_asset=>:cached_due_date}, "created_at"], "id"]
+      @columns.flatten.each do |col|
+        val = column_value(object, col)
         val = val.utc.strftime("%Y-%m-%d %H:%M:%S.%6N") if val.respond_to?(:strftime)
-        bookmark << val
+        if !val.nil?
+          bookmark << val
+          break
+        end
       end
-      bookmark
+      bookmark << object.id
     end
 
     TYPE_MAP = {
@@ -121,9 +184,30 @@ module Plannable
       @order_by ||= Arel.sql(@columns.map { |col| column_order(col) }.join(', '))
     end
 
+    # Gets the object or object's associated column name to be used in the SQL query
+    def column_name(col)
+      return associated_table_column_name(col) if col.is_a?(Hash)
+      "#{@model.table_name}.#{col}"
+    end
+
+    # Joins the associated table & column together as a string to be used in a SQL query
+    def associated_table_column_name(col)
+      table, column = associated_table_column(col)
+      table_name = Object.const_defined?(table.to_s.classify) ? table.to_s.classify.constantize.quoted_table_name : table.to_s
+      [table_name, column].join(".")
+    end
+
+    # Finds the relevant table & column name when a hash is passed by checking if
+    # the hash specifies a direct or nested (i.e. the hash's value is also a hash) association
+    # returns an array of [table, column]
+    def associated_table_column(col)
+      return col.to_s unless col.is_a?(Hash)
+      col.values.first.is_a?(Hash) ? col.values.first.first : col.first
+    end
+
     def column_order(col_name)
       if col_name.is_a?(Array)
-        order = "COALESCE(#{col_name.map{|c| "#{@model.table_name}.#{c}"}.join(", ")})"
+        order = "COALESCE(#{col_name.map{|c| column_name(c)}.join(', ')})"
       else
         order = column_comparand(col_name)
         if @model.columns_hash[col_name].null
@@ -136,9 +220,7 @@ module Plannable
 
     def column_comparand(column, comparator = '>', placeholder = nil)
       col_name = placeholder ||
-        (column.is_a?(Array) ?
-        "COALESCE(#{column.map{|c| "#{@model.table_name}.#{c}"}.join(", ")})" :
-        "#{@model.table_name}.#{column}")
+        (column.is_a?(Array) ? "COALESCE(#{column.map{|c| column_name(c)}.join(', ')})" : column_name(column))
       if comparator != "=" && type_for_column(column) == :string
         col_name = BookmarkedCollection.best_unicode_collation_key(col_name)
       end

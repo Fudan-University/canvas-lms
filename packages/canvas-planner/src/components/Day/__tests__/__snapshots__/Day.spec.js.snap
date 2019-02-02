@@ -45,7 +45,6 @@ exports[`groups itemsForDay that come in on prop changes 1`] = `
           Object {
             "context": Object {
               "id": 128,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -53,6 +52,7 @@ exports[`groups itemsForDay that come in on prop changes 1`] = `
           },
         ]
       }
+      key="Course128"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -76,7 +76,6 @@ exports[`groups itemsForDay that come in on prop changes 1`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -84,6 +83,7 @@ exports[`groups itemsForDay that come in on prop changes 1`] = `
           },
         ]
       }
+      key="Course256"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -140,7 +140,6 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           Object {
             "context": Object {
               "id": 128,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -148,6 +147,7 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           },
         ]
       }
+      key="Course128"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -171,7 +171,6 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -180,7 +179,6 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -188,6 +186,7 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           },
         ]
       }
+      key="Course256"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -213,6 +212,7 @@ exports[`groups itemsForDay that come in on prop changes 2`] = `
           },
         ]
       }
+      key="Notes"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -269,7 +269,6 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           Object {
             "context": Object {
               "id": 128,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -277,6 +276,7 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           },
         ]
       }
+      key="Course128"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -300,7 +300,6 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -309,7 +308,6 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -317,6 +315,7 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           },
         ]
       }
+      key="Course256"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -342,6 +341,7 @@ exports[`groups itemsForDay that have no context into the "Notes" category 1`] =
           },
         ]
       }
+      key="Notes"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -398,7 +398,6 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           Object {
             "context": Object {
               "id": 128,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
               "url": "http://www.non_default_url.com",
             },
@@ -407,6 +406,7 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           },
         ]
       }
+      key="Course128"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -431,7 +431,6 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
               "url": "http://www.non_default_url.com",
             },
@@ -441,7 +440,6 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": true,
               "type": "Course",
               "url": "http://www.non_default_url.com",
             },
@@ -450,6 +448,7 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           },
         ]
       }
+      key="Course256"
       theme={
         Object {
           "titleColor": "#00AC18",
@@ -474,7 +473,6 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           Object {
             "context": Object {
               "id": 256,
-              "inform_students_of_overdue_submissions": false,
               "type": "Group",
             },
             "date": "2017-04-25T23:59:00.000Z",
@@ -482,6 +480,7 @@ exports[`renders grouping correctly when having itemsForDay 1`] = `
           },
         ]
       }
+      key="Group256"
       theme={
         Object {
           "titleColor": "#00AC18",

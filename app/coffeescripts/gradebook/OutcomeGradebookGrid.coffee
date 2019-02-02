@@ -40,6 +40,8 @@ define [
 
     averageFn: 'mean'
 
+    section: undefined
+
     dataSource: {}
 
     outcomes: []
@@ -76,73 +78,6 @@ define [
         _.each(_.zip(headers, headerRows), ([header, headerRow]) ->
           $(headerRow).insertBefore($(header)))
 
-      # Public: Generate a section change callback for the given grid.
-      #
-      # grid - A SlickGrid instance.
-      #
-      # Returns a function.
-      sectionChangeFunction: (grid) ->
-        (currentSection) ->
-          rows = Grid.Util.toRows(Grid.dataSource.rollups, section: currentSection)
-          grid.setData(rows, false)
-          Grid.View.redrawHeader(grid)
-          grid.invalidate()
-
-      # Public: Sort and rerender the grid.
-      #
-      # e - jQuery event object.
-      # grid - SlickGrid instance.
-      # sortAsc - Boolean to determine if sort is ascending or descending.
-      # sortCol - The column object to sort on.
-      #
-      # Returns nothing.
-      sort: (e, {grid, sortAsc, sortCol}) ->
-        sortFn = if sortCol.field == 'student' then '_sortStudents' else '_sortResults'
-        rows = grid.getData().sort((a, b) -> Grid.Events[sortFn].call(null, a, b, sortAsc, sortCol.field))
-        grid.setData(rows)
-        grid.invalidate()
-
-      # Internal: Sort the grid by student names.
-      #
-      # a - Object to sort.
-      # b - Object to compare a against.
-      # sortAsc - Boolean to determine if the sort is ascending or descending.
-      #
-      # Returns a number used to sort with.
-      _sortStudents: (a, b, sortAsc) ->
-        if ''.localeCompare
-          nameA = a.student.sortable_name
-          nameB = b.student.sortable_name
-          n     = if sortAsc then 1 else -1
-          natcompare.strings(nameA, nameB) * n
-        else
-          nameA = a.student.sortable_name.toLowerCase()
-          nameB = b.student.sortable_name.toLowerCase()
-          f     = if sortAsc then 1 else -1
-          if nameA < nameB
-            -1 * f
-          else if nameB < nameA
-            1 * f
-          else
-            0
-
-      # Internal: Sort the grid by outcome result.
-      #
-      # a - Object to sort.
-      # b - Object to compare a against.
-      # sortAsc - Boolean to determine if the sort is ascending or descending.
-      # field - The name of the field to sort on (e.g. "outcome_6").
-      #
-      # Returns a number used to sort with.
-      _sortResults: (a, b, sortAsc, field) ->
-        scoreA = a[field]
-        scoreB = b[field]
-        val = numberCompare(scoreA, scoreB, descending: !sortAsc)
-        if val == 0
-          Grid.Events._sortStudents(a, b, sortAsc)
-        else
-          val
-
     Util:
       COLUMN_OPTIONS:
         width    : 121
@@ -154,23 +89,25 @@ define [
       # response - A response object from the outcome rollups API.
       #
       # Returns an array with [columns, rows].
-      toGrid: (response, options = { column: {}, row: {} }) ->
+      toGrid: (response, options = { column: {} }) ->
         Grid.dataSource = response
-        [Grid.Util.toColumns(response.linked.outcomes, options.column),
-         Grid.Util.toRows(response.rollups, options.row)]
+        [Grid.Util.toColumns(response.linked.outcomes, response.rollups, options.column),
+         Grid.Util.toRows(response.rollups)]
 
       # Public: Translate an array of outcomes to columns that can be used by SlickGrid.
       #
       # outcomes - An array of outcomes from the outcome rollups API.
+      # rollups  - An array of rollups from the outcome rollups API.
       #
       # Returns an array of columns.
-      toColumns: (outcomes, options = {}) ->
+      toColumns: (outcomes, rollups, options = {}) ->
         options = _.extend({}, Grid.Util.COLUMN_OPTIONS, options)
         columns = _.map outcomes, (outcome) ->
           _.extend(id: "outcome_#{outcome.id}",
                    name: _.escape(outcome.title),
                    field: "outcome_#{outcome.id}",
                    cssClass: 'outcome-result-cell',
+                   hasResults: _.some(rollups, (r) => _.find(r.scores, (s) => s.links.outcome == outcome.id)),
                    outcome: outcome, options)
         [Grid.Util._studentColumn()].concat(columns)
 
@@ -187,7 +124,7 @@ define [
           cssClass: 'outcome-student-cell'
           headerCssClass: 'outcome-student-header-cell'
           formatter: Grid.View.studentCell
-        }, _.extend(Grid.Util.COLUMN_OPTIONS, studentOptions))
+        }, _.extend({}, Grid.Util.COLUMN_OPTIONS, studentOptions))
 
       # Public: Translate an array of rollup data to rows that can be passed to SlickGrid.
       #
@@ -195,24 +132,17 @@ define [
       #
       # Returns an array of rows.
       toRows: (rollups, options = {}) ->
+        user_ids = _.uniq(_.map(rollups, (r) -> r.links.user))
         filtered_rollups = _.groupBy rollups, (rollup) -> rollup.links.user
-        rows = _.reject(_.map(filtered_rollups, Grid.Util._toRowFn(options.section)), (v) -> v == null)
-        rows.sort((a, b) -> Grid.Events._sortStudents(a, b, true))
-
-      # Internal: Generate a toRow function that filters by the given section.
-      #
-      # Returns a function..
-      _toRowFn: (section) ->
-        (rollup) -> Grid.Util._toRow(rollup, section)
+        ordered_rollups = _.map(user_ids, (u) -> filtered_rollups[u])
+        _.reject(_.map(ordered_rollups, (rollup) -> Grid.Util._toRow(rollup)), _.isNull)
 
       # Internal: Translate an outcome result to a SlickGrid row.
       #
       # rollup - A rollup object from the API.
-      # section - A section ID to filter by.
       #
       # Returns an object.
-      _toRow: (rollup, section_filter) ->
-        return null unless Grid.Util.sectionFilter(section_filter, rollup)
+      _toRow: (rollup) ->
         user = rollup[0].links.user
         section_list = _.map(rollup, (rollup) -> rollup.links.section)
         return null if _.isEmpty(section_list)
@@ -228,16 +158,6 @@ define [
         _.each rollup[0].scores, (score) ->
           row["outcome_#{score.links.outcome}"] = _.pick score, 'score', 'hide_points'
         row
-
-      # Public: Filter the given row by its section.
-      #
-      # section - The ID of the current section selection.
-      # row - A rollup row returned from the API.
-      #
-      # Returns a boolean.
-      sectionFilter: (section, row)->
-        return true unless section
-        return true if _.find row,(r) -> r.links.section == section
 
       # Public: Parse and store a list of outcomes from the outcome rollups API.
       #
@@ -311,28 +231,6 @@ define [
           Math.round(total / values.length)
         else
           parseFloat((total / values.length).toString().slice(0, 4))
-
-      median: (values) ->
-        sortedValues = _.sortBy(values, _.identity)
-        if values.length % 2 == 0
-          i = values.length / 2
-          Grid.Math.mean(sortedValues.slice(i - 1, i + 1))
-        else
-          sortedValues[Math.floor(values.length / 2)]
-
-      mode: (values) ->
-        counts = _.chain(values)
-          .countBy(_.identity)
-          .reduce((t, v, k) ->
-            t.push([v, parseInt(k)])
-            t
-          , [])
-          .sortBy(_.first)
-          .reverse()
-          .value()
-        max = counts[0][0]
-        mode = _.reject(counts, (n) -> n[0] < max)
-        mode = Grid.Math.mean(_.map(mode, _.last), true)
 
       max: (values) -> Math.max(values...)
 
@@ -409,22 +307,33 @@ define [
           .filter(_.isObject)
           .value()
 
-      headerRowCell: ({node, column, grid}, fn = Grid.averageFn) ->
+      headerRowCell: ({node, column, grid}, score = undefined) ->
         return Grid.View.studentHeaderRowCell(node, column, grid) if column.field == 'student'
 
         results = Grid.View.getColumnResults(grid.getData(), column)
         return $(node).empty() unless results.length
-        scores = _.map results, (result) -> result.score
-        hide_points = _.every results, (result) -> result.hide_points
-        score = Grid.Math[fn].call(this, (scores))
-        $(node).empty().append(Grid.View.cellHtml(score, hide_points, column, false))
+        $(node).empty().append(Grid.View.cellHtml(score?.score, score?.hide_points, column, false))
+
+      _aggregateUrl: (stat) ->
+        course = ENV.context_asset_string.split('_')[1]
+        sectionParam = if Grid.section then "&section_id=#{Grid.section}" else ""
+        "/api/v1/courses/#{course}/outcome_rollups?aggregate=course&aggregate_stat=#{stat}#{sectionParam}"
 
       redrawHeader: (grid, fn = Grid.averageFn) ->
         Grid.averageFn = fn
         cols = grid.getColumns()
-        _.each(cols, (col) ->
-          header = grid.getHeaderRowColumn(col.id)
-          Grid.View.headerRowCell(node: header, column: col, grid: grid, fn))
+        dfd = $.getJSON(Grid.View._aggregateUrl(fn)).fail((e) ->
+          $.flashError(I18n.t('There was an error fetching course statistics'))
+        )
+        dfd.then (response, status, xhr) =>
+          # do for each column
+          _.each(cols, (col) ->
+            header = grid.getHeaderRowColumn(col.id)
+            score = if col.outcome
+                      _.find(response['rollups'][0]['scores'], (s) -> s.links.outcome == col.outcome.id)
+                    else
+                      undefined
+            Grid.View.headerRowCell(node: header, column: col, grid: grid, score))
 
       studentHeaderRowCell: (node, column, grid) ->
         $(node).addClass('average-filter')
@@ -442,8 +351,3 @@ define [
         results = Grid.View.getColumnResults(grid.getData(), column)
         ratings = column.outcome.ratings || []
         ratings.result_count = results.length
-        points = _.pluck ratings, 'points'
-        counts = _.countBy results, (result) ->
-          _.find points, (x) -> x <= result
-        _.each ratings, (rating) ->
-          rating.percent = Math.round((counts[rating.points] || 0) / results.length * 100)

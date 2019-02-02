@@ -157,6 +157,23 @@ describe AssignmentsController do
       expect(assigns[:js_env][:QUIZ_LTI_ENABLED]).to be true
     end
 
+    it "should not set QUIZ_LTI_ENABLED in js_env if url is voided" do
+      user_session @teacher
+      @course.context_external_tools.create!(
+        :name => 'Quizzes.Next',
+        :consumer_key => 'test_key',
+        :shared_secret => 'test_secret',
+        :tool_id => 'Quizzes 2',
+        :url => 'http://void.url.inseng.net'
+      )
+      @course.root_account.settings[:provision] = {'lti' => 'lti url'}
+      @course.root_account.save!
+      @course.root_account.enable_feature! :quizzes_next
+      @course.enable_feature! :quizzes_next
+      get 'index', params: {course_id: @course.id}
+      expect(assigns[:js_env][:QUIZ_LTI_ENABLED]).to be false
+    end
+
     it "should not set QUIZ_LTI_ENABLED in js_env if quizzes 2 is not available" do
       user_session @teacher
       get 'index', params: {course_id: @course.id}
@@ -223,30 +240,32 @@ describe AssignmentsController do
       before(:each) do
         @course.enable_feature!(:moderated_grading)
 
-        @editable_assignment = @course.assignments.create!(
+        @assignment = @course.assignments.create!(
           moderated_grading: true,
           grader_count: 2,
           final_grader: @teacher
         )
 
-        user_session(@teacher)
         ta_in_course(active_all: true)
-
-        @noneditable_assignment = @course.assignments.create!(
-          moderated_grading: true,
-          grader_count: 2,
-          final_grader: @ta
-        )
       end
 
-      it "sets the 'update' attribute for an editable assignment to true" do
+      it "sets the 'update' attribute to true when user is the final grader" do
+        user_session(@teacher)
         get 'index', params: {course_id: @course.id}
-        expect(assignment_permissions[@editable_assignment.id][:update]).to eq(true)
+        expect(assignment_permissions[@assignment.id][:update]).to eq(true)
       end
 
-      it "sets the 'update' attribute for a non-editable assignment to false" do
+      it "sets the 'update' attribute to true when user has the Select Final Grade permission" do
+        user_session(@ta)
         get 'index', params: {course_id: @course.id}
-        expect(assignment_permissions[@noneditable_assignment.id][:update]).to eq(false)
+        expect(assignment_permissions[@assignment.id][:update]).to eq(true)
+      end
+
+      it "sets the 'update' attribute to false when user does not have the Select Final Grade permission" do
+        @course.account.role_overrides.create!(permission: :select_final_grade, enabled: false, role: ta_role)
+        user_session(@ta)
+        get 'index', params: {course_id: @course.id}
+        expect(assignment_permissions[@assignment.id][:update]).to eq(false)
       end
     end
   end
@@ -320,8 +339,8 @@ describe AssignmentsController do
       let(:env) { assigns[:js_env] }
 
       before :once do
-        @assignment.moderation_graders.create!(anonymous_id: "abcde", user: grader_1)
-        @assignment.moderation_graders.create!(anonymous_id: "fghij", user: grader_2)
+        @assignment.grade_student(@student, grader: grader_1, provisional: true, score: 10)
+        @assignment.grade_student(@student, grader: grader_2, provisional: true, score: 5)
       end
 
       before :each do
@@ -511,6 +530,14 @@ describe AssignmentsController do
       allow_any_instance_of(Course).to receive(:vericite_pledge).and_return(pledge)
       get 'show', params: {:course_id => @course.id, :id => a.id}
       expect(assigns[:similarity_pledge]).to eq pledge
+    end
+
+    it 'uses the closest pledge when vericite is enabled but no pledge is set' do
+      user_session(@student)
+      a = @course.assignments.create(:title => "some assignment", vericite_enabled: true)
+      allow(@course).to receive(:vericite_pledge).and_return("")
+      get 'show', params: {:course_id => @course.id, :id => a.id}
+      expect(assigns[:similarity_pledge]).to eq "This assignment submission is my own, original work"
     end
 
     it 'uses the turnitin pledge if turnitin is enabled' do
@@ -998,6 +1025,40 @@ describe AssignmentsController do
       user_session(@teacher)
       get :edit, params: { course_id: @course.id, id: @assignment.id }
       expect(assigns[:js_env][:MODERATED_GRADING_MAX_GRADER_COUNT]).to eq @assignment.moderated_grading_max_grader_count
+    end
+
+    describe 'js_env ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED' do
+      before(:each) do
+        user_session(@teacher)
+      end
+
+      it 'is true when the course has anonymous_instructor_annotations on' do
+        @course.enable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be true
+      end
+
+      it 'is true when the account has anonymous_instructor_annotations on' do
+        @course.account.enable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be true
+      end
+
+      it 'is false when the course has anonymous_instructor_annotations off' do
+        @course.disable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be false
+      end
+
+      it 'is false when the account has anonymous_instructor_annotations off' do
+        @course.account.disable_feature!(:anonymous_instructor_annotations)
+        get 'edit', params: { course_id: @course.id, id: @assignment.id }
+
+        expect(assigns[:js_env][:ANONYMOUS_INSTRUCTOR_ANNOTATIONS_ENABLED]).to be false
+      end
     end
 
     context 'plagiarism detection platform' do

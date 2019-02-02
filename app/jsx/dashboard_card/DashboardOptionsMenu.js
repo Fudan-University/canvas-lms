@@ -35,13 +35,13 @@ export default class DashboardOptionsMenu extends React.Component {
     view: PropTypes.string,
     planner_enabled: PropTypes.bool,
     onDashboardChange: PropTypes.func.isRequired,
-    menuButtonRef: PropTypes.func,
+    menuButtonRef: PropTypes.func
   }
 
   static defaultProps = {
     planner_enabled: false,
     view: 'cards',
-    menuButtonRef: () => {},
+    menuButtonRef: () => {}
   }
 
   state = {
@@ -85,9 +85,8 @@ export default class DashboardOptionsMenu extends React.Component {
     return (
       <Menu
         trigger={
-          <Button variant="icon" buttonRef={this.props.menuButtonRef}>
+          <Button variant="icon" icon={IconMoreLine} buttonRef={this.props.menuButtonRef}>
             <ScreenReaderContent>{I18n.t('Dashboard Options')}</ScreenReaderContent>
-            <IconMoreLine />
           </Button>
         }
         contentRef={el => (this.menuContentRef = el)}
@@ -98,15 +97,11 @@ export default class DashboardOptionsMenu extends React.Component {
           selected={[this.props.view]}
         >
           <MenuItem value="cards">{I18n.t('Card View')}</MenuItem>
-          {
-            (this.props.planner_enabled) && (
-              <MenuItem value="planner">{I18n.t('List View')}</MenuItem>
-            )
-          }
+          {this.props.planner_enabled && <MenuItem value="planner">{I18n.t('List View')}</MenuItem>}
           <MenuItem value="activity">{I18n.t('Recent Activity')}</MenuItem>
         </MenuItemGroup>
-        { cardView && <MenuItemSeparator /> }
-        { cardView && (
+        {cardView && <MenuItemSeparator />}
+        {cardView && (
           <MenuItemGroup
             label={
               <ScreenReaderContent>

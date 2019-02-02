@@ -38,6 +38,7 @@ PactConfig::Consumers::ALL.each do |consumer|
       # ID: 4 | Name: TeacherAssistant1
       # ID: 5 | Name: Student1
       # ID: 6 | Name: Observer1
+      # ID: 7 | Name: Parent1
       # Course_ID: 1 | Name: 'Contract Tests Course'
         # Enrolled:
           # Student1
@@ -52,12 +53,13 @@ PactConfig::Consumers::ALL.each do |consumer|
     provider_state('an observer enrolled in a course') { no_op }
     provider_state('an account admin') { no_op }
     provider_state('a site admin') { no_op }
+    provider_state('a parent') { no_op } # Parents aren't enrolled in courses; they are "super observers"
   end
 end
 
 module Pact::Canvas
   def self.base_state=(base_state)
-    @base_state ||= base_state
+    @base_state = base_state
   end
 
   def self.base_state
@@ -72,6 +74,7 @@ module Pact::Canvas
       :account_admins,
       :course,
       :observers,
+      :parents,
       :site_admins,
       :site_admin_account,
       :students,
@@ -90,6 +93,12 @@ module Pact::Canvas
       @account = opts[:account] || Account.default
       @course = opts[:course] || seed_course
       seed_users(opts)
+      enable_default_developer_key!
+      enable_features
+    end
+
+    def enable_features
+     @account.enable_feature!(:student_planner)
     end
 
     def seed_course
@@ -110,6 +119,7 @@ module Pact::Canvas
       @teacher_assistants = opts[:teacher_assistants] || seed_teacher_assistants
       @students = opts[:students] || seed_students
       @observers = opts[:observers] || seed_observers
+      @parents = opts[:parents] || seed_parents
     end
 
     def seed_site_admins(count: 1)
@@ -134,7 +144,7 @@ module Pact::Canvas
         admin_name = "Admin#{index}"
         admin_email = "#{admin_name}@instructure.com"
         admin = account_admin_user(account: @account, email: admin_email, name: admin_name)
-        admin.pseudonyms.create!(unique_id: admin_email, password: 'password', password_confirmation: 'password')
+        admin.pseudonyms.create!(unique_id: admin_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{admin_name}")
         admin.email = admin_email
         admin.accept_terms
         account_admins << admin
@@ -149,7 +159,7 @@ module Pact::Canvas
         teacher_name = "Teacher#{index}"
         teacher_email = "#{teacher_name}@instructure.com"
         teacher = user_factory(active_all: true, course: @course, name: teacher_name)
-        teacher.pseudonyms.create!(unique_id: teacher_email, password: 'password', password_confirmation: 'password')
+        teacher.pseudonyms.create!(unique_id: teacher_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{teacher_name}")
         teacher.email = teacher_email
         teacher.accept_terms
         course.enroll_teacher(teacher).accept!
@@ -165,7 +175,7 @@ module Pact::Canvas
         ta_name = "TeacherAssistant#{index}"
         ta_email = "#{ta_name}@instructure.com"
         ta = user_factory(active_all: true, course: @course, name: ta_name)
-        ta.pseudonyms.create!(unique_id: ta_email, password: 'password', password_confirmation: 'password')
+        ta.pseudonyms.create!(unique_id: ta_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{ta_name}")
         ta.email = ta_email
         ta.accept_terms
         course.enroll_ta(ta).accept!
@@ -181,7 +191,7 @@ module Pact::Canvas
         student_name = "Student#{index}"
         student_email = "#{student_name}@instructure.com"
         student = user_factory(active_all: true, course: @course, name: student_name)
-        student.pseudonyms.create!(unique_id: student_email, password: 'password', password_confirmation: 'password')
+        student.pseudonyms.create!(unique_id: student_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{student_name}")
         student.email = student_email
         student.accept_terms
         course.enroll_student(student).accept!
@@ -197,7 +207,7 @@ module Pact::Canvas
         observer_name = "Observer#{index}"
         observer_email = "#{observer_name}@instructure.com"
         observer = user_factory(active_all: true, course: @course, name: observer_name)
-        observer.pseudonyms.create!(unique_id: observer_email, password: 'password', password_confirmation: 'password')
+        observer.pseudonyms.create!(unique_id: observer_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{observer_name}")
         observer.email = observer_email
         observer.accept_terms
         enroll_observer(observer: observer)
@@ -214,6 +224,25 @@ module Pact::Canvas
         enrollment_state: 'active',
         associated_user_id: student.id
       )
+    end
+
+    def seed_parents(count: 1)
+      parents = []
+      count.times do |i|
+        index = i + 1
+        parent_name = "Parent#{index}"
+        parent_email = "#{parent_name}@instructure.com"
+        parent = user_factory(active_user: true, name: parent_name)
+        parent.pseudonyms.create!(unique_id: parent_email, password: 'password', password_confirmation: 'password', sis_user_id: "SIS_#{parent_name}")
+        parent.email = parent_email
+        parent.save!
+
+        # Parent1 observes Student1, Parent2 observes Student2, etc.
+        UserObservationLink.create!(student: @students[i], observer: parent, root_account_id: @account)
+
+        parents << parent
+      end
+      parents
     end
   end
 end

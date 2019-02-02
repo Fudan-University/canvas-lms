@@ -53,9 +53,9 @@ class DiscussionTopic < ActiveRecord::Base
 
   attr_readonly :context_id, :context_type, :user_id
 
-  has_many :discussion_entries, -> { order(:created_at) }, dependent: :destroy
+  has_many :discussion_entries, -> { order(:created_at) }, dependent: :destroy, inverse_of: :discussion_topic
   has_many :rated_discussion_entries, -> { order(
-    ['COALESCE(parent_id, 0)', 'COALESCE(rating_sum, 0) DESC', :created_at]) }, class_name: 'DiscussionEntry'
+    Arel.sql('COALESCE(parent_id, 0)'), Arel.sql('COALESCE(rating_sum, 0) DESC'), :created_at) }, class_name: 'DiscussionEntry'
   has_many :root_discussion_entries, -> { preload(:user).where("discussion_entries.parent_id IS NULL AND discussion_entries.workflow_state<>'deleted'") }, class_name: 'DiscussionEntry'
   has_one :external_feed_entry, :as => :asset
   belongs_to :external_feed
@@ -96,6 +96,7 @@ class DiscussionTopic < ActiveRecord::Base
   after_save :touch_context
   after_save :schedule_delayed_transitions
   after_save :update_materialized_view_if_changed
+  after_save :recalculate_progressions_if_sections_changed
   after_update :clear_streams_if_not_published
   after_create :create_participant
   after_create :create_materialized_view
@@ -193,6 +194,17 @@ class DiscussionTopic < ActiveRecord::Base
   def update_materialized_view_if_changed
     if self.saved_change_to_sort_by_rating?
       update_materialized_view
+    end
+  end
+
+  attr_writer :sections_changed
+  def recalculate_progressions_if_sections_changed
+    # either changed sections or undid section specificness
+    return unless self.is_section_specific? ? @sections_changed : self.is_section_specific_before_last_save
+    self.class.connection.after_transaction_commit do
+      if self.context_module_tags.preload(:context_module).exists?
+        self.context_module_tags.map(&:context_module).uniq.each(&:invalidate_progressions)
+      end
     end
   end
 
@@ -666,6 +678,15 @@ class DiscussionTopic < ActiveRecord::Base
             { :course_sections => course_sections.pluck(:id) }).distinct
   end
 
+  scope :visible_to_student_sections, -> (student) {
+    visibility_scope = DiscussionTopicSectionVisibility.
+      where("discussion_topic_section_visibilities.discussion_topic_id = discussion_topics.id").
+      where("EXISTS (?)", Enrollment.active_or_pending.where(:user_id => student).
+        where("enrollments.course_section_id = discussion_topic_section_visibilities.course_section_id")
+      )
+    where("discussion_topics.context_type <> 'Course' OR discussion_topics.is_section_specific = false OR EXISTS (?)", visibility_scope)
+  }
+
   scope :recent, -> { where("discussion_topics.last_reply_at>?", 2.weeks.ago).order("discussion_topics.last_reply_at DESC") }
   scope :only_discussion_topics, -> { where(:type => nil) }
   scope :for_subtopic_refreshing, -> { where("discussion_topics.subtopics_refreshed_at IS NOT NULL AND discussion_topics.subtopics_refreshed_at<discussion_topics.updated_at").order("discussion_topics.subtopics_refreshed_at") }
@@ -678,7 +699,7 @@ class DiscussionTopic < ActiveRecord::Base
   scope :by_position_legacy, -> { order("discussion_topics.position DESC, discussion_topics.created_at DESC, discussion_topics.id DESC") }
   scope :by_last_reply_at, -> { order("discussion_topics.last_reply_at DESC, discussion_topics.created_at DESC, discussion_topics.id DESC") }
 
-  scope :by_posted_at, -> { order(<<-SQL)
+  scope :by_posted_at, -> { order(Arel.sql(<<-SQL))
       COALESCE(discussion_topics.delayed_post_at, discussion_topics.posted_at, discussion_topics.created_at) DESC,
       discussion_topics.created_at DESC,
       discussion_topics.id DESC
@@ -917,11 +938,7 @@ class DiscussionTopic < ActiveRecord::Base
       nil
     else
       self.shard.activate do
-        entry = DiscussionEntry.new({
-          :message => message,
-          :discussion_topic => self,
-          :user => user,
-        })
+        entry = discussion_entries.new(message: message, user: user)
         if !entry.grants_right?(user, :create)
           raise IncomingMail::Errors::ReplyToLockedTopic
         else
@@ -1011,12 +1028,12 @@ class DiscussionTopic < ActiveRecord::Base
 
     given { |user, session|
       !is_announcement &&
-      context.grants_right?(user, session, :post_to_forum) &&
+      context.grants_right?(user, session, :create_forum) &&
       context_allows_user_to_create?(user)
     }
     can :create
 
-    given { |user, session| context.respond_to?(:allow_student_forum_attachments) && context.allow_student_forum_attachments && context.grants_right?(user, session, :post_to_forum) }
+    given { |user, session| context.respond_to?(:allow_student_forum_attachments) && context.allow_student_forum_attachments && context.grants_any_right?(user, session, :create_forum, :post_to_forum) }
     can :attach
 
     given { |user, session| !self.root_topic_id && self.context.grants_all_rights?(user, session, :read_forum, :moderate_forum) && self.available_for?(user) }
@@ -1271,9 +1288,9 @@ class DiscussionTopic < ActiveRecord::Base
   #
   # Returns a boolean.
   def visible_for?(user = nil)
-    RequestCache.cache('discussion_visible_for', self, user) do
+    RequestCache.cache('discussion_visible_for', self, is_announcement, user) do
       # user is the topic's author
-      next true if user && user == self.user
+      next true if user && user.id == self.user_id
 
       next false unless (is_announcement ? context.grants_right?(user, :read_announcements) : context.grants_right?(user, :read_forum))
 

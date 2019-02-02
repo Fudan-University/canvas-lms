@@ -27,7 +27,7 @@ import CloseButton from '@instructure/ui-buttons/lib/components/CloseButton'
 import IconGroup from '@instructure/ui-icons/lib/Line/IconGroup'
 import Spinner from '@instructure/ui-elements/lib/components/Spinner'
 import PresentationContent from '@instructure/ui-a11y/lib/components/PresentationContent'
-import {post} from 'axios'
+import axios from 'axios'
 import {string} from 'prop-types'
 
 export default class GeneratePairingCode extends Component {
@@ -50,7 +50,7 @@ export default class GeneratePairingCode extends Component {
 
   generatePairingCode = () => {
     this.setState({ gettingPairingCode: true, pairingCodeError: false })
-    post(`/api/v1/users/${this.props.userId}/observer_pairing_codes`)
+    axios.post(`/api/v1/users/${this.props.userId}/observer_pairing_codes`)
       .then(({ data }) => {
         this.setState({
           gettingPairingCode: false,
@@ -86,10 +86,10 @@ export default class GeneratePairingCode extends Component {
 
   render () {
     const messageWithName = I18n.t(`Share the following pairing code with an observer to allow
-    them to connect with %{name}. This code will expire in 24 hours,
+    them to connect with %{name}. This code will expire in seven days,
     or after one use.`, { name: this.props.name })
     const messageWithoutName = I18n.t(`Share the following pairing code with an observer to allow
-    them to connect with you. This code will expire in 24 hours,
+    them to connect with you. This code will expire in seven days,
     or after one use.`)
     return (
       <div>

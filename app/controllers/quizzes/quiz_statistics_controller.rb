@@ -258,7 +258,7 @@ class Quizzes::QuizStatisticsController < ApplicationController
       scope = @quiz.quiz_submissions.not_settings_only.completed
       updated = scope.order('updated_at DESC').limit(1).pluck(:updated_at).first
       cache_key = [
-        'quiz_statistics',
+        'quiz_statistics_1',
         @quiz.id,
         @quiz.updated_at,
         updated,
@@ -271,7 +271,7 @@ class Quizzes::QuizStatisticsController < ApplicationController
       else
         json = Rails.cache.fetch(cache_key) do
           all_versions = value_to_boolean(params[:all_versions])
-          statistics = @service.generate_aggregate_statistics(all_versions, {section_ids: params[:section_ids]})
+          statistics = @service.generate_aggregate_statistics(all_versions, include_sis_ids?, {section_ids: params[:section_ids]})
           serialize(statistics)
         end
 
@@ -282,6 +282,10 @@ class Quizzes::QuizStatisticsController < ApplicationController
 
   private
 
+  def include_sis_ids?
+    @context.grants_any_right?(@current_user, session, :read_sis, :manage_sis)
+  end
+
   def prepare_service
     @service = Quizzes::QuizStatisticsService.new(@quiz)
   end
@@ -289,6 +293,7 @@ class Quizzes::QuizStatisticsController < ApplicationController
   def serialize(statistics)
     Canvas::APIArraySerializer.new([ statistics ], {
       controller: self,
+      scope: @current_user,
       each_serializer: Quizzes::QuizStatisticsSerializer,
       root: :quiz_statistics,
       include_root: false

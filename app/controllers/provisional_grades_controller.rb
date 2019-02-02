@@ -71,6 +71,81 @@
 class ProvisionalGradesController < ProvisionalGradesBaseController
   include Api::V1::Submission
 
+  # @API Bulk select provisional grades
+  #
+  # Choose which provisional grades will be received by associated students for an assignment.
+  # The caller must be the final grader for the assignment or an admin with :select_final_grade rights.
+  #
+  # @example_response
+  #   [{
+  #     "assignment_id": 867,
+  #     "student_id": 5309,
+  #     "selected_provisional_grade_id": 53669
+  #   }]
+  #
+  def bulk_select
+    render_unauthorized_action and return unless @assignment.permits_moderation?(@current_user)
+
+    provisional_grade_ids = params[:provisional_grade_ids]
+    provisional_grades_by_id = @assignment.provisional_grades.
+      where(id: provisional_grade_ids).
+      preload(:submission).
+      index_by(&:id)
+
+    submissions_by_student_id = provisional_grades_by_id.values.each_with_object({}) do |grade, map|
+      map[grade.submission.user_id] = grade.submission
+    end
+
+    selections_by_student_id = @assignment.moderated_grading_selections.
+      where(student_id: submissions_by_student_id.keys).
+      index_by(&:student_id)
+
+    all_by_student_id = provisional_grade_ids.each_with_object({}) do |grade_id, map|
+      provisional_grade = provisional_grades_by_id[grade_id.to_i]
+      next if provisional_grade.blank?
+
+      student_id = provisional_grade.submission.user_id
+      selection = selections_by_student_id[student_id.to_i]
+
+      map[student_id] = {
+        provisional_grade_id: provisional_grade.id,
+        selection: selection,
+        submission: provisional_grade.submission
+      }
+    end
+
+    json = []
+    changed_submission_ids = []
+
+    ModeratedGrading::Selection.transaction do
+      all_by_student_id.each_value do |map|
+        selection = map[:selection]
+        selection.selected_provisional_grade_id = map[:provisional_grade_id]
+        next unless selection.selected_provisional_grade_id_changed?
+
+        selection.save!
+        selection.create_moderation_event(@current_user)
+        changed_submission_ids.push(map[:submission].id)
+        selection_json = selection.as_json(include_root: false, only: %w(assignment_id student_id selected_provisional_grade_id))
+
+        unless @assignment.can_view_student_names?(@current_user)
+          selection_json.delete(:student_id)
+          selection_json[:anonymous_id] = map[:submission].anonymous_id
+        end
+
+        json.push(selection_json)
+      end
+
+      # When users with visibility of the provisional grades and final grade
+      # selection are using SpeedGrader when these selections occur, update the
+      # related submissions so that grades are reloaded in SpeedGrader when the
+      # related students are selected.
+      Submission.where(id: changed_submission_ids).touch_all
+    end
+
+    render json: json
+  end
+
   # @API Show provisional grade status for a student
   #
   # Tell whether the student's submission needs one or more provisional grades.
@@ -94,7 +169,7 @@ class ProvisionalGradesController < ProvisionalGradesBaseController
   # @API Select provisional grade
   #
   # Choose which provisional grade the student should receive for a submission.
-  # The caller must have :moderate_grades rights.
+  # The caller must be the final grader for the assignment or an admin with :select_final_grade rights.
   #
   # @example_response
   #   {
@@ -112,7 +187,14 @@ class ProvisionalGradesController < ProvisionalGradesBaseController
     return render :json => { :message => 'student not in moderation set' }, :status => :bad_request unless selection
     selection.provisional_grade = pg
     selection.save!
-    submission.touch # so the selection is reloaded for other moderators
+    selection.create_moderation_event(@current_user)
+
+    # When users with visibility of the provisional grades and final grade
+    # selection are using SpeedGrader when this selection occurs, update the
+    # related submission so that grades are reloaded in SpeedGrader when the
+    # related student is selected.
+    submission.touch
+
     json = selection.as_json(include_root: false, only: %w(assignment_id student_id selected_provisional_grade_id))
     unless @assignment.can_view_student_names?(@current_user)
       json.delete(:student_id)
@@ -142,7 +224,15 @@ class ProvisionalGradesController < ProvisionalGradesBaseController
     final_mark = pg.copy_to_final_mark!(@current_user)
     selection.provisional_grade = final_mark
     selection.save!
-    render :json => provisional_grade_json(final_mark, pg.submission, @assignment, @current_user, %w(submission_comments rubric_assessment crocodoc_urls)).merge(:selected => true)
+    render json: provisional_grade_json(
+      course: @context,
+      assignment: @assignment,
+      submission: pg.submission,
+      provisional_grade: final_mark,
+      current_user: @current_user,
+      avatars: service_enabled?(:avatars) && !@assignment.grade_as_group?,
+      includes: %w(submission_comments rubric_assessment crocodoc_urls)
+    ).merge(selected: true)
   end
 
   # @API Publish provisional grades for an assignment
@@ -181,6 +271,8 @@ class ProvisionalGradesController < ProvisionalGradesBaseController
       submission.provisional_grades.any?
     end
 
+    graded_users_ids = graded_submissions.map(&:user_id)
+
     grades_to_publish = graded_submissions.map do |submission|
       if (selection = selections[submission.user_id])
         # student in moderation: choose the selected provisional grade
@@ -209,8 +301,13 @@ class ProvisionalGradesController < ProvisionalGradesBaseController
       selected_provisional_grade
     end
 
-    grades_to_publish.each(&:publish!)
+    grades_to_publish.each { |grade| grade.publish!(skip_grade_calc: true) }
+    # Callbacks in Submission to recompute the score of each enrollment are
+    # suspended when publishing grades to avoid multiple calls to the
+    # GradeCalculator, so instead the call is made here.
+    @context.recompute_student_scores(graded_users_ids)
     @context.touch_admins_later # just in case nothing got published
+    @assignment.updating_user = @current_user
     @assignment.update_attribute(:grades_published_at, Time.now.utc)
     render :json => { :message => "OK" }
   end

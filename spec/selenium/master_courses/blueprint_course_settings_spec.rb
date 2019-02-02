@@ -46,7 +46,6 @@ describe "course settings/blueprint" do
   include_context "blueprint course settings context"
 
   before :once do
-    Account.default.enable_feature! :master_courses
     account_admin_user
     course_factory :active_all => true
   end
@@ -119,14 +118,13 @@ describe "course settings/blueprint" do
 
       expect(f('.bcs_radio_input-group')).to be_displayed
       ff('.bcs_radio_input-group')[1].click
-      assmt_tab = f('.bcs__object-tab[data-reactid*=assignment]')
-      assmt_tab.find_element(:css, '.bcs_tab_indicator-icon button').click
-      assmt_tab.find_element(:css, '.bcs_check_box-group[data-reactid*=content]').click
-      assmt_tab.find_element(:css, '.bcs_check_box-group[data-reactid*=points]').click
 
-      quiz_tab = f('.bcs__object-tab[data-reactid*=quiz]')
-      quiz_tab.find_element(:css, '.bcs_tab_indicator-icon button').click
-      quiz_tab.find_element(:css, '.bcs_check_box-group[data-reactid*=due_dates]').click
+      fj(".bcs__object-tab:contains('Assignments') .bcs_tab_indicator-icon button").click
+      fj(".bcs__object-tab:contains('Assignments') .bcs_check_box-group label:contains('Content')").click
+      fj(".bcs__object-tab:contains('Assignments') .bcs_check_box-group label:contains('Points')").click
+
+      fj(".bcs__object-tab:contains('Quizzes') .bcs_tab_indicator-icon button").click
+      fj(".bcs__object-tab:contains('Quizzes') .bcs_check_box-group label:contains('Due Dates')").click
 
       expect_new_page_load { submit_form('#course_form') }
 

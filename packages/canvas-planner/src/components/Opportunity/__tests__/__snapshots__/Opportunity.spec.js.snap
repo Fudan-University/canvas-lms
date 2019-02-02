@@ -53,16 +53,94 @@ exports[`renders the base component correctly 1`] = `
     <Button
       as="button"
       buttonRef={[Function]}
+      cursor="pointer"
       fluidWidth={false}
+      icon={[Function]}
       margin="0"
       onClick={[Function]}
       size="small"
+      title="Dismiss this is a description about the opportunity"
       type="button"
       variant="icon"
     >
-      <IconX
-        title="Dismiss this is a description about the opportunity"
+      <ScreenReaderContent
+        as="span"
+      >
+        Dismiss this is a description about the opportunity
+      </ScreenReaderContent>
+    </Button>
+  </div>
+</div>
+`;
+
+exports[`renders the base component correctly with 0 points 1`] = `
+<div>
+  <div>
+    <div>
+      course about stuff
+    </div>
+    <div>
+      <Link
+        as="button"
+        ellipsis={false}
+        href="http://www.non_default_url.com"
+        iconPlacement="start"
+        linkRef={[Function]}
+        variant="default"
+      >
+        this is a description about the opportunity
+      </Link>
+    </div>
+  </div>
+  <div>
+    <div>
+      <Pill
+        text="Missing"
+        variant="danger"
       />
+      <div>
+        <span>
+          Due:
+        </span>
+         
+        March 9, 2017 at 1:40 PM
+      </div>
+    </div>
+    <div>
+      <ScreenReaderContent
+        as="span"
+      >
+        0 points
+      </ScreenReaderContent>
+      <PresentationContent
+        as="span"
+      >
+        <span>
+          0
+        </span>
+        points
+      </PresentationContent>
+    </div>
+  </div>
+  <div>
+    <Button
+      as="button"
+      buttonRef={[Function]}
+      cursor="pointer"
+      fluidWidth={false}
+      icon={[Function]}
+      margin="0"
+      onClick={[Function]}
+      size="small"
+      title="Dismiss this is a description about the opportunity"
+      type="button"
+      variant="icon"
+    >
+      <ScreenReaderContent
+        as="span"
+      >
+        Dismiss this is a description about the opportunity
+      </ScreenReaderContent>
     </Button>
   </div>
 </div>
@@ -101,34 +179,31 @@ exports[`renders the base component correctly without points 1`] = `
         March 9, 2017 at 1:40 PM
       </div>
     </div>
-    <div>
-      <ScreenReaderContent
-        as="span"
-      >
-        null points
-      </ScreenReaderContent>
-      <PresentationContent
-        as="span"
-      >
-        <span />
-        points
-      </PresentationContent>
-    </div>
+    <ScreenReaderContent
+      as="span"
+    >
+      There are no points associated with this item
+    </ScreenReaderContent>
   </div>
   <div>
     <Button
       as="button"
       buttonRef={[Function]}
+      cursor="pointer"
       fluidWidth={false}
+      icon={[Function]}
       margin="0"
       onClick={[Function]}
       size="small"
+      title="Dismiss this is a description about the opportunity"
       type="button"
       variant="icon"
     >
-      <IconX
-        title="Dismiss this is a description about the opportunity"
-      />
+      <ScreenReaderContent
+        as="span"
+      >
+        Dismiss this is a description about the opportunity
+      </ScreenReaderContent>
     </Button>
   </div>
 </div>

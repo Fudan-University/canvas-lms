@@ -37,8 +37,8 @@ class Oauth2ProviderController < ApplicationController
 
     raise Canvas::Oauth::RequestError, :invalid_client_id unless provider.has_valid_key?
     raise Canvas::Oauth::RequestError, :invalid_redirect unless provider.has_valid_redirect?
-    if developer_key_management_and_scoping_enabled? provider
-      raise Canvas::Oauth::RequestError, :invalid_scope unless scopes.present? && scopes.all? { |scope| provider.key.scopes.include?(scope) }
+    if provider.key.require_scopes?
+      raise Canvas::Oauth::RequestError, :invalid_scope unless provider.valid_scopes?
     end
 
     session[:oauth2] = provider.session_hash
@@ -85,36 +85,34 @@ class Oauth2ProviderController < ApplicationController
   end
 
   def deny
-    redirect_to Canvas::Oauth::Provider.final_redirect(self, :error => "access_denied")
+    params = { error: "access_denied" }
+    params[:state] = session[:oauth2][:state] if session[:oauth2][:state]
+    redirect_to Canvas::Oauth::Provider.final_redirect(self, params)
   end
 
   def token
     basic_user, basic_pass = ActionController::HttpAuthentication::Basic.user_name_and_password(request) if request.authorization
     client_id = params[:client_id].presence || basic_user
     secret = params[:client_secret].presence || basic_pass
-    provider = Canvas::Oauth::Provider.new(client_id)
-    raise Canvas::Oauth::RequestError, :invalid_client_id unless provider.has_valid_key?
-    raise Canvas::Oauth::RequestError, :invalid_client_secret unless provider.is_authorized_by?(secret)
 
-    if grant_type == "authorization_code"
-      raise Canvas::Oauth::RequestError, :authorization_code_not_supplied unless params[:code]
-
-      token = provider.token_for(params[:code])
-      raise Canvas::Oauth::RequestError, :invalid_authorization_code  unless token.is_for_valid_code?
-      raise Canvas::Oauth::RequestError, :incorrect_client unless token.key.id == token.client_id
-
-      token.create_access_token_if_needed(value_to_boolean(params[:replace_tokens]))
-      Canvas::Oauth::Token.expire_code(params[:code])
-    elsif params[:grant_type] == "refresh_token"
-      raise Canvas::Oauth::RequestError, :refresh_token_not_supplied unless params[:refresh_token]
-
-      token = provider.token_for_refresh_token(params[:refresh_token])
-      # token = AccessToken.authenticate_refresh_token(params[:refresh_token])
-      raise Canvas::Oauth::RequestError, :invalid_refresh_token unless token
-      raise Canvas::Oauth::RequestError, :incorrect_client unless token.access_token.developer_key_id == token.key.id
-      token.access_token.regenerate_access_token
+    granter = if grant_type == "authorization_code"
+      Canvas::Oauth::GrantTypes::AuthorizationCode.new(client_id, secret, params)
+    elsif grant_type == "refresh_token"
+      Canvas::Oauth::GrantTypes::RefreshToken.new(client_id, secret, params)
+    elsif grant_type == 'client_credentials'
+      Canvas::Oauth::GrantTypes::ClientCredentials.new(params, request.host)
     else
-      raise Canvas::Oauth::RequestError, :unsupported_grant_type
+      Canvas::Oauth::GrantTypes::BaseType.new(client_id, secret, params)
+    end
+
+    raise Canvas::Oauth::RequestError, :unsupported_grant_type unless granter.supported_type?
+
+    token = granter.token
+    # make sure locales are set up
+    if token.is_a?(Canvas::Oauth::Token)
+      @current_user = token.user
+      assign_localizer
+      I18n.set_locale_with_localizer
     end
 
     render :json => token
@@ -139,16 +137,5 @@ class Oauth2ProviderController < ApplicationController
         !params[:grant_type] && params[:code] ? "authorization_code" : "__UNSUPPORTED_PLACEHOLDER__"
       )
     )
-  end
-
-  def developer_key_management_and_scoping_enabled?(provider)
-    (
-      (
-        @domain_root_account.site_admin? &&
-        Setting.get(Setting::SITE_ADMIN_ACCESS_TO_NEW_DEV_KEY_FEATURES, nil).present?
-      ) ||
-      @domain_root_account.feature_enabled?(:developer_key_management_and_scoping)
-    ) &&
-    provider.key.require_scopes?
   end
 end

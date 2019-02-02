@@ -36,7 +36,7 @@ const props = {
 
 it('renders the component', () => {
   const wrapper = shallow(<IndividualStudentMastery {...props}/>)
-  expect(wrapper.debug()).toMatchSnapshot()
+  expect(wrapper).toMatchSnapshot()
 })
 
 it('attempts to load when mounted', () => {
@@ -93,6 +93,8 @@ describe('expand and contract', () => {
           mastered: false,
           mastery_points: 0,
           points_possible: 0,
+          calculation_method: 'highest',
+          assignments: [],
           results: [],
           ratings: []
         }
@@ -174,7 +176,7 @@ it('renders outcome groups in alphabetical order by title', (done) => {
     ],
     outcomes: []
   }))
-  const wrapper = mount(<IndividualStudentMastery {...props} />)
+  const wrapper = shallow(<IndividualStudentMastery {...props} />)
   setTimeout(() => {
     const groups = wrapper.find('OutcomeGroup')
     expect(groups).toHaveLength(4)

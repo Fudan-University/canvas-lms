@@ -232,7 +232,8 @@ module AccountReports
       if @sis_format
         # headers are not translated on sis_export to maintain import compatibility
         headers = ['course_id', 'integration_id', 'short_name', 'long_name',
-                   'account_id', 'term_id', 'status', 'start_date', 'end_date', 'course_format']
+                   'account_id', 'term_id', 'status', 'start_date', 'end_date', 'course_format',
+                   'blueprint_course_id']
       else
         headers = []
         headers << I18n.t('#account_reports.report_header_canvas_course_id', 'canvas_course_id')
@@ -248,6 +249,7 @@ module AccountReports
         headers << I18n.t('#account_reports.report_header_start__date', 'start_date')
         headers << I18n.t('#account_reports.report_header_end__date', 'end_date')
         headers << I18n.t('#account_reports.report_header_course_format', 'course_format')
+        headers << I18n.t('blueprint_course_id')
         headers << I18n.t('created_by_sis')
       end
 
@@ -271,37 +273,54 @@ module AccountReports
                           'available' => 'active'}
 
       generate_and_run_report headers do |csv|
-        courses.find_each do |c|
-          row = []
-          row << c.id unless @sis_format
-          row << c.sis_source_id
-          row << c.integration_id
-          row << c.course_code
-          row << c.name
-          row << c.account_id unless @sis_format
-          row << c.account.try(:sis_source_id)
-          row << c.enrollment_term_id unless @sis_format
-          row << c.enrollment_term.try(:sis_source_id)
-          # for sis import format 'claimed', 'created', and 'available' are all considered active
-          if @sis_format
-            if c.workflow_state == 'deleted' || c.workflow_state == 'completed'
-              row << c.workflow_state
-            else
-              row << 'active'
+        courses.find_in_batches do |batch|
+
+          blueprint_map = {}
+          root_account.shard.activate do
+            sub_data = Hash[MasterCourses::ChildSubscription.active.where(:child_course_id => batch).pluck(:child_course_id, :master_template_id)]
+            template_data = Hash[MasterCourses::MasterTemplate.active.for_full_course.where(:id => sub_data.values).pluck(:id, :course_id)] if sub_data.present?
+            course_sis_data = Hash[Course.where(:id => template_data.values).where.not(:sis_source_id => nil).pluck(:id, :sis_source_id)] if template_data.present?
+            if course_sis_data.present?
+              sub_data.each do |child_course_id, template_id|
+                sis_id = course_sis_data[template_data[template_id]]
+                blueprint_map[child_course_id] = sis_id if sis_id
+              end
             end
-          else
-            row << course_state_sub[c.workflow_state]
           end
-          if c.restrict_enrollments_to_course_dates
-            row << default_timezone_format(c.start_at)
-            row << default_timezone_format(c.conclude_at)
-          else
-            row << nil
-            row << nil
+
+          batch.each do |c|
+            row = []
+            row << c.id unless @sis_format
+            row << c.sis_source_id
+            row << c.integration_id
+            row << c.course_code
+            row << c.name
+            row << c.account_id unless @sis_format
+            row << c.account.try(:sis_source_id)
+            row << c.enrollment_term_id unless @sis_format
+            row << c.enrollment_term.try(:sis_source_id)
+            # for sis import format 'claimed', 'created', and 'available' are all considered active
+            if @sis_format
+              if c.workflow_state == 'deleted' || c.workflow_state == 'completed'
+                row << c.workflow_state
+              else
+                row << 'active'
+              end
+            else
+              row << course_state_sub[c.workflow_state]
+            end
+            if c.restrict_enrollments_to_course_dates
+              row << default_timezone_format(c.start_at)
+              row << default_timezone_format(c.conclude_at)
+            else
+              row << nil
+              row << nil
+            end
+            row << c.course_format
+            row << blueprint_map[c.id]
+            row << c.sis_batch_id? unless @sis_format
+            csv << row
           end
-          row << c.course_format
-          row << c.sis_batch_id? unless @sis_format
-          csv << row
         end
       end
     end
@@ -327,31 +346,25 @@ module AccountReports
         headers << I18n.t('created_by_sis')
       end
       sections = root_account.course_sections.
-        select("course_sections.*, nxc.sis_source_id AS non_x_course_sis_id,
-                rc.sis_source_id AS course_sis_id, nxc.id AS non_x_course_id,
-                ra.id AS r_account_id, ra.sis_source_id AS r_account_sis_id,
-                nxc.account_id AS nx_account_id, nxa.sis_source_id AS nx_account_sis_id").
+        select("course_sections.*,
+                rc.sis_source_id AS course_sis_id,
+                ra.id AS r_account_id, ra.sis_source_id AS r_account_sis_id").
         joins("INNER JOIN #{Course.quoted_table_name} AS rc ON course_sections.course_id = rc.id
-               INNER JOIN #{Account.quoted_table_name} AS ra ON rc.account_id = ra.id
-               LEFT OUTER JOIN #{Course.quoted_table_name} AS nxc ON course_sections.nonxlist_course_id = nxc.id
-               LEFT OUTER JOIN #{Account.quoted_table_name} AS nxa ON nxc.account_id = nxa.id")
+               INNER JOIN #{Account.quoted_table_name} AS ra ON rc.account_id = ra.id")
 
       if @include_deleted
         sections.where!("course_sections.workflow_state<>'deleted'
                            OR
                            (course_sections.sis_source_id IS NOT NULL
-                            AND (nxc.sis_source_id IS NOT NULL
-                                 OR rc.sis_source_id IS NOT NULL))")
+                            AND rc.sis_source_id IS NOT NULL)")
       else
         sections.where!("course_sections.workflow_state<>'deleted'
-                           AND (nxc.workflow_state<>'deleted'
-                                OR rc.workflow_state<>'deleted')")
+                           AND rc.workflow_state<>'deleted'")
       end
 
       if @sis_format
         sections = sections.where("course_sections.sis_source_id IS NOT NULL
-                                     AND (nxc.sis_source_id IS NOT NULL
-                                     OR rc.sis_source_id IS NOT NULL)")
+                                     AND rc.sis_source_id IS NOT NULL")
       end
 
       sections = sections.where.not(course_sections: {sis_batch_id: nil}) if @created_by_sis
@@ -363,13 +376,8 @@ module AccountReports
           row = []
           row << s.id unless @sis_format
           row << s.sis_source_id
-          if s.nonxlist_course_id.nil?
-            row << s.course_id unless @sis_format
-            row << s.course_sis_id
-          else
-            row << s.non_x_course_id unless @sis_format
-            row << s.non_x_course_sis_id
-          end
+          row << s.course_id unless @sis_format
+          row << s.course_sis_id
           row << s.integration_id
           row << s.name
           row << s.workflow_state
@@ -381,13 +389,8 @@ module AccountReports
             row << nil
           end
           unless @sis_format
-            if s.nonxlist_course_id == nil
-              row << s.r_account_id
-              row << s.r_account_sis_id
-            else
-              row << s.nx_account_id
-              row << s.nx_account_sis_id
-            end
+            row << s.r_account_id
+            row << s.r_account_sis_id
             row << s.sis_batch_id?
           end
           csv << row
@@ -803,10 +806,17 @@ module AccountReports
                 user_observers.sis_batch_id AS o_batch_id").
         joins("INNER JOIN #{UserObservationLink.quoted_table_name} ON pseudonyms.user_id=user_observers.user_id
                INNER JOIN #{Pseudonym.quoted_table_name} AS p2 ON p2.user_id=user_observers.observer_id").
-        where("p2.account_id=pseudonyms.account_id")
+        where("p2.account_id=pseudonyms.account_id").
+        where(:user_observers => {:root_account_id => root_account})
 
       observers = observers.where.not(user_observers: {sis_batch_id: nil}) if @created_by_sis || @sis_format
       observers = observers.active.where.not(user_observers: {workflow_state: 'deleted'}) unless @include_deleted
+
+      if account != root_account
+        observers = observers.
+          where("EXISTS (SELECT user_id FROM #{UserAccountAssociation.quoted_table_name} uaa
+                WHERE uaa.account_id = ? AND uaa.user_id=pseudonyms.user_id)", account)
+      end
 
       generate_and_run_report headers do |csv|
         observers.find_each do |observer|

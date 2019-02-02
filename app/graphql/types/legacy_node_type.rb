@@ -20,6 +20,8 @@ Types::LegacyNodeType = GraphQL::EnumType.define do
   name "NodeType"
 
   value "Assignment"
+  value "AssignmentGroup"
+  value "Discussion"
   value "Course"
   value "Section"
   value "User"
@@ -27,6 +29,8 @@ Types::LegacyNodeType = GraphQL::EnumType.define do
   value "GradingPeriod"
   value "Module"
   value "Page"
+  value "Group"
+  value "GroupSet"
 
 =begin
   # TODO: seems like we should be able to dynamically generate the types that

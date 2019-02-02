@@ -777,7 +777,7 @@ describe "Outcome Groups API", type: :request do
                    :account_id => @account.id.to_s,
                    :id => @group.id.to_s,
                    :format => 'json')
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should return the outcomes linked into the group" do
@@ -1244,8 +1244,8 @@ describe "Outcome Groups API", type: :request do
           { :points => 0, :description => "Does Not Meet Expectations" }
         ]
       })
-      expect(@outcome.calculation_method).to eq("highest")
-      expect(@outcome.calculation_int).to be_nil
+      expect(@outcome.calculation_method).to eq("decaying_average")
+      expect(@outcome.calculation_int).to be 65
     end
 
     it "should link the new outcome into the group" do
@@ -1508,7 +1508,7 @@ describe "Outcome Groups API", type: :request do
                    :account_id => @account.id.to_s,
                    :id => @group.id.to_s,
                    :format => 'json')
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     def create_subgroup(opts={})

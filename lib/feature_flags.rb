@@ -70,11 +70,13 @@ module FeatureFlags
   # return the feature flag for the given feature that is defined on this object, if any.
   # (helper method.  use lookup_feature_flag to test policy.)
   def feature_flag(feature)
-    self.shard.activate do
-      result = feature_flag_cache.fetch(feature_flag_cache_key(feature)) do
-        self.feature_flags.where(feature: feature.to_s).first
+    RequestCache.cache("feature_flag", self, feature) do
+      self.shard.activate do
+        result = feature_flag_cache.fetch(feature_flag_cache_key(feature)) do
+          self.feature_flags.where(feature: feature.to_s).first
+        end
+        result
       end
-      result
     end
   end
 
@@ -99,7 +101,7 @@ module FeatureFlags
   def lookup_feature_flag(feature, override_hidden = false)
     feature = feature.to_s
     feature_def = Feature.definitions[feature]
-    return nil unless feature_def
+    raise "no such feature - #{feature}" unless feature_def
     return nil unless feature_def.applies_to_object(self)
 
     return nil if feature_def.visible_on.is_a?(Proc) && !feature_def.visible_on.call(self)

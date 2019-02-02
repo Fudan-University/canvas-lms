@@ -18,9 +18,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import {Simulate, SimulateNative} from 'react-addons-test-utils'
 import DueDateTokenWrapper from 'jsx/due_dates/DueDateTokenWrapper'
-import OverrideStudentStore from 'jsx/due_dates/OverrideStudentStore'
 import fakeENV from 'helpers/fakeENV'
 
 QUnit.module('DueDateTokenWrapper', {
@@ -71,11 +69,11 @@ QUnit.module('DueDateTokenWrapper', {
 })
 
 test('renders', function() {
-  ok(this.DueDateTokenWrapper.isMounted())
+  ok(this.DueDateTokenWrapper)
 })
 
 test('renders a TokenInput', function() {
-  ok(this.TokenInput.isMounted())
+  ok(this.TokenInput)
 })
 
 test('call to fetchStudents on input changes', function() {

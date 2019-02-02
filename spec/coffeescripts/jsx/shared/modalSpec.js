@@ -20,7 +20,7 @@ import $ from 'jquery'
 import Modal from 'jsx/shared/modal'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import TestUtils from 'react-addons-test-utils'
+import TestUtils from 'react-dom/test-utils'
 import ModalContent from 'jsx/shared/modal-content'
 import ModalButtons from 'jsx/shared/modal-buttons'
 
@@ -29,7 +29,7 @@ QUnit.module('Modal', {
     return $('body').append('<div id=application />')
   },
   teardown() {
-    ReactDOM.unmountComponentAtNode(this.component.getDOMNode().parentNode)
+    ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(this.component).parentNode)
     return $('#application').remove()
   }
 })

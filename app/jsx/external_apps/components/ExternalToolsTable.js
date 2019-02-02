@@ -25,68 +25,101 @@ import ExternalToolsTableRow from '../../external_apps/components/ExternalToolsT
 import InfiniteScroll from '../../external_apps/components/InfiniteScroll'
 import ScreenReaderContent from '@instructure/ui-a11y/lib/components/ScreenReaderContent'
 
-export default React.createClass({
-    displayName: 'ExternalToolsTable',
+export default class ExternalToolsTable extends React.Component {
+  static propTypes = {
+    canAddEdit: PropTypes.bool.isRequired,
+    setFocusAbove: PropTypes.func.isRequired
+  }
 
-    propTypes: {
-      canAddEdit: PropTypes.bool.isRequired
-    },
+  state = store.getState()
 
-    getInitialState() {
-      return store.getState();
-    },
+  onChange = () => {
+    this.setState(store.getState())
+  }
 
-    onChange() {
-      this.setState(store.getState());
-    },
+  componentDidMount() {
+    store.addChangeListener(this.onChange)
+    store.fetch()
+  }
 
-    componentDidMount() {
-      store.addChangeListener(this.onChange);
-      store.fetch();
-    },
+  componentWillUnmount() {
+    store.removeChangeListener(this.onChange)
+  }
 
-    componentWillUnmount() {
-      store.removeChangeListener(this.onChange);
-    },
-
-    loadMore(page) {
-      if (store.getState().hasMore && !store.getState().isLoading) {
-        store.fetch();
-      }
-    },
-
-    loader() {
-      return <div className="loadingIndicator"></div>;
-    },
-
-    trs() {
-      if (store.getState().externalTools.length == 0) {
-        return null;
-      }
-      return store.getState().externalTools.map(function (tool, idx) {
-        return <ExternalToolsTableRow key={idx} tool={tool} canAddEdit={this.props.canAddEdit}/>
-      }.bind(this));
-    },
-
-    render() {
-      return (
-        <div className="ExternalToolsTable">
-          <InfiniteScroll pageStart={0} loadMore={this.loadMore} hasMore={store.getState().hasMore} loader={this.loader()}>
-            <table className="ic-Table ic-Table--striped ic-Table--condensed" id="external-tools-table">
-              <caption className="screenreader-only">{I18n.t('External Apps')}</caption>
-              <thead>
-                <tr>
-                  <th scope="col" width="5%"><ScreenReaderContent>{I18n.t('Status')}</ScreenReaderContent></th>
-                  <th scope="col" width="65%">{I18n.t('Name')}</th>
-                  <th scope="col" width="30%"><ScreenReaderContent>{I18n.t('Actions')}</ScreenReaderContent></th>
-                </tr>
-              </thead>
-              <tbody className="collectionViewItems">
-                {this.trs()}
-              </tbody>
-            </table>
-          </InfiniteScroll>
-        </div>
-      );
+  loadMore = page => {
+    if (store.getState().hasMore && !store.getState().isLoading) {
+      store.fetch()
     }
-  });
+  }
+
+  loader = () => <div className="loadingIndicator" />
+
+  setFocusAbove = (tool) => () => {
+    if (tool) {
+      this[`externalTool${tool.app_id}`].focus()
+    } else {
+      this.props.setFocusAbove()
+    }
+  }
+
+  setToolRowRef = (tool) => (node) => {
+    this[`externalTool${tool.app_id}`] = node
+  }
+
+  trs = () => {
+    if (store.getState().externalTools.length === 0) {
+      return null
+    }
+    let t = null
+    return store
+      .getState()
+      .externalTools
+      .map((tool) => {
+        const toRender = <ExternalToolsTableRow
+          key={tool.app_id}
+          ref={this.setToolRowRef(tool)}
+          tool={tool}
+          canAddEdit={this.props.canAddEdit}
+          setFocusAbove={this.setFocusAbove(t)}
+        />
+        if (tool.lti_version !== '1.3') {
+          t = tool
+        }
+        return toRender
+      })
+  }
+
+  render() {
+    return (
+      <div className="ExternalToolsTable">
+        <InfiniteScroll
+          pageStart={0}
+          loadMore={this.loadMore}
+          hasMore={store.getState().hasMore}
+          loader={this.loader()}
+        >
+          <table
+            className="ic-Table ic-Table--striped ic-Table--condensed"
+            id="external-tools-table"
+          >
+            <caption className="screenreader-only">{I18n.t('External Apps')}</caption>
+            <thead>
+              <tr>
+                <th scope="col" width="5%">
+                  <ScreenReaderContent>{I18n.t('Status')}</ScreenReaderContent>
+                </th>
+                <th scope="col" width="65%">
+                  {I18n.t('Name')}
+                </th>
+                <th scope="col" width="30%">
+                  <ScreenReaderContent>{I18n.t('Actions')}</ScreenReaderContent>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="collectionViewItems">{this.trs()}</tbody>
+          </table>
+        </InfiniteScroll>
+      </div>
+    )
+  }
+}

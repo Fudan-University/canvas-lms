@@ -18,7 +18,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import TestUtils from 'react-addons-test-utils'
+import TestUtils from 'react-dom/test-utils'
 import $ from 'jquery'
 import FilesUsage from 'jsx/files/FilesUsage'
 
@@ -27,7 +27,7 @@ QUnit.module('FilesUsage#update', {
     this.server = sinon.fakeServer.create()
     this.filesUsage = TestUtils.renderIntoDocument(<FilesUsage {...props} />)
     test()
-    ReactDOM.unmountComponentAtNode(this.filesUsage.getDOMNode().parentNode)
+    ReactDOM.unmountComponentAtNode(ReactDOM.findDOMNode(this.filesUsage).parentNode)
     return this.server.restore()
   }
 })

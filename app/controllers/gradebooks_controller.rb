@@ -40,6 +40,7 @@ class GradebooksController < ApplicationController
   def grade_summary
     set_current_grading_period if grading_periods?
     @presenter = grade_summary_presenter
+    student_enrollment = @presenter.student_enrollment
     # do this as the very first thing, if the current user is a
     # teacher in the course and they are not trying to view another
     # user's grades, redirect them to the gradebook
@@ -47,12 +48,12 @@ class GradebooksController < ApplicationController
       return redirect_to polymorphic_url([@context, 'gradebook'])
     end
 
-    if !@presenter.student || !@presenter.student_enrollment
+    if !@presenter.student || !student_enrollment
       return render_unauthorized_action
     end
 
     return unless authorized_action(@context, @current_user, :read) &&
-      authorized_action(@presenter.student_enrollment, @current_user, :read_grades)
+      authorized_action(student_enrollment, @current_user, :read_grades)
 
     log_asset_access([ "grades", @context ], "grades", "other")
 
@@ -104,7 +105,7 @@ class GradebooksController < ApplicationController
 
     ags_json = light_weight_ags_json(@presenter.groups, {student: @presenter.student})
 
-    js_env(
+    js_hash = {
       submissions: submissions_json,
       assignment_groups: ags_json,
       assignment_sort_options: @presenter.sort_options,
@@ -119,7 +120,7 @@ class GradebooksController < ApplicationController
       courses_with_grades: courses_with_grades_json,
       effective_due_dates: effective_due_dates,
       exclude_total: @exclude_total,
-      non_scoring_rubrics_enabled: @context.root_account.feature_enabled?(:non_scoring_rubrics),
+      gradebook_non_scoring_rubrics_enabled: @context.root_account.feature_enabled?(:non_scoring_rubrics),
       rubric_assessments: rubric_assessments_json(@presenter.rubric_assessments, @current_user, session, style: 'full'),
       rubrics: rubrics_json(@presenter.rubrics, @current_user, session, style: 'full'),
       save_assignment_order_url: course_save_assignment_order_url(@context),
@@ -127,7 +128,19 @@ class GradebooksController < ApplicationController
       student_id: @presenter.student_id,
       students: @presenter.students.as_json(include_root: false),
       outcome_proficiency: outcome_proficiency
-    )
+    }
+
+    if @context.feature_enabled?(:final_grades_override)
+      total_score = if grading_periods? && !view_all_grading_periods?
+        student_enrollment.find_score(grading_period_id: @current_grading_period_id)
+      else
+        student_enrollment.find_score(course_score: true)
+      end
+
+      js_hash[:effective_final_grade] = total_score.effective_final_grade if total_score.overridden?
+    end
+
+    js_env(js_hash)
   end
 
   def save_assignment_order
@@ -181,8 +194,15 @@ class GradebooksController < ApplicationController
       if context
         @rubric_context = Context.find_by_asset_string(params[:context_code])
       end
-      @rubric_associations = @context.sorted_rubrics(@current_user, @rubric_context)
-      render :json => @rubric_associations.map{ |r| r.as_json(methods: [:context_name], include: {:rubric => {:include_root => false}}) }
+      @rubric_associations = @rubric_context.shard.activate { Context.sorted_rubrics(@current_user, @rubric_context) }
+      data = @rubric_associations.map{ |ra|
+        json = ra.as_json(methods: [:context_name], include: {:rubric => {:include_root => false}})
+        # return shard-aware context codes
+        json["rubric_association"]["context_code"] = ra.context.asset_string
+        json["rubric_association"]["rubric"]["context_code"] = ra.rubric.context.asset_string
+        json
+      }
+      render :json => StringifyIds.recursively_stringify_ids(data)
     else
       render :json => @rubric_contexts
     end
@@ -491,7 +511,7 @@ class GradebooksController < ApplicationController
             end
 
             submission[:dont_overwrite_grade] = value_to_boolean(params[:dont_overwrite_grades])
-            submission.delete(:final) if submission[:final] && !@context.grants_right?(@current_user, :moderate_grades)
+            submission.delete(:final) if submission[:final] && !@assignment.permits_moderation?(@current_user)
             subs = @assignment.grade_student(@user, submission)
             apply_provisional_grade_filters!(submissions: subs, final: submission[:final]) if submission[:provisional]
             @submissions += subs
@@ -552,16 +572,27 @@ class GradebooksController < ApplicationController
   end
 
   def submissions_json(submissions:, assignments:)
-    submissions.map do |sub|
-      assignment = assignments[sub[:assignment_id].to_i]
+    submissions.map do |submission|
+      assignment = assignments[submission[:assignment_id].to_i]
       omitted_field = assignment.anonymize_students? ? :user_id : :anonymous_id
       json_params = {
         include: { submission_history: { methods: %i[late missing], except: omitted_field } },
-        except: omitted_field
+        except: [omitted_field, :submission_comments]
       }
-      json = sub.as_json(Submission.json_serialization_full_parameters.merge(json_params))
-      json['submission']['assignment_visible'] = sub.assignment_visible_to_user?(sub.user)
-      json['submission']['provisional_grade_id'] = sub.provisional_grade_id if sub.provisional_grade_id
+      json = submission.as_json(Submission.json_serialization_full_parameters.merge(json_params))
+
+      json[:submission].tap do |submission_json|
+        submission_json[:assignment_visible] = submission.assignment_visible_to_user?(submission.user)
+        submission_json[:provisional_grade_id] = submission.provisional_grade_id if submission.provisional_grade_id
+        submission_json[:submission_comments] = anonymous_moderated_submission_comments_json(
+          assignment: submission.assignment,
+          avatars: service_enabled?(:avatars),
+          submissions: submissions,
+          submission_comments: submission.visible_submission_comments_for(@current_user),
+          current_user: @current_user,
+          course: @context
+        ).map { |c| {submission_comment: c} }
+      end
       json
     end
   end
@@ -596,25 +627,14 @@ class GradebooksController < ApplicationController
 
     @assignment = @context.assignments.active.find(params[:assignment_id])
 
-    unless @assignment.can_view_speed_grader?(@current_user)
-      flash[:notice] = t('The maximum number of graders for this assignment has been reached.')
-      return redirect_to(course_gradebook_path(@context))
-    end
-
     if @assignment.unpublished?
       flash[:notice] = t(:speedgrader_enabled_only_for_published_content,
                          'SpeedGrader is enabled only for published content.')
       return redirect_to polymorphic_url([@context, @assignment])
     end
 
-    grading_role = if moderated_grading_enabled_and_no_grades_published?
-      if @assignment.permits_moderation?(@current_user)
-        :moderator
-      else
-        :provisional_grader
-      end
-    else
-      :grader
+    if @assignment.moderated_grading? && !@assignment.user_is_moderation_grader?(@current_user)
+      @assignment.create_moderation_grader(@current_user, occupy_slot: false)
     end
 
     @can_comment_on_submission = !@context.completed? && !@context_enrollment.try(:completed?)
@@ -628,9 +648,12 @@ class GradebooksController < ApplicationController
         log_asset_access([ "speed_grader", @context ], "grades", "other")
         env = {
           CONTEXT_ACTION_SOURCE: :speed_grader,
+          can_view_audit_trail: @assignment.can_view_audit_trail?(@current_user),
           settings_url: speed_grader_settings_course_gradebook_path,
+          new_gradebook_enabled: new_gradebook_enabled?,
           force_anonymous_grading: force_anonymous_grading?(@assignment),
-          grading_role: grading_role,
+          anonymous_identities: @assignment.anonymous_grader_identities_by_anonymous_id,
+          grading_role: grading_role(assignment: @assignment),
           grading_type: @assignment.grading_type,
           lti_retrieve_url: retrieve_course_external_tools_url(
             @context.id, assignment_id: @assignment.id, display: 'borderless'
@@ -644,11 +667,19 @@ class GradebooksController < ApplicationController
           can_comment_on_submission: @can_comment_on_submission,
           show_help_menu_item: show_help_link?,
           help_url: help_link_url,
-          outcome_proficiency: outcome_proficiency
+          outcome_proficiency: outcome_proficiency,
         }
-        if grading_role == :moderator
+        if grading_role(assignment: @assignment) == :moderator
           env[:provisional_copy_url] = api_v1_copy_to_final_mark_path(@context.id, @assignment.id, "{{provisional_grade_id}}")
           env[:provisional_select_url] = api_v1_select_provisional_grade_path(@context.id, @assignment.id, "{{provisional_grade_id}}")
+        end
+
+        unless @assignment.grades_published? || @assignment.can_view_other_grader_identities?(@current_user)
+          env[:current_anonymous_id] = @assignment.moderation_graders.find_by!(user_id: @current_user.id).anonymous_id
+        end
+
+        if new_gradebook_enabled?
+          env[:selected_section_id] = gradebook_settings.dig(@context.id, 'filter_rows_by', 'section_id')
         end
 
         if @assignment.quiz
@@ -663,20 +694,45 @@ class GradebooksController < ApplicationController
       end
 
       format.json do
-        render json: Assignment::SpeedGrader.new(
+        render json: SpeedGrader::Assignment.new(
           @assignment,
           @current_user,
           avatars: service_enabled?(:avatars),
-          grading_role: grading_role
+          grading_role: grading_role(assignment: @assignment)
         ).json
       end
     end
   end
 
   def speed_grader_settings
-    grade_by_question = value_to_boolean(params[:enable_speedgrader_grade_by_question])
-    @current_user.preferences[:enable_speedgrader_grade_by_question] = grade_by_question
-    @current_user.save!
+    if params[:enable_speedgrader_grade_by_question]
+      grade_by_question = value_to_boolean(params[:enable_speedgrader_grade_by_question])
+      @current_user.preferences[:enable_speedgrader_grade_by_question] = grade_by_question
+      @current_user.save!
+    end
+
+    if params[:selected_section_id]
+      section_to_show = if params[:selected_section_id] == 'all'
+        nil
+      elsif @context.active_course_sections.exists?(id: params[:selected_section_id])
+        params[:selected_section_id]
+      end
+
+      settings = gradebook_settings(create_if_missing: true)
+      settings.deep_merge!({
+        @context.id => {
+          'filter_rows_by' => {
+            'section_id' => section_to_show
+          }
+        }
+      })
+
+      # Showing a specific section should always display the "Sections" filter
+      # in New Gradebook
+      ensure_section_view_filter_enabled if section_to_show.present?
+      @current_user.save!
+    end
+
     head :ok
   end
 
@@ -706,6 +762,13 @@ class GradebooksController < ApplicationController
       @current_user.save!
       render json: nil
     end
+  end
+
+  def final_grade_overrides
+    return unless authorized_action(@context, @current_user, [:manage_grades, :view_all_grades])
+
+    final_grade_overrides = ::Gradebook::FinalGradeOverrides.new(@context, @current_user)
+    render json: { final_grade_overrides: final_grade_overrides.to_h }
   end
 
   def user_ids
@@ -757,11 +820,12 @@ class GradebooksController < ApplicationController
     {
       GRADEBOOK_OPTIONS: {
         colors: gradebook_settings.fetch(:colors, {}),
+        final_grade_override_enabled: @context.feature_enabled?(:final_grades_override),
         graded_late_submissions_exist: graded_late_submissions_exist,
-        grading_schemes: GradingStandard.for(@context).as_json(include_root: false),
         gradezilla: true,
-        new_gradebook_development_enabled: new_gradebook_development_enabled?,
-        late_policy: @context.late_policy.as_json(include_root: false)
+        grading_schemes: GradingStandard.for(@context).as_json(include_root: false),
+        late_policy: @context.late_policy.as_json(include_root: false),
+        new_gradebook_development_enabled: new_gradebook_development_enabled?
       }
     }
   end
@@ -967,8 +1031,21 @@ class GradebooksController < ApplicationController
     )
   end
 
-  def gradebook_settings
-    @current_user.preferences.fetch(:gradebook_settings, {})
+  def gradebook_settings(create_if_missing: false)
+    preferences = @current_user.preferences
+    if !preferences.include?(:gradebook_settings) && create_if_missing
+      preferences[:gradebook_settings] = {}
+    end
+
+    preferences.fetch(:gradebook_settings, {})
+  end
+
+  def ensure_section_view_filter_enabled
+    context_settings = gradebook_settings.fetch(@context.id)
+    filter_settings = context_settings.fetch('selected_view_options_filters', [])
+    return if filter_settings&.include?('sections')
+
+    context_settings['selected_view_options_filters'] = filter_settings.append('sections')
   end
 
   def courses_with_grades_json
@@ -1012,6 +1089,18 @@ class GradebooksController < ApplicationController
         default_to_null_grade: false
       )
       submission.apply_provisional_grade_filter!(provisional_grade) if provisional_grade
+    end
+  end
+
+  def grading_role(assignment:)
+    if moderated_grading_enabled_and_no_grades_published?
+      if assignment.permits_moderation?(@current_user)
+        :moderator
+      else
+        :provisional_grader
+      end
+    else
+      :grader
     end
   end
 end

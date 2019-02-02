@@ -59,6 +59,7 @@ import './supercalc'
 import './vendor/jquery.scrollTo'
 import 'jqueryui/sortable'
 import 'jqueryui/tabs'
+import AssignmentExternalTools from 'jsx/assignments/AssignmentExternalTools'
 
 var dueDateList, overrideView, quizModel, sectionList, correctAnswerVisibility, scoreValidation;
 
@@ -905,12 +906,14 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
     updateDisplayComments: function() {
       this.checkShowDetails();
       $(".question_holder > .question > .question_comment").each(function() {
-        var val = $.trim($(this).find(".question_comment_text").html());
-        $(this).css('display', '').toggleClass('empty', !val);
+        const plain = $.trim($(this).find(".question_comment_text").html());
+        const rich = $.trim($(this).find(".question_comment_html").html());
+        $(this).css('display', '').toggleClass('empty', !plain && !rich);
       });
       $(".question_holder .answer_comment_holder").each(function() {
-        var val = $.trim($(this).find(".answer_comment").html());
-        $(this).css('display', '').toggleClass('empty', !val);
+        const plain = $.trim($(this).find(".answer_comment").html());
+        const rich = $.trim($(this).find(".answer_comment_html").html());
+        $(this).css('display', '').toggleClass('empty', !plain && !rich);
       });
       $("#questions .group_top:not(#group_top_new)").each(function(){
         var pickCount = $(this).find(".pick_count").text() || 0;
@@ -941,7 +944,7 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
       return null;
     },
 
-    parseInput: function($input, type) {
+    parseInput: function($input, type, precision = 10) {
       if ($input.val() == "") { return; }
 
       var val = $input.val().replace(/,/g, '');
@@ -960,17 +963,20 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
         val = parseFloat(val)
         if (isNaN(val)) { val = 0.0; }
 
-        // Round to precision 16 to handle floating point error
-        val = val.toPrecision(16);
-
-        // Truncate to specified precision
-        var precision = arguments[2] || 10;
-        if (precision < 16) {
-          var precision_shift = Math.pow(10, precision - Math.floor(Math.log(val) / Math.LN10) - 1);
-          val = Math.floor(val * precision_shift) / precision_shift;
-
-          // Format
+        if (val === 0) {
           val = val.toPrecision(precision)
+        } else {
+          // Round to precision 16 to handle floating point error
+          val = val.toPrecision(16);
+
+          // Truncate to specified precision
+          if (precision < 16) {
+            const precision_shift = 10 ** (precision - Math.floor(Math.log(Math.abs(val)) / Math.LN10) - 1);
+            val = Math.floor(val * precision_shift) / precision_shift;
+
+            // Format
+            val = val.toPrecision(precision)
+          }
         }
       }
 
@@ -1583,6 +1589,14 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
     ipFilterValidation.init();
     renderDueDates();
 
+    if ($('#assignment_external_tools').length) {
+      AssignmentExternalTools.attach(
+        $('#assignment_external_tools')[0],
+        "assignment_edit",
+        parseInt(ENV.COURSE_ID, 10),
+        parseInt(ENV.ASSIGNMENT_ID, 10));
+    }
+
     $('#quiz_tabs').tabs();
     $('#editor_tabs').show();
 
@@ -1848,7 +1862,7 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
         data.allowed_attempts = attempts;
         data['quiz[allowed_attempts]'] = attempts;
         var overrides = overrideView.getOverrides();
-        data['quiz[only_visible_to_overrides]'] = overrideView.containsSectionsWithoutOverrides();
+        data['quiz[only_visible_to_overrides]'] = !overrideView.overridesContainDefault()
         if (overrideView.containsSectionsWithoutOverrides() && !hasCheckedOverrides) {
           var sections = overrideView.sectionsWithoutOverrides();
           var missingDateView = new MissingDateDialog({
@@ -3858,21 +3872,21 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
       event.preventDefault();
       RichContentEditor.callOnRCE($("#quiz_description"), 'toggle');
       //  todo: replace .andSelf with .addBack when JQuery is upgraded.
-      $(this).siblings(".toggle_description_views_link").andSelf().toggle();
+      $(this).siblings(".toggle_description_views_link").andSelf().toggle().focus();
     });
 
     $(".toggle_question_content_views_link").click(function(event) {
       event.preventDefault();
       RichContentEditor.callOnRCE($(this).parents(".question_form").find(".question_content"), 'toggle');
       //  todo: replace .andSelf with .addBack when JQuery is upgraded.
-      $(this).siblings(".toggle_question_content_views_link").andSelf().toggle();
+      $(this).siblings(".toggle_question_content_views_link").andSelf().toggle().focus();
     });
 
     $(".toggle_text_after_answers_link").click(function(event) {
       event.preventDefault();
       RichContentEditor.callOnRCE($(this).parents(".question_form").find(".text_after_answers"), 'toggle');
       //  todo: replace .andSelf with .addBack when JQuery is upgraded.
-      $(this).siblings(".toggle_text_after_answers_link").andSelf().toggle();
+      $(this).siblings(".toggle_text_after_answers_link").andSelf().toggle().focus();
     });
 
     $("#calc_helper_methods").change(function() {
@@ -4293,4 +4307,3 @@ const lockedItems = lockManager.isChildContent() ? lockManager.getItemLocks() : 
       }
     }).triggerHandler('change');
   });
-

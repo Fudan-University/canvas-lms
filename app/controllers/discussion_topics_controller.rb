@@ -517,7 +517,7 @@ class DiscussionTopicsController < ApplicationController
       HAS_GRADING_PERIODS: @context.grading_periods?,
       SECTION_LIST: sections.map { |section| { id: section.id, name: section.name } },
       ANNOUNCEMENTS_LOCKED: announcements_locked?,
-      CREATE_ANNOUNCEMENTS_UNLOCKED: @current_user.create_announcements_unlocked?
+      CREATE_ANNOUNCEMENTS_UNLOCKED: @current_user.create_announcements_unlocked?,
     }
 
     post_to_sis = Assignment.sis_grade_export_enabled?(@context)
@@ -608,7 +608,7 @@ class DiscussionTopicsController < ApplicationController
     else
       @headers = !params[:headless]
       # we still need the lock info even if the current user policies unlock the topic. check the policies manually later if you need to override the lockout.
-      @locked = @topic.locked_for?(@current_user, :check_policies => false, :deep_check_if_needed => true)
+      @locked = @topic.locked_for?(@current_user, :check_policies => true, :deep_check_if_needed => true)
       @unlock_at = @topic.available_from_for(@current_user)
       @topic.change_read_state('read', @current_user) unless @locked.is_a?(Hash) && !@locked[:can_view]
       if @topic.for_group_discussion?
@@ -666,6 +666,7 @@ class DiscussionTopicsController < ApplicationController
               :APP_URL => named_context_url(@context, :context_discussion_topic_url, @topic),
               :TOPIC => {
                 :ID => @topic.id,
+                :TITLE => @topic.title,
                 :IS_SUBSCRIBED => @topic.subscribed?(@current_user),
                 :IS_PUBLISHED  => @topic.published?,
                 :CAN_UNPUBLISH => @topic.can_unpublish?,
@@ -705,8 +706,11 @@ class DiscussionTopicsController < ApplicationController
               :SORT_BY_RATING => @topic.sort_by_rating,
               :TODO_DATE => @topic.todo_date,
               :IS_ASSIGNMENT => @topic.assignment_id?,
-              :IS_GROUP => @topic.group_category_id?
+              :ASSIGNMENT_ID => @topic.assignment_id,
+              :IS_GROUP => @topic.group_category_id?,
             }
+
+            env_hash[:GRADED_RUBRICS_URL] = context_url(@topic.assignment.context, :context_assignment_rubric_url, @topic.assignment.id) if @topic.assignment
             if params[:hide_student_names]
               env_hash[:HIDE_STUDENT_NAMES] = true
               env_hash[:STUDENT_ID] = params[:student_id]
@@ -730,7 +734,7 @@ class DiscussionTopicsController < ApplicationController
             js_hash = {:DISCUSSION => env_hash}
             if @context.is_a?(Course)
               js_hash[:TOTAL_USER_COUNT] = @topic.context.enrollments.not_fake.
-                active_or_pending_by_date_ignoring_access.count
+                active_or_pending_by_date_ignoring_access.distinct.count(:user_id)
             end
             js_hash[:COURSE_ID] = @context.id if @context.is_a?(Course)
             js_hash[:CONTEXT_ACTION_SOURCE] = :discussion_topic
@@ -1038,7 +1042,13 @@ class DiscussionTopicsController < ApplicationController
   def set_sections
     if params[:specific_sections] != "all"
       @topic.is_section_specific = true
-      @topic.course_sections = CourseSection.find(params[:specific_sections].split(","))
+      section_ids = params[:specific_sections]
+      section_ids = section_ids.split(",") if section_ids.is_a?(String)
+      new_section_ids = section_ids.map{|id| Shard.relative_id_for(id, Shard.current, Shard.current)}.sort
+      if @topic.course_sections.pluck(:id).sort != new_section_ids
+        @topic.course_sections = CourseSection.find(new_section_ids)
+        @topic.sections_changed = true
+      end
     else
       @topic.is_section_specific = false
     end
@@ -1074,6 +1084,7 @@ class DiscussionTopicsController < ApplicationController
 
   def process_discussion_topic_runner(is_new = false)
     @errors = {}
+
     model_type = if value_to_boolean(params[:is_announcement]) &&
         @context.announcements.temp_record.grants_right?(@current_user, session, :create)
                     :announcements

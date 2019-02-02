@@ -18,6 +18,7 @@
 
 import React from 'react';
 import Button from '@instructure/ui-buttons/lib/components/Button';
+import CloseButton from '@instructure/ui-buttons/lib/components/CloseButton';
 import Link from '@instructure/ui-elements/lib/components/Link';
 import Text from '@instructure/ui-elements/lib/components/Text';
 import List from '@instructure/ui-elements/lib/components/List';
@@ -27,12 +28,12 @@ import AssignmentIcon from   '@instructure/ui-icons/lib/Line/IconAssignment';
 import QuizIcon from         '@instructure/ui-icons/lib/Line/IconQuiz';
 import AnnouncementIcon from '@instructure/ui-icons/lib/Line/IconAnnouncement';
 import DiscussionIcon from   '@instructure/ui-icons/lib/Line/IconDiscussion';
-import NoteIcon from         '@instructure/ui-icons/lib/Line/IconNoteLight';
+import NoteIcon from         '@instructure/ui-icons/lib/Line/IconNote';
 import CalendarIcon from     '@instructure/ui-icons/lib/Line/IconCalendarMonth';
-import PageIcon from         '@instructure/ui-icons/lib/Line/IconMsWord';
-import XIcon from            '@instructure/ui-icons/lib/Line/IconX';
+import PageIcon from         '@instructure/ui-icons/lib/Line/IconDocument';
+import PeerReviewIcon from '@instructure/ui-icons/lib/Line/IconPeerReview';
 
-import { formatDateAtTimeWithoutYear } from '../../utilities/dateUtils';
+import { dateTimeString } from '../../utilities/dateUtils';
 import formatMessage from '../../format-message';
 import { func, shape, object, arrayOf, number, string } from 'prop-types';
 
@@ -50,6 +51,8 @@ const getIconComponent = (itemType) => {
       return <CalendarIcon label={formatMessage('Calendar Event')} className="ToDoSidebarItem__Icon" />;
     case 'Page':
       return <PageIcon label={formatMessage('Page')} className="ToDoSidebarItem__Icon" />;
+    case 'Peer Review':
+      return <PeerReviewIcon label={formatMessage('Peer Review')} className="ToDoSidebarItem__Icon" />;
     default:
       return <NoteIcon label={formatMessage('To Do')} className="ToDoSidebarItem__Icon" />;
   }
@@ -82,14 +85,21 @@ export default class ToDoItem extends React.Component {
 
     toDisplay.push(
       <ListItem key="date">
-        {formatDateAtTimeWithoutYear(dueAt, this.props.timeZone)}
+        {dateTimeString(dueAt, this.props.timeZone)}
       </ListItem>
     );
     return toDisplay;
   }
 
+  itemTitle () {
+    if (this.props.item.type === 'Peer Review') {
+      return formatMessage('Peer Review for {itemTitle}', {itemTitle: this.props.item.title});
+    } 
+    return this.props.item.title;
+  }
+
   render () {
-    const title = <Text size="small" lineHeight="fit">{this.props.item.title}</Text>;
+    const title = <Text size="small" lineHeight="fit">{this.itemTitle()}</Text>;
     const titleComponent = this.props.item.html_url ? (
       <Link linkRef={(elt) => {this.linkRef = elt;}} href={this.props.item.html_url}>{title}</Link>
     ) : (
@@ -111,15 +121,14 @@ export default class ToDoItem extends React.Component {
           </List>
         </div>
         <div className="ToDoSidebarItem__Close">
-          <Button
+          <CloseButton
             variant="icon"
             size="small"
             onClick={this.handleClick}
             buttonRef={(elt) => {this.buttonRef = elt;}}
-            aria-label={formatMessage('Dismiss {itemTitle}', {itemTitle: this.props.item.title})}
           >
-            <XIcon className="ToDoSidebarItem__CloseIcon" />
-          </Button>
+            {formatMessage('Dismiss {itemTitle}', {itemTitle: this.props.item.title})}
+          </CloseButton>
         </div>
       </div>
     );

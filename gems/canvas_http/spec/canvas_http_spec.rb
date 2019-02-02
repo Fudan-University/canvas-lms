@@ -19,12 +19,17 @@
 require 'spec_helper'
 require 'webmock'
 require 'tempfile'
+require 'multipart'
 
 describe "CanvasHttp" do
 
   include WebMock::API
 
   describe ".post" do
+    before :each do
+      WebMock::RequestRegistry.instance.reset!
+    end
+
     it "allows you to send a body" do
       url = "www.example.com/a"
       body = "abc"
@@ -40,6 +45,24 @@ describe "CanvasHttp" do
       stub_request(:post, url).with(body: "abc", :headers => {'Content-Type'=>content_type}).
         to_return(status: 200)
       expect(CanvasHttp.post(url, body: body, content_type: content_type).code).to eq "200"
+    end
+
+    it "allows you to do a streaming multipart upload" do
+      url = "www.example.com/a"
+      file_contents = "file contents"
+      form_data = { "file.txt" => StringIO.new(file_contents) }
+
+      stubbed = stub_request(:post, url).with do |req|
+        expect(req.headers['Content-Type']).to match(%r{\Amultipart/form-data})
+        expect(req.body.lines[1]).to match('Content-Disposition: form-data; name="file.txt"; filename="file.txt"')
+        expect(req.body.lines[2]).to match('Content-Transfer-Encoding: binary')
+        expect(req.body.lines[3]).to match('Content-Type: text/plain')
+        expect(req.body.lines[5]).to match('file contents')
+      end.to_return(:status => 200)
+
+      CanvasHttp.post(url, form_data: form_data, multipart: true, streaming: true)
+
+      assert_requested(stubbed)
     end
   end
 
@@ -128,13 +151,18 @@ describe "CanvasHttp" do
 
   describe '#insecure_host?' do
     it "should check for insecure hosts" do
-      CanvasHttp.blocked_ip_filters = -> { ['127.0.0.1/8', '42.42.42.42/16']}
-      expect(CanvasHttp.insecure_host?('www.example.com')).to eq false
-      expect(CanvasHttp.insecure_host?('localhost')).to eq true
-      expect(CanvasHttp.insecure_host?('127.0.0.1')).to eq true
-      expect(CanvasHttp.insecure_host?('42.42.42.42')).to eq true
-      expect(CanvasHttp.insecure_host?('42.42.1.1')).to eq true
-      expect(CanvasHttp.insecure_host?('42.1.1.1')).to eq false
+      begin
+        old_filters = CanvasHttp.blocked_ip_filters
+        CanvasHttp.blocked_ip_filters = -> { ['127.0.0.1/8', '42.42.42.42/16']}
+        expect(CanvasHttp.insecure_host?('www.example.com')).to eq false
+        expect(CanvasHttp.insecure_host?('localhost')).to eq true
+        expect(CanvasHttp.insecure_host?('127.0.0.1')).to eq true
+        expect(CanvasHttp.insecure_host?('42.42.42.42')).to eq true
+        expect(CanvasHttp.insecure_host?('42.42.1.1')).to eq true
+        expect(CanvasHttp.insecure_host?('42.1.1.1')).to eq false
+      ensure
+        CanvasHttp.blocked_ip_filters = old_filters
+      end
     end
   end
 

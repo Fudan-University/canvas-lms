@@ -267,6 +267,30 @@ RSpec::Matchers.define :contain_link_partial_text do |text|
   end
 end
 
+# assert whether or not an element meets the desired contrast ratio.
+# will wait up to TIMEOUTS[:finder] seconds
+require_relative '../helpers/color_common'
+RSpec::Matchers.define :meet_contrast_ratio do |ratio = 3.5|
+  match do |element|
+    wait_for(method: :be_displayed) do
+      LuminosityContrast.ratio(
+        ColorCommon.rgba_to_hex(element.style('background-color')),
+        ColorCommon.rgba_to_hex(element.style('color'))
+      ) >= ratio
+    end
+  end
+
+  match_when_negated do |element|
+    wait_for(method: :be_displayed) do
+      LuminosityContrast.ratio(
+        ColorCommon.rgba_to_hex(element.style('background-color')),
+        ColorCommon.rgba_to_hex(element.style('color'))
+      ) < ratio
+    end
+  end
+end
+
+
 # assert whether or not an element is displayed. will wait up to
 # TIMEOUTS[:finder] seconds
 RSpec::Matchers.define :be_displayed do
@@ -312,6 +336,19 @@ RSpec::Matchers.define :become do |size|
     raise "The `become` matcher expects a block, e.g. `expect { actual }.to become(value)`, NOT `expect(actual).to become(value)`" unless actual.is_a? Proc
     wait_for(method: :become) do
       disable_implicit_wait { actual.call == expected }
+    end
+  end
+end
+
+RSpec::Matchers.define :become_between do |min, max|
+  def supports_block_expectations?
+    true
+  end
+
+  match do |actual|
+    raise "The `become` matcher expects a block, e.g. `expect { actual }.to become(value)`, NOT `expect(actual).to become(value)`" unless actual.is_a? Proc
+    wait_for(method: :become) do
+      disable_implicit_wait { a = actual.call; min < a && a < max }
     end
   end
 end

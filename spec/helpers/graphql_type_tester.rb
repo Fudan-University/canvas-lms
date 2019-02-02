@@ -16,50 +16,99 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+
+##
+# = Convenience class for testing graphql types.
+#
+# This class provides a more convenient workflow for writing graphql queries
+# and inspecting their results.  Consider the following example:
+#
+#   user_type = GraphQLTypeTester.new(@student, current_user: @teacher)
+#   expect(user_type.resolve("_id")).to eq @student.id.to_s
+#
+# this is equivalent to constructing the following query by hand:
+#
+#   res = CanvasSchema.execute(<<~GQL, context: {current_user: @teacher})
+#     node(id: "asdfasdf") {
+#       ... on User {
+#         _id
+#       }
+#     }
+#   GQL
+#   expect(res["data"]["node"]["_id"]).to eq @student.id.to_s
+#
 class GraphQLTypeTester
-  def initialize(type, test_object, user=nil)
-    @type = case
-            when GraphQL::ObjectType === type then type
-            when type < GraphQL::Schema::Object then type.graphql_definition
-            else CanvasSchema.types[type]
-            end
+  # _test_object_ is the backing object for a GraphQL type.  It must implement
+  # +GraphQL::Types::Relay::Node+ (otherwise you'll need to reach down the
+  # graph from a parent object).
+  #
+  # _context_ is an optional default context that will be passed to the query.
+  def initialize(test_object, context = {})
     @obj = test_object
-    @current_user = user
-    @context = {current_user: @current_user}
+    @context = context
+  end
 
-    @type.fields.each { |name, field|
-      # can't do id because the builtin relay helper provided by GraphQL::Relay
-      # references the schema by grabbing it off ctx.query (which obv doesn't
-      # exist)
-      #
-      # if we felt strongly about being able to run "id" we will want to not
-      # use the builtin helper
-      next if name == "id"
 
-      if respond_to?(name)
-        raise "error: trying to overwrite existing method #{name}"
-      end
-
-      define_singleton_method name do |ctx={}|
-        args = ctx.delete(:args) || {}
-        GraphQL::Batch.batch {
-          if GraphQL::ObjectType === type
-            # 1.7 class node-style api
-            field.resolve(@obj, args, @context.merge(ctx))
-          else
-            # 1.8 class api
-            type_obj = type.new(@obj, @context.merge(ctx))
-            method_str = field.metadata[:type_class].method_str
-            if type_obj.respond_to?(method_str)
-              if args.present?
-                type_obj.send(method_str, **args)
-              else
-                type_obj.send(method_str)
-              end
-            end
-          end
-        }
-      end
+  # returns the value (or list of values) for the resolved field.  This can be
+  # any fragment of graphql, but ultimately should only select a single scalar
+  # field:
+  #
+  # [good]  * <tt>id</tt>
+  #         * <tt>foo(bar: BAZ)</tt>
+  #         * <tt>userConnection { edges { node { name } } }</tt> In this case,
+  #           the return value of resolve will be a list of names
+  #         * <tt>course { updatedAt }</tt>
+  # [bad]   * <tt>id, name</tt> selecting multiple fields is not allowed
+  #         * <tt>userConnection</tt> must select scalars (not compound types)
+  #
+  # _context_ represents additional context to pass to the query (or to
+  # override the context supplied in the constructor).  This will typically be
+  # used to pass the _current_user_.
+  def resolve(field_and_subfields, context = {})
+    field_context = @context.merge(context)
+    type = CanvasSchema.resolve_type(@obj, field_context) or
+      raise "couldn't resolve type for #{@obj.inspect}"
+    field = extract_field(field_and_subfields, type)
+    variables = {
+      id: CanvasSchema.id_from_object(@obj, type, field_context)
     }
+
+    result = CanvasSchema.execute(<<~GQL, context: field_context, variables: variables)
+      query($id: ID!) {
+        node(id: $id) {
+          ... on #{type} {
+            #{field_and_subfields}
+          }
+        }
+      }
+    GQL
+
+    if result["errors"]
+      raise "QraphQL query error: #{result["errors"].inspect}"
+    else
+      extract_results(result)
+    end
+  end
+
+  private
+
+  def extract_field(field_and_subfields, type)
+    field_and_subfields =~ /\A(\w+)/
+    field = $1
+    if !field || !type.fields[field]
+      raise "couldn't find field #{field} for #{type}"
+    end
+    field
+  end
+
+  def extract_results(result)
+    return result unless result.respond_to?(:reduce)
+    result.reduce(nil) do |result, (k, v)|
+      case v
+      when Hash then extract_results(v)
+      when Array then v.map { |x| extract_results(x) }
+      else v
+      end
+    end
   end
 end

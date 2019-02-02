@@ -32,7 +32,7 @@ describe ObserverPairingCodesApiController, type: :request do
     it 'students can create pairing codes for themselves' do
       json = api_call_as_user(@student, :post, @path, @params)
       expect(json['user_id']).to eq @student.id
-      expect(json['expires_at']).not_to be nil
+      expect(json['expires_at'] >= 6.days.from_now && json['expires_at'] <= 7.days.from_now).to eq true
       expect(json['workflow_state']).to eq 'active'
       expect(json['code'].length).to eq 6
     end
@@ -50,6 +50,30 @@ describe ObserverPairingCodesApiController, type: :request do
       json = api_call_as_user(teacher, :post, @path, @params)
       expect(response.code).to eq "401"
       expect(json['code']).to eq nil
+    end
+
+    it 'works for teachers in courses that are not published yet' do
+      course_factory
+      course_with_teacher(course: @course)
+      course_with_student(course: @course)
+      @course.account.role_overrides.create!(:permission => :generate_observer_pairing_code, :enabled => true, :role => teacher_role)
+
+      path = "/api/v1/users/#{@student.id}/observer_pairing_codes"
+      params = @params.merge(user_id: @student.to_param)
+      api_call_as_user(@teacher, :post, path, params)
+      expect(response.code).to eq "200"
+    end
+
+    it 'does not work for deleted courses' do
+      course_factory
+      course_with_teacher(course: @course)
+      course_with_student(course: @course)
+      @course.destroy
+
+      path = "/api/v1/users/#{@student.id}/observer_pairing_codes"
+      params = @params.merge(user_id: @student.to_param)
+      api_call_as_user(@teacher, :post, path, params)
+      expect(response.code).to eq "401"
     end
 
     it 'admin can generate code' do

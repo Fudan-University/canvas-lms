@@ -133,6 +133,11 @@ Style/FrozenStringLiteralComment:
   Enabled: false
 Style/AsciiComments:
   Enabled: false
+Style/BlockDelimiters:
+  Enabled: true
+  Exclude:
+    - spec/**/*_spec.rb
+    - spec/shared_examples/**/*.rb
 
 # RSpec cops we don't care about
 RSpec/MessageSpies:
@@ -143,11 +148,15 @@ RSpec/VerifiedDoubles:
   Enabled: false
 RSpec/NamedSubject:
   Enabled: false
+RSpec/NotToNot:
+  Enabled: false
 # RSpec cops we care extra about
 RSpec/EmptyExampleGroup:
   Severity: error
 RSpec/RepeatedDescription:
   Severity: error
+RSpec/ExpectChange:
+  Enabled: false
 
 # this isn't good for us because of how we pin dependencies
 Bundler/OrderedGems:
@@ -194,6 +203,9 @@ Lint/EndAlignment:
 # Performance changes
 Performance/Detect:
   Severity: warning
+Performance/TimesMap:
+  Exclude:
+    - spec/**/*
 
 # these need better configuration than the default:
 Style/AndOr:

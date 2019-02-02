@@ -27,6 +27,8 @@ function makeDefaultProps() {
     assignedRoles: ROLES.filter(r => r.id === '1'),
     label: 'Student',
     permissionName: 'add_section',
+    permission: 'the best permission',
+    tab: 'account',
     open: true,
     hideTray: () => {},
     unassignedRoles: ROLES.filter(r => r.id === '2')
@@ -38,12 +40,7 @@ it('renders the label', () => {
   const tree = shallow(<PermissionTray {...props} />)
   const node = tree.find('Heading')
   expect(node.exists()).toBeTruthy()
-  expect(
-    node
-      .dive('Heading')
-      .dive('Container')
-      .text()
-  ).toEqual('Student')
+  expect(node.children().text()).toEqual('Student')
 })
 
 it('renders assigned roles if any are present', () => {

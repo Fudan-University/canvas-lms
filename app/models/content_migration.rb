@@ -65,6 +65,23 @@ class ContentMigration < ActiveRecord::Base
     can :manage_files and can :read
   end
 
+  def trigger_live_events!
+    # Trigger live events for the source course and migration
+    Canvas::LiveEventsCallbacks.after_update(context, context.saved_changes)
+    Canvas::LiveEventsCallbacks.after_update(self, self.saved_changes)
+
+    # Trigger live events for all updated/created records
+    imported_migration_items.each do |imported_item|
+      next unless LiveEventsObserver.observed_classes.include? imported_item.class
+      next if started_at.blank? || imported_item.created_at.blank?
+      if imported_item.created_at > started_at
+        Canvas::LiveEventsCallbacks.after_create(imported_item)
+      else
+        Canvas::LiveEventsCallbacks.after_update(imported_item, imported_item.saved_changes)
+      end
+    end
+  end
+
   def set_started_at_and_finished_at
     if workflow_state_changed?
       if pre_processing? || exporting? || importing?
@@ -506,7 +523,7 @@ class ContentMigration < ActiveRecord::Base
         end
         self.context.copy_attachments_from_course(source_export.context, :content_export => source_export, :content_migration => self)
         MasterCourses::FolderHelper.recalculate_locked_folders(self.context)
-        MasterCourses::FolderHelper.update_folder_names(self.context, source_export)
+        MasterCourses::FolderHelper.update_folder_names_and_states(self.context, source_export)
 
         data = JSON.parse(self.exported_attachment.open, :max_nesting => 50)
         data = prepare_data(data)
@@ -623,7 +640,7 @@ class ContentMigration < ActiveRecord::Base
 
   def process_master_deletions(deletions)
     deletions.keys.each do |klass|
-      next unless MasterCourses::ALLOWED_CONTENT_TYPES.include?(klass)
+      next unless MasterCourses::CONTENT_TYPES_FOR_DELETIONS.include?(klass)
       mig_ids = deletions[klass]
       item_scope = case klass
       when 'Attachment'

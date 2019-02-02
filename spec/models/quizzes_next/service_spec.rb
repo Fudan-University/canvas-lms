@@ -21,7 +21,8 @@ describe QuizzesNext::Service do
   Service = QuizzesNext::Service
 
   describe '.enabled_in_context?' do
-    let(:context) { double("context") }
+    let(:root_account) { double "root_account", :feature_allowed? => true}
+    let(:context) { double("context", :root_account => root_account) }
 
     context 'when the feature is enabled on the context' do
       it 'will return true' do
@@ -30,9 +31,17 @@ describe QuizzesNext::Service do
       end
     end
 
-    context 'when feature is enabled' do
+    context 'when the feature is not enabled on the context but allowed on root account' do
+      it 'will return true' do
+        allow(context).to receive(:feature_enabled?).and_return(false)
+        expect(Service.enabled_in_context?(context)).to eq(true)
+      end
+    end
+
+    context 'when feature is not enabled in course and root account' do
       it 'will return false' do
         allow(context).to receive(:feature_enabled?).and_return(false)
+        allow(context.root_account).to receive(:feature_allowed?).and_return(false)
         expect(Service.enabled_in_context?(context)).to eq(false)
       end
     end
@@ -41,14 +50,14 @@ describe QuizzesNext::Service do
   describe '.active_lti_assignments_for_course' do
     it 'returns active lti assignments in the course' do
       course = course_model
-      lti_assignment_active1 = assignment_model(course: course)
-      lti_assignment_active2 = assignment_model(course: course)
-      lti_assignment_inactive = assignment_model(course: course)
-      assignment_active = assignment_model(course: course)
+      lti_assignment_active1 = assignment_model(course: course, submission_types: "external_tool")
+      lti_assignment_active2 = assignment_model(course: course, submission_types: "external_tool")
+      lti_assignment_inactive = assignment_model(course: course, submission_types: "external_tool")
+      assignment_active = assignment_model(course: course, submission_types: "external_tool")
 
-      allow(lti_assignment_inactive).to receive(:active?).and_return(false)
-      allow(lti_assignment_active1).to receive(:quiz_lti?).and_return(true)
-      allow(lti_assignment_active2).to receive(:quiz_lti?).and_return(true)
+      lti_assignment_inactive.destroy
+      allow_any_instantiation_of(lti_assignment_active1).to receive(:quiz_lti?).and_return(true)
+      allow_any_instantiation_of(lti_assignment_active2).to receive(:quiz_lti?).and_return(true)
 
       active_lti_assignments = Service.active_lti_assignments_for_course(course)
 
@@ -56,6 +65,10 @@ describe QuizzesNext::Service do
       expect(active_lti_assignments).to include(lti_assignment_active2)
       expect(active_lti_assignments).not_to include(lti_assignment_inactive)
       expect(active_lti_assignments).not_to include(assignment_active)
+
+      filtered_assignments = Service.active_lti_assignments_for_course(course,
+        selected_assignment_ids: [lti_assignment_active2.id, assignment_active.id])
+      expect(filtered_assignments).to eq [lti_assignment_active2]
     end
   end
 

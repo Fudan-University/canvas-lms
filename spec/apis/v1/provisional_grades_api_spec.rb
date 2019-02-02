@@ -21,9 +21,188 @@ require_relative '../api_spec_helper'
 describe 'Provisional Grades API', type: :request do
   it_behaves_like 'a provisional grades status action', :provisional_grades
 
+  describe "bulk_select" do
+    let_once(:course) do
+      course = course_factory
+      course.account.enable_service(:avatars)
+      course
+    end
+
+    let_once(:teacher) { teacher_in_course(active_all: true, course: course).user }
+    let_once(:ta_1) { ta_in_course(active_all: true, course: course).user }
+    let_once(:ta_2) { ta_in_course(active_all: true, course: course).user }
+    let_once(:students) { 3.times.map {|n| student_in_course(active_all: true, course: course, name: "Student #{n}").user } }
+
+    let_once(:assignment) do
+      course.assignments.create!(
+        final_grader_id: teacher.id,
+        grader_count: 2,
+        moderated_grading: true,
+        points_possible: 10
+      )
+    end
+
+    let_once(:submissions) { students.map {|student| student.submissions.first} }
+    let_once(:grades) do
+      [
+        grade_student(assignment, students[0], ta_1, 5),
+        grade_student(assignment, students[1], ta_1, 6),
+        grade_student(assignment, students[1], ta_2, 7),
+        grade_student(assignment, students[2], ta_2, 8)
+      ]
+    end
+
+    def grade_student(assignment, student, grader, score)
+      graded_submissions = assignment.grade_student(student, grader: grader, score: score, provisional: true)
+      graded_submissions.first.provisional_grade(grader)
+    end
+
+    def bulk_select(provisional_grades, user = teacher)
+      path = "/api/v1/courses/#{course.id}/assignments/#{assignment.id}/provisional_grades/bulk_select"
+      params = {
+        action: 'bulk_select',
+        assignment_id: assignment.to_param,
+        controller: 'provisional_grades',
+        course_id: course.to_param,
+        format: 'json',
+        provisional_grade_ids: provisional_grades.map(&:id)
+      }
+      api_call_as_user(user, :put, path, params)
+    end
+
+    def selected_grades
+      assignment.moderated_grading_selections.map(&:provisional_grade).compact
+    end
+
+    it "selects multiple provisional grades" do
+      bulk_select(grades[0..1])
+      expect(selected_grades).to match_array(grades[0..1])
+    end
+
+    it "selects provisional grades for different graders" do
+      bulk_select([grades[0], grades[2]])
+      expect(selected_grades).to match_array([grades[0], grades[2]])
+    end
+
+    it "creates a moderation event for each selection made" do
+      expect { bulk_select([grades[0], grades[2]]) }.to change {
+        AnonymousOrModerationEvent.where(user: teacher, event_type: :provisional_grade_selected).count
+      }.from(0).to(2)
+    end
+
+    it "selects the later grade when given multiple provisional grade ids for the same student" do
+      bulk_select(grades[0..2])
+      expect(selected_grades).to match_array([grades[0], grades[2]])
+    end
+
+    it "returns json including the id of each selected provisional grade" do
+      json = bulk_select(grades[0..1])
+      ids = json.map {|grade| grade['selected_provisional_grade_id']}
+      expect(ids).to match_array(grades[0..1].map(&:id))
+    end
+
+    it "touches submissions related to the selected provisional grades" do
+      expect { bulk_select(grades[0..1]) }.to change { submissions[0].reload.updated_at }
+    end
+
+    it "does not touch submissions not related to the selected provisional grades" do
+      expect { bulk_select(grades[0..1]) }.not_to change { submissions[2].reload.updated_at }
+    end
+
+    it "excludes the anonymous ids for submissions when the user can view student identities" do
+      json = bulk_select(grades[0..1])
+      expect(json).to all(not_have_key("anonymous_id"))
+    end
+
+    it "includes the anonymous ids for submissions when the user cannot view student identities" do
+      assignment.update!(anonymous_grading: true)
+      json = bulk_select(grades[0..1])
+      ids = json.map {|grade| grade["anonymous_id"]}
+      expect(ids).to match_array(submissions[0..1].map(&:anonymous_id))
+    end
+
+    it "excludes the student ids for submissions when the user cannot view student identities" do
+      assignment.update!(anonymous_grading: true)
+      json = bulk_select(grades[0..1])
+      expect(json).to all(not_have_key("student_id"))
+    end
+
+    context "when given a provisional grade id for an already-selected provisional grade" do
+      before(:once) do
+        selection = assignment.moderated_grading_selections.find_by!(student_id: students[0].id)
+        selection.selected_provisional_grade_id = grades[0].id
+        selection.save!
+      end
+
+      it "excludes the already-selected provisional grade from the returned json" do
+        json = bulk_select(grades[0..1])
+        ids = json.map {|grade| grade['selected_provisional_grade_id']}
+        expect(ids).to match_array([grades[1].id])
+      end
+
+      it "does not touch the submission for the already-selected provisional grade" do
+        expect { bulk_select(grades[0..1]) }.not_to change { submissions[0].reload.updated_at }
+      end
+    end
+
+    context "when given a provisional grade id for a different assignment" do
+      let_once(:other_assignment) do
+        course.assignments.create!(
+          final_grader_id: teacher.id,
+          grader_count: 2,
+          moderated_grading: true,
+          points_possible: 10
+        )
+      end
+      let_once(:other_grade) { grade_student(other_assignment, students[0], ta_1, 10) }
+
+      it "does not select the unrelated provisional grade" do
+        bulk_select(grades[0..1] + [other_grade])
+        expect(other_grade.reload.selection).not_to be_present
+      end
+
+      it "excludes the unrelated provisional grade from the returned json" do
+        json = bulk_select(grades[0..1] + [other_grade])
+        ids = json.map {|grade| grade['selected_provisional_grade_id']}
+        expect(ids).to match_array(grades[0..1].map(&:id))
+      end
+    end
+
+    it "ignores ids not associated with a provisional grade" do
+      invalid_id = ModeratedGrading::ProvisionalGrade.maximum(:id).next # ensure the id is not used
+      invalid_grade = ModeratedGrading::ProvisionalGrade.new(id: invalid_id)
+      json = bulk_select(grades[0..1] + [invalid_grade])
+      ids = json.map {|grade| grade['selected_provisional_grade_id']}
+      expect(ids).to match_array(grades[0..1].map(&:id))
+    end
+
+    it 'is unauthorized when the user is not the assigned final grader' do
+      assignment.update_attribute(:final_grader_id, nil)
+      bulk_select(grades[0..1])
+      assert_status(401)
+    end
+
+    it 'is unauthorized when the user is an account admin without "Select Final Grade for Moderation" permission' do
+      course.account.role_overrides.create!(role: admin_role, enabled: false, permission: :select_final_grade)
+      bulk_select(grades[0..1], account_admin_user)
+      assert_status(401)
+    end
+
+    it 'is authorized when the user is the final grader' do
+      bulk_select(grades[0..1])
+      assert_status(200)
+    end
+
+    it 'is authorized when the user is an account admin with "Select Final Grade for Moderation" permission' do
+      bulk_select(grades[0..1], account_admin_user)
+      assert_status(200)
+    end
+  end
+
   describe "select" do
     before(:once) do
       course_with_student :active_all => true
+      @course.account.enable_service(:avatars)
       ta_in_course :active_all => true
       @assignment = @course.assignments.build
       @assignment.grader_count = 1
@@ -54,6 +233,12 @@ describe 'Provisional Grades API', type: :request do
       expect(@assignment.moderated_grading_selections.where(student_id: @student.id).first.provisional_grade).to eq(@pg)
     end
 
+    it "creates a moderation event for the selection" do
+      expect { api_call_as_user(@teacher, :put, @path, @params) }.to change {
+        AnonymousOrModerationEvent.where(user: @teacher, event_type: :provisional_grade_selected).count
+      }.from(0).to(1)
+    end
+
     it "should use anonymous_id instead of student_id if user cannot view student names" do
       allow_any_instance_of(Assignment).to receive(:can_view_student_names?).and_return false
       json = api_call_as_user(@teacher, :put, @path, @params)
@@ -71,6 +256,7 @@ describe 'Provisional Grades API', type: :request do
   describe "copy_to_final_mark" do
     before(:once) do
       course_with_student :active_all => true
+      @course.account.enable_service(:avatars)
       ta_in_course :active_all => true
       @assignment = @course.assignments.create!(
         submission_types: 'online_text_entry',
@@ -122,6 +308,7 @@ describe 'Provisional Grades API', type: :request do
   describe "publish" do
     before :once do
       course_with_student :active_all => true
+      @course.account.enable_service(:avatars)
       course_with_ta :course => @course, :active_all => true
       @assignment = @course.assignments.create!
       @path = "/api/v1/courses/#{@course.id}/assignments/#{@assignment.id}/provisional_grades/publish"
@@ -240,6 +427,7 @@ describe 'Provisional Grades API', type: :request do
       context "with one provisional grade" do
         it "publishes the only provisional grade if none have been explicitly selected" do
           course_with_user("TaEnrollment", course: @course, active_all: true)
+          @course.account.enable_service(:avatars)
           @submission = @assignment.submit_homework(@student, body: "hello")
           @assignment.grade_student(@student, grader: @ta, score: 72, provisional: true)
 
@@ -251,54 +439,92 @@ describe 'Provisional Grades API', type: :request do
 
       context "with multiple provisional grades" do
         before(:once) do
-          course_with_user("TaEnrollment", course: @course, active_all: true)
-          @second_ta = @user
+          @first_ta = @ta
+          @first_student = @student
+          @second_ta = course_with_user("TaEnrollment", course: @course, active_all: true).user
+          @second_student = course_with_user("StudentEnrollment", course: @course, active_all: true).user
+          @first_student_submission = @assignment.submit_homework(@first_student, body: "hello")
+          @second_student_submission = @assignment.submit_homework(@second_student, body: "hello")
         end
 
-        it "publishes even when some submissions have no grades" do
-          @submission = @assignment.submit_homework(@student, body: "hello")
+        context "when some submissions have no grades" do
+          it "returns status ok" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(response).to have_http_status(:ok)
+          end
 
-          @user = @teacher
-          raw_api_call(:post, @path, @params)
+          it "publishes assignment" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@assignment.reload.grades_published_at).not_to be_nil
+          end
 
-          expect(response.response_code).to eq(200)
-          expect(@submission.reload.score).to be_nil
-          expect(@assignment.reload.grades_published_at).not_to be_nil
+          it "does not publish a score for those that were ungraded" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@first_student_submission.reload.score).to be_nil
+          end
         end
 
-        it "does not publish if none have been explicitly selected" do
-          @submission = @assignment.submit_homework(@student, body: "hello")
-          @assignment.grade_student(@student, grader: @ta, score: 72, provisional: true)
-          @assignment.grade_student(@student, grader: @second_ta, score: 88, provisional: true)
+        context "when no grades have been explicitly selected" do
+          before(:once) do
+            @assignment.grade_student(@first_student, grader: @first_ta, score: 72, provisional: true)
+            @assignment.grade_student(@first_student, grader: @second_ta, score: 88, provisional: true)
+          end
 
-          @user = @teacher
-          raw_api_call(:post, @path, @params)
+          it "returns status unprocessable entity" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(response).to have_http_status(:unprocessable_entity)
+          end
 
-          expect(response.response_code).to eq(422)
-          expect(@submission.reload).not_to be_graded
-          expect(@assignment.reload.grades_published_at).to be_nil
+          it "does not publish the assignment" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@assignment.reload.grades_published_at).to be_nil
+          end
+
+          it "does not grade the submission" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@first_student_submission.reload).not_to be_graded
+          end
         end
 
-        it "does not publish any if not all have been explicitly selected" do
-          student_1 = @student
-          student_2 = student_in_course(active_all: true, course: @course).user
-          submission_1 = @assignment.submit_homework(student_1, body: "hello")
-          submission_2 = @assignment.submit_homework(student_2, body: "hello")
-          selection_1 = @assignment.moderated_grading_selections.find_by(student: student_1)
-          @assignment.grade_student(student_1, grader: @ta, score: 12, provisional: true)
-          @assignment.grade_student(student_1, grader: @second_ta, score: 34, provisional: true)
-          @assignment.grade_student(student_2, grader: @ta, score: 56, provisional: true)
-          @assignment.grade_student(student_2, grader: @second_ta, score: 78, provisional: true)
+        context "when not all grades have been explicitly selected" do
+          before(:each) do
+            @assignment.grade_student(@student, grader: @ta, score: 12, provisional: true)
+            @assignment.grade_student(@student, grader: @second_ta, score: 34, provisional: true)
+            @assignment.grade_student(@second_student, grader: @ta, score: 56, provisional: true)
+            @assignment.grade_student(@second_student, grader: @second_ta, score: 78, provisional: true)
+            first_student_selection = @assignment.moderated_grading_selections.find_by(student: @student)
+            first_student_selection.update!(selected_provisional_grade_id: @first_student_submission.provisional_grade(@ta))
+          end
 
-          selection_1.update_attribute(:selected_provisional_grade_id, submission_1.provisional_grade(@ta))
+          it "returns status unprocessable entity" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(response).to have_http_status(:unprocessable_entity)
+          end
 
-          @user = @teacher
-          raw_api_call(:post, @path, @params)
+          it "does not grade the submission" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@first_student_submission.reload).not_to be_graded
+          end
 
-          expect(response.response_code).to eq(422)
-          expect(submission_1.reload).not_to be_graded
-          expect(submission_2.reload).not_to be_graded
-          expect(@assignment.reload.grades_published_at).to be_nil
+          it "does not publish the assignment" do
+            api_call_as_user(@teacher, :post, @path, @params)
+            expect(@assignment.reload.grades_published_at).to be_nil
+          end
+        end
+
+        it "only calls GradeCalculator once even if there are multiple selections" do
+          @assignment.grade_student(@first_student, grader: @first_ta, score: 12, provisional: true)
+          @assignment.grade_student(@first_student, grader: @second_ta, score: 34, provisional: true)
+          @assignment.grade_student(@second_student, grader: @first_ta, score: 56, provisional: true)
+          @assignment.grade_student(@second_student, grader: @second_ta, score: 78, provisional: true)
+          first_student_selection = @assignment.moderated_grading_selections.find_by(student: @first_student)
+          second_student_selection = @assignment.moderated_grading_selections.find_by(student: @second_student)
+          first_student_selection.update!(selected_provisional_grade_id: @first_student_submission.provisional_grade(@ta))
+          second_student_selection.update!(selected_provisional_grade_id: @second_student_submission.provisional_grade(@second_ta))
+
+          expect(GradeCalculator).to receive(:recompute_final_score).once
+
+          api_call_as_user(@teacher, :post, @path, @params)
         end
       end
 

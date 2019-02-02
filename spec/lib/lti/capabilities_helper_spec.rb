@@ -99,13 +99,16 @@ module Lti
          vnd.Canvas.submission.url
          Context.title
          com.instructure.Assignment.lti.id
+         com.instructure.Person.name_sortable
          com.instructure.PostMessageToken
          com.instructure.Editor.contents
          com.instructure.Editor.selection
          com.instructure.Group.id
          com.instructure.Group.name
          Canvas.membership.roles
-         com.instructure.Course.groupIds)
+         com.instructure.Course.groupIds
+         com.Instructure.membership.roles
+         com.instructure.Assignment.anonymous_grading)
     }
 
     describe '#supported_capabilities' do

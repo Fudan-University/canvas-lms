@@ -41,6 +41,10 @@ development:
 
   private:
     canvas:
+      # use a unique subdomain per attachment, so that browsers will enforce security
+      # permissions (such as microphone/camera access) per-file. You must have wildcard
+      # DNS set up for this to work.
+      attachment_specific_file_domain: true
       ha_cache.yml: |
         cache_store: ha_store
         servers:
@@ -65,6 +69,9 @@ development:
         consul_datacenters:
         - dc1
         - dc2
+      clone_url_strand.yml: |
+        lti1.instructure.com: lti1
+        lti2.instructure.com: lti2
   store:
     canvas:
       lti-keys:

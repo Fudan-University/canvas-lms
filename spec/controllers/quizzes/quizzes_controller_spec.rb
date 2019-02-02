@@ -217,7 +217,7 @@ describe Quizzes::QuizzesController do
       context "if xhr request" do
         it "returns the new quiz's edit url" do
           post 'new', params: {:course_id => @course.id}, xhr: true
-          expect(response).to have_http_status :success
+          expect(response).to be_successful
           expect(JSON.parse(response.body)['url']).to match(%r{/courses/\w+/quizzes/\w+/edit$})
         end
       end
@@ -403,6 +403,14 @@ describe Quizzes::QuizzesController do
       expect(assigns[:js_env][:SUBMISSION_VERSIONS_URL]).to include(path)
     end
 
+    it "assigns js_env for quiz details url" do
+      user_session(@teacher)
+      course_quiz
+      get 'show', params: {:course_id => @course.id, :id => @quiz.id}
+      path = "courses/#{@course.id}/quizzes/#{@quiz.id}/managed_quiz_data"
+      expect(assigns[:js_env][:QUIZ_DETAILS_URL]).to include(path)
+    end
+
     it "doesn't show unpublished quizzes to students with draft state" do
       user_session(@student)
       course_quiz(active=true)
@@ -495,7 +503,7 @@ describe Quizzes::QuizzesController do
 
         user_session(@teacher)
         get 'show', params: { course_id: @course.id, id: @quiz.id, take: '1', preview: '1' }
-        expect(response).to have_http_status(:success)
+        expect(response).to be_successful
       end
     end
   end
@@ -1151,7 +1159,7 @@ describe Quizzes::QuizzesController do
 
         user_session(@teacher)
         get 'history', params: { course_id: @course.id, quiz_id: @quiz.id, quiz_submission_id: quiz_submission.id }
-        expect(response).to have_http_status(:success)
+        expect(response).to be_successful
       end
     end
   end
@@ -1404,6 +1412,72 @@ describe Quizzes::QuizzesController do
         post 'update', params: {:course_id => @course.id, :id => survey.id, :quiz => {:title => "changed"}, :post_to_sis => '1'}
         expect(assigns[:quiz].title).to eq "changed"
       end
+
+      context 'with required due dates' do
+        before do
+          @course.account.enable_feature!(:new_sis_integrations)
+          @course.account.settings = { sis_syncing: { value: true }, sis_require_assignment_due_date: { value: true } }
+          @course.account.save!
+
+          user_session(@teacher)
+          course_quiz
+        end
+
+        it "saves with a due date" do
+          post 'update', params: { course_id: @course.id, id: @quiz.id, quiz: { title: 'updated', due_at: 2.days.from_now.iso8601 }, post_to_sis: '1'}
+          expect(response).to be_redirect
+          expect(flash[:error]).to be_nil
+          expect(@quiz.reload.title).to eq 'updated'
+        end
+
+        it "fails to save without a due date" do
+          post 'update', params: { course_id: @course.id, id: @quiz.id, quiz: { title: 'updated' }, post_to_sis: '1'}
+          expect(response).to be_redirect
+          expect(flash[:error]).to match(/failed to update/)
+          expect(@quiz.reload.title).not_to eq 'updated'
+        end
+
+        context 'with overrides' do
+          before do
+            @section = @course.course_sections.create
+          end
+
+          it "saves with a due date" do
+            post 'update', params: {
+              course_id: @course.id,
+              id: @quiz.id,
+              quiz: {
+                title: "overrides",
+                assignment_overrides: [{
+                  course_section_id: @section.id,
+                  due_at: 2.days.from_now.iso8601
+                }]
+              },
+              post_to_sis: '1'
+            }
+            expect(response).to be_redirect
+            expect(flash[:error]).to be_nil
+            expect(@quiz.reload.title).to eq 'overrides'
+          end
+
+          it "fails to save without a due date" do
+            post 'update', params: {
+              course_id: @course.id,
+              id: @quiz.id,
+              quiz: {
+                title: "overrides",
+                assignment_overrides: [{
+                  course_section_id: @section.id,
+                }]
+              },
+              post_to_sis: '1'
+            }
+            expect(response).to be_redirect
+            expect(flash[:error]).to match(/failed to update/)
+            expect(@quiz.reload.title).not_to eq 'overrides'
+          end
+        end
+      end
     end
 
     it "should be able to change ungraded survey to quiz without error" do
@@ -1486,6 +1560,17 @@ describe Quizzes::QuizzesController do
       expect(quiz.reload.assignment_id).to be_nil
       expect(override.reload.assignment_id).to be_nil
       expect(override.quiz_id).to eq quiz.id
+    end
+
+    it 'should not remove attributes when called with no description param' do
+      user_session(@teacher)
+      quiz = @course.quizzes.create!(title: 'blah', quiz_type: 'assignment', description: 'foobar')
+      post 'update', params: {
+        course_id: @course.id,
+        id: quiz.id,
+      }
+      expect(quiz.reload.title).to eq 'blah'
+      expect(quiz.reload.description).to eq 'foobar'
     end
 
     describe "DueDateCacher" do

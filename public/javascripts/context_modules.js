@@ -22,7 +22,7 @@ import PublishCloud from 'jsx/shared/PublishCloud'
 import ModuleDuplicationSpinner from 'jsx/modules/components/ModuleDuplicationSpinner'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import * as MoveItem from 'jsx/move_item'
+import {reorderElements, renderTray} from 'jsx/move_item'
 import PublishableModuleItem from 'compiled/models/PublishableModuleItem'
 import PublishIconView from 'compiled/views/PublishIconView'
 import LockIconView from 'compiled/views/LockIconView'
@@ -66,7 +66,7 @@ function scrollTo ($thing, time = 500) {
 
   function refreshDuplicateLinkStatus($module) {
     $module.find('.duplicate_module_menu_item').hide()
-    if (ENV.DUPLICATE_ENABLED && !$module.find('.context_module_item.quiz').length) {
+    if (ENV.DUPLICATE_ENABLED && !$module.find('.context_module_item.quiz').length && !$module.find('.cannot-duplicate').length) {
       $module.find('.duplicate_module_menu_item').show()
     } else {
       $module.find('.duplicate_module_menu_item').hide()
@@ -1048,7 +1048,7 @@ function scrollTo ($thing, time = 500) {
       event.preventDefault()
       const duplicateRequestUrl = $(this).attr('href')
       const duplicatedModuleElement = $(this).parents(".context_module")
-      const spinner = React.createElement(ModuleDuplicationSpinner, {})
+      const spinner = <ModuleDuplicationSpinner />
       const $tempElement = $('<div id="temporary-spinner" class="item-group-condensed"></div>')
       $tempElement.insertAfter(duplicatedModuleElement)
       ReactDOM.render(spinner, $('#temporary-spinner')[0])
@@ -1063,7 +1063,7 @@ function scrollTo ($thing, time = 500) {
         const contextId = response.data.context_module.context_id
         const modulesPage = `/courses/${contextId}/modules`
         axios.get(modulesPage).then((getResponse) => {
-          const $newContent = $(getResponse.data);
+          const $newContent = $(getResponse.data)
           const $newModule = $newContent.find(`#context_module_${newModuleId}`)
           $tempElement.remove()
           $newModule.insertAfter(duplicatedModuleElement)
@@ -1073,7 +1073,11 @@ function scrollTo ($thing, time = 500) {
           // initModuleManagement is called.
           $('.delete_module_link').die()
           $('.duplicate_module_link').die()
+          $('.duplicate_item_link').die()
           $('.add_module_link').die()
+          $('.edit_module_link').die()
+          $("#add_context_module_form .add_prerequisite_link").off()
+          $('#add_context_module_form .add_completion_criterion_link').off()
           $(".context_module").find(".expand_module_link,.collapse_module_link").bind('click keyclick', toggleModuleCollapse)
           modules.initModuleManagement()
         }).catch(showFlashError(I18n.t('Error rendering duplicated module')))
@@ -1271,13 +1275,13 @@ function scrollTo ($thing, time = 500) {
           $container[0].appendChild(item)
 
           const order = data.context_module.content_tags.map(item => item.content_tag.id)
-          MoveItem.reorderElements(order, $container[0], id => `#context_module_item_${id}`)
+          reorderElements(order, $container[0], id => `#context_module_item_${id}`)
           $container.sortable('enable').sortable('refresh')
         },
         focusOnExit: () => currentItem.querySelector('.al-trigger'),
       }
 
-      MoveItem.renderTray(moveTrayProps, document.getElementById('not_right_side'))
+      renderTray(moveTrayProps, document.getElementById('not_right_side'))
     })
 
     $('.move_module_link').on('click keyclick', function (event) {
@@ -1301,13 +1305,13 @@ function scrollTo ($thing, time = 500) {
         formatSaveUrl: () => `${ENV.CONTEXT_URL_ROOT}/modules/reorder`,
         onMoveSuccess: res => {
           const container = document.querySelector('#context_modules.ui-sortable')
-          MoveItem.reorderElements(res.data.map(item => item.context_module.id), container, (id) => `#context_module_${id}`)
+          reorderElements(res.data.map(item => item.context_module.id), container, (id) => `#context_module_${id}`)
           $(container).sortable('refresh')
         },
         focusOnExit: () => currentModule.querySelector('.al-trigger'),
       }
 
-      MoveItem.renderTray(moveTrayProps, document.getElementById('not_right_side'))
+      renderTray(moveTrayProps, document.getElementById('not_right_side'))
     })
 
     $('.move_module_contents_link').on('click keyclick', function (event) {
@@ -1330,6 +1334,9 @@ function scrollTo ($thing, time = 500) {
         id: item.getAttribute('id').substring('context_module_item_'.length),
         title: item.querySelector('.title').textContent.trim(),
       }))
+      if (items.length === 0) {
+        return
+      }
       items[0].groupId = currentModule.getAttribute('id').substring('context_module_'.length)
 
       const moveTrayProps = {
@@ -1351,14 +1358,14 @@ function scrollTo ($thing, time = 500) {
           })
 
           const order = data.context_module.content_tags.map(item => item.content_tag.id)
-          MoveItem.reorderElements(order, $container[0], id => `#context_module_item_${id}`)
+          reorderElements(order, $container[0], id => `#context_module_item_${id}`)
 
           $container.sortable('enable').sortable('refresh')
         },
         focusOnExit: () => currentModule.querySelector('.al-trigger'),
       }
 
-      MoveItem.renderTray(moveTrayProps, document.getElementById('not_right_side'))
+      renderTray(moveTrayProps, document.getElementById('not_right_side'))
     })
 
     $('.drag_and_drop_warning').on('focus', function (event) {
@@ -1370,8 +1377,8 @@ function scrollTo ($thing, time = 500) {
     })
 
     $(".edit_module_link").live('click', function(event) {
-      event.preventDefault();
-      modules.editModule($(this).parents(".context_module"));
+      event.preventDefault()
+      modules.editModule($(this).parents(".context_module"))
     });
 
     $(".add_module_link").live('click', function(event) {
@@ -1434,7 +1441,7 @@ function scrollTo ($thing, time = 500) {
       }
     })
 
-    $('.duplicate_item_link').on('click', function(event) {
+    $('.duplicate_item_link').live('click', function(event) {
       event.preventDefault()
 
       const $module = $(this).closest('.context_module')
@@ -1468,6 +1475,7 @@ function scrollTo ($thing, time = 500) {
     $("#add_module_prerequisite_dialog .cancel_button").click(function() {
       $("#add_module_prerequisite_dialog").dialog('close');
     });
+
     $(".delete_prerequisite_link").live('click', function(event) {
       event.preventDefault();
       var $criterion = $(this).parents(".criterion");
@@ -1626,7 +1634,7 @@ function scrollTo ($thing, time = 500) {
           fileName: file.displayName()
         }
 
-        var Cloud = React.createElement(PublishCloud, props);
+        var Cloud = <PublishCloud {...props} />;
         ReactDOM.render(Cloud, $el[0]);
         return {model: file} // Pretending this is a backbone view
       }
@@ -1656,10 +1664,6 @@ function scrollTo ($thing, time = 500) {
 
       if (data.published) { row.addClass('ig-published'); }
       // TODO: need to go find this item in other modules and update their state
-      model.on('change:published', function() {
-        view.$el.closest('.ig-row').toggleClass('ig-published', model.get('published'));
-        view.render();
-      });
       view.render();
       return view;
     }
@@ -1676,6 +1680,7 @@ function scrollTo ($thing, time = 500) {
             item.model.set({locked: !parsedAttrs.published});
           } else {
             item.model.set({published: parsedAttrs.published});
+            item.model.view.render();
           }
         }
       }

@@ -60,7 +60,7 @@ it('renders the scoring method text if scoring method modified', () => {
 it('does not call onConfirm when canceled', () => {
   const onConfirm = jest.fn()
   const modal = shallow(<ConfirmOutcomeEditModal {...defaultProps({ hasUpdateableRubrics: true, onConfirm })} />)
-  modal.find(ModalFooter).shallow().find('#cancel-outcome-edit-modal').simulate('click')
+  modal.find(ModalFooter).find('#cancel-outcome-edit-modal').simulate('click')
   expect(modal.state('show')).toBe(false)
   expect(onConfirm).not.toBeCalled()
 })

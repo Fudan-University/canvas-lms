@@ -25,6 +25,7 @@ module CC::Importer::Canvas
     def settings_doc(file, html = false)
       path = @package_root.item_path(COURSE_SETTINGS_DIR, file)
       return nil unless File.exist? path
+      return nil if File.size(path) > Setting.get('course_settings_import_xml_threshold', 25.megabytes).to_i # totally arbitrary hack to keep some broken exports from killing things
       if html
         open_file path
       else
@@ -59,7 +60,7 @@ module CC::Importer::Canvas
         val = get_node_val(doc, string_type)
         course[string_type] = val unless val.nil?
       end
-      ['is_public', 'public_syllabus', 'public_syllabus_to_auth', 'indexed', 'allow_student_wiki_edits',
+      ['is_public', 'is_public_to_auth_users', 'public_syllabus', 'public_syllabus_to_auth', 'indexed', 'allow_student_wiki_edits',
        'allow_student_assignment_edits', 'show_public_context_messages',
        'allow_student_forum_attachments', 'allow_student_organized_groups', 'lock_all_announcements',
        'open_enrollment', 'allow_wiki_comments',
@@ -74,7 +75,7 @@ module CC::Importer::Canvas
       end
       ['start_at', 'conclude_at'].each do |date_type|
         val = get_time_val(doc, date_type)
-        course[date_type] = val unless val.nil?
+        course[date_type] = val
       end
       ['grading_standard_id', 'home_page_announcement_limit'].each do |int_val|
         if val = get_int_val(doc, int_val)

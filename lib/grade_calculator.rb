@@ -16,6 +16,8 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+require "bigdecimal"
+
 class GradeCalculator
   attr_accessor :assignments, :groups
 
@@ -134,8 +136,9 @@ class GradeCalculator
 
   def create_course_grade_alerts(scores)
     @course.shard.activate do
+      ActiveRecord::Associations::Preloader.new.preload(scores, :enrollment)
       scores.each do |score|
-        thresholds = ObserverAlertThreshold.active.where(student: score.enrollment.user, alert_type: ['course_grade_high', 'course_grade_low'])
+        thresholds = ObserverAlertThreshold.active.where(student: score.enrollment.user_id, alert_type: ['course_grade_high', 'course_grade_low'])
         previous_score = score.current_score
         score.reload
         thresholds.each do |threshold|
@@ -732,7 +735,7 @@ class GradeCalculator
           assignment: a,
           submission: s,
           score: s&.score,
-          total: a.points_possible || 0,
+          total: BigDecimal(a.points_possible || 0, 15),
           excused: s&.excused?,
         }
       end
@@ -764,7 +767,7 @@ class GradeCalculator
         score:     score,
         possible:  possible,
         weight:    group.group_weight,
-        grade:     ((score.to_f / possible * 100).round(2) if possible > 0),
+        grade:     ((score.to_f / possible * 100).round(2).to_f if possible > 0),
         dropped:   dropped_submissions
       }.tap { |group_grade_info|
         Rails.logger.debug "GRADES: calculated #{group_grade_info.inspect}"
@@ -947,9 +950,9 @@ class GradeCalculator
       if possible > 0
         final_grade = (total.to_f / possible) * 100
         {
-          grade: final_grade.round(2),
+          grade: final_grade.round(2).to_f,
           total: total.to_f,
-          possible: possible,
+          possible: possible.to_f,
           dropped: dropped
         }
       else

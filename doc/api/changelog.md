@@ -1,170 +1,170 @@
-API Change Log
-==============
+# API Change Log
 
-The API Change Log includes adjustments to the Canvas API documentation as part of each Canvas release. This change log can be updated at any time. Instructure may add, change, and deprecate API elements according to the timelines indicated in the <a href="https://www.canvaslms.com/policies/api-policy">Canvas API Policy page</a>.
+### What is the API Change Log?
+The API Change Log includes adjustments to the Canvas API documentation as part of each Canvas release. This change log can be updated at any time. Instructure may add, change, and deprecate API elements according to the timelines indicated in the [Canvas API Policy page](https://www.canvaslms.com/policies/api-policy).
 
-<ul><li>For a summary of all deprecations, view the <a href="file.breaking.html">breaking changes API page</a>.</li>
-<li>This page documents API changes for the last four releases. For prior releases, view the <a href="file.changelog_archive.html">API Change Log archive page</a>.</li>
-</ul>
+### How do I use the API Change Log?
+- **The release date indicates the date that the API code will be available in the production environment.**
+- For a summary of all deprecations, view the [breaking changes API page](file.breaking.html).
+- This page documents API changes for the last four releases. For prior releases, view the [API Change Log archive page](file.changelog_archive.html).
 
-<h2>2018-08-04</h2>
+## 2019-01-26
 
-<h3>Changes</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="outcome_results.html">Outcome Results API</a></td>
-<td>Get Outcome Result Rollups</td>
-<td>Aggregate parameter: Clarified that the median is a separate parameter.</td>
-</tr>
-</table>
+### Changes
+<div class="changelog"></div>
+| API Calls | Function |      |
+|----------------------|----------------------|--------------------------|
+| [Submissions API]  |  List Gradeable Students endpoint | Added clarification about anonymous grading |
+
+[Submissions API]: submissions.html
+
+### Additions
+<div class="changelog"></div>
+| API Responses | Function |      |
+|----------------------|----------------------|--------------------------|
+| [Assignments API] | Assignment Object | Returns grader_count, ginal_grader, grader_comments_visible_to_graders, graders_anonymous_to_graders, grader_names_visible_to_final_grader, and anonymous_grading parameters |
+| [Submissions API] | Submission Object | Returns UserDisplay parameter |
+| [Users API] |      | Added AnonyousUserDisplay Object |
+
+[Assignments API]: assignments.html
+[Submissions API]: submissions.html
+[Users API]: users.html
+
+### Removals
+<div class="changelog"></div>
+| API Responses | Function |      |
+|----------------------|----------------------|--------------------------|
+| [Enrollments API] | Enrollment Object | Removed computed_current_score, computed_final_score, computed_current_grade, computed_final_grade, current_period_computed_current_score, current_period_computed_final_score, current_period_computed_current_grade, and current_period_computed_final_grade parameters |
+
+[Enrollments API]: enrollments.html
+
+## 2019-01-05
+
+### Changes
+<div class="changelog"></div>
+| API Calls            | Function             |                          |
+|----------------------|----------------------|--------------------------|
+| [Developer Keys API] |                      | Verified and corrected all links in document               |
+| [Files API]          | Delete File Endpoint | Clarified endpoint usage and added permanent deletion warning |
+
+  [Developer Keys API]: file.developer_keys.html
+  [Files API]: files.html
+
+### Additions
+<div class="changelog"></div>
+| API Calls  | Function  |           |
+|------------|-----------|-----------|
+| [Assignments API]   | Create an Assignment Endpoint<br><br>Edit an Assignment Endpoint  | Added assignment\[allowed\_attempts\] parameter |
+| [Conversations API] | Create a Conversations Endpoint | Added force\_new parameter |
+| [Courses API]       | Get a Single Course Endpoint    | Added teacher\_limit parameter                                               |
+| [Roles API]         | Create a New Role Endpoint      | Permissions\_enabled parameter: Added view\_audit\_trail in permissions list |
+
+  [Assignments API]: assignments.html
+  [Conversations API]: conversations.html
+  [Courses API]: courses.html
+  [Roles API]: roles.html
+
 <p></p>
-<table class="changelog">
-<tr>
-<th>CSV Format</th>
-<th>File</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="outcomes_csv.html">Outcomes Data Format</td>
-<td>outcomes.csv</td>
-<td>Vendor_guid field: Clarified that vendor_guid IDs will prefix “canvas_outcome:” and “canvas_outcome_group:” for outcomes and groups, respectively. In addition, these prefixes are reserved; newly created outcomes and groups may not have vendor_guid fields with these prefixes./td>
-</tr>
-</table>
+<div class="changelog"></div>
+| API Responses     | Function   |   |
+|-------------------|------------|---|
+| [Assignments API] | Assignment Object  | Added allowed\_attempts parameter |
+| [Enrollments API] | Enrollment Object  | Added override\_grade, override\_score, current\_period\_override\_grade, and current\_period\_override\_score parameters<br><br>Added override score clarifications in computed\_current\_score, computed\_final\_score, computed\_final\_grade, current\_period\_computed\_current\_score, current\_period\_computed\_final\_score, current\_period\_computed\_current\_grade, and current\_period\_computed\_final\_grade parameters |
+| [SIS Imports API] | SIS Import Statistic Object <br><br>SIS Import Statistic Objects | Added object examples |
+| [SIS Imports API] | SIS Import Object  | Workflow\_state parameter: Added initializing and failed descriptions <br><br>Added statistics parameter                           |
+| [Submissions API] | Submission Object  | Added extra\_attempts parameter  |
 
-<h3>Additions</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="Outcome_results.html">Outcome Results API</a></td>
-<td>Get Outcome Result Rollups</td>
-<td>Exclude parameter: Specified additional values to exclude. “Missing_user_rollups” excludes rollups for users without results.
-</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td>Aggregate_stat parameter: If aggregate rollups requested, then this value determines what statistic is used for the aggregate. Defaults to “mean” if this value is not specified.
-</td>
-</tr>
-</table>
+  [Assignments API]: assignments.html
+  [Enrollments API]: enrollments.html
+  [SIS Imports API]: sis_imports.html
+  [Submissions API]: submissions.html
 
-<h2>2018-07-14</h2>
-  <h3>Changes</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td>Plagiarism Detection Platform APIs</td>
-<td></td>
-<td>In the API page sidebar, moved all API documentation for the plagiarism platform to the External Tools section</td>
-</tr>
-</table>
 
-<h3>Additions</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="api_token_scopes.html">API Token Scopes</a></td>
-<td></td>
-<td>Added endpoint</td>
-</tr>
-<tr>
-<td><a href="proficiency_ratings.html">Proficiency Ratings API</a></td>
-<td></td>
-<td>Added endpoint</td>
-</tr>
-</table>
+### Removals
+<div class="changelog"></div>
+| API Calls     | Function  |   |
+|---------------|-----------|---|
+| [Courses API] | List Users in Course Endpoint | Include parameter: Removed email as an optional parameter |
 
-<h2>2018-06-23</h2>
-  <h3>Changes</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="users.html">Users API</a></td>
-<td>Get a Pandata JWT Token and its Expiration Date endpoint</td>
-<td>Changed endpoint to reflect use for current user only (/api/v1/users/self/pandata_token)<br><br>
-Clarified description in that endpoint is currently only available to the mobile developer keys</td>
-</tr>
-</table>
+  [Courses API]: courses.html
+
 <p></p>
-<table class="changelog">
-<tr>
-<th>API Responses</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="files.html">Files API</a></td>
-<td>File Object</td>
-<td>Updated file object example and ordering; object returns uuid, folder_id, display_name, and modified_at fields</td>
-</tr>
-</table>
+<div class="changelog"></div>
+| Content       | Function |   |
+|---------------|----------|---|
+| [Navigation Tools] |     | Removed incorrect auto-generated links from page |
 
-<h3>Additions</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="sis_imports.html">SIS Imports API</a></td>
-<td>Restore workflow_states of SIS imported items</td>
-<td>Added endpoint to restore states for sis_imports</td>
-</tr>
-</table>
+  [Navigation Tools]: file.navigation_tools.html
 
-<h2>2018-06-02</h2>
-  <h3>Additions</h3>
-<table class="changelog">
-<tr>
-<th>API Calls</th>
-<th>Function</th>
-<th></th>
-</tr>
-<tr>
-<td><a href="content_exports.html">Content Exports API</a></td>
-<td>Export Content Endpoint</td>
-  <td>Added select parameter</td>
-</tr>
-<tr>
-<td><a href="external_tools.html">External Tools API</a></td>
-<td>Create an External Tool Endpoint</td>
-<td>Added account_navigation[display_type] parameter</td>
-</tr>
-<tr>
-<td><a href="file.assignment_tools.html">Grade Passback External Tools</a></td>
-<td>
-  </td>
-<td>Added Submission Details Return Extension documentation, which includes information about supporting Submitted At timestamps</td>
-</tr>
-<td><a href="submissions.html">Submissions API</a></td>
-<td>Submission Summary Endpoint</td>
-<td>Added grouped parameter</td>
-</tr>
-<td><a href="users.html">Users API</a></td>
-<td>Create a User endpoint</td>
-<td>Added destination parameter</td>
-</tr>
-</table>
+## 2018-12-08
+
+### Changes
+<div class="changelog"></div>
+| API Calls         | Function |   |
+|-------------------|----------|---|
+| [SIS Imports API] | Abort SIS Import Endpoint<br><br> Get SIS Import List Endpoint | Added clarification that aborting a sis batch can take time and subsequent sis batches begin to process 10 minutes after the abort.<br><br> Workflow\_state parameter: added initializing, failed, restoring, partially\_restored, and restored as allowed values |
+
+  [SIS Imports API]: sis_imports.html
+
+### Additions
+<div class="changelog"></div>
+| API Calls               | Function                          |   |
+|-------------------------|-----------------------------------|---|
+| [SIS Import Errors API] | SISImportError Object             | Added row\_info parameter, which displays the contents of the line that had the error |
+| [Users API]             | List the Activity Stream Endpoint | Added only\_active\_courses parameter |
+
+  [SIS Import Errors API]: sis_import_errors.html
+  [Users API]: users.html
+
 <p></p>
+<div class="changelog"></div>
+| API Responses | Function                   |   |
+|---------------|----------------------------|---|
+| [Courses API] | List Your Courses Endpoint | Include parameter: Added graded period parameters to be returned even if total grades are hidden in the course |
+
+  [Courses API]: courses.html
+<p></p>
+
+## 2018-11-17
+
+### Changes
+<div class="changelog"></div>
+| API Calls   | Function                   |     |
+|-------------|----------------------------|-----|
+| [Roles API] | Create a New Role Endpoint | Permissions parameter: Updated account- and course-level role names to match roles in the Canvas Permissions page |
+
+  [Roles API]: roles.html
+
+<p></p>
+<div class="changelog"></div>
+| API Responses     | Function                        |   |
+|-------------------|---------------------------------|---|
+| [Assignments API] | List Assignments Endpoint       | Clarified that the paginated list of assignments is returned for the current course or assignment group |
+| [Rubrics API]     | Create a Single Rubric Endpoint | Clarified the rubric return value |
+
+  [Assignments API]: assignments.html
+  [Rubrics API]: rubrics.html
+
+### Additions
+<div class="changelog"></div>
+| API Calls                    | Function                              |    |
+|------------------------------|---------------------------------------|----|
+| [LTI Variable Substitutions] | com.instructure.Person.name\_sortable | Added variable that returns the sortable name of the launching user. Availability is when launched by a logged in user |
+
+  [LTI Variable Substitutions]: file.tools_variable_substitutions.html
+
+<p></p>
+<div class="changelog"></div>
+| API Responses     | Function                                      |   |
+|-------------------|-----------------------------------------------|---|
+| [SIS Imports API] | Get the Current Importing SIS Import Endpoint | Added endpoint to return the SIS imports that are currently processing for an account |
+
+  [SIS Imports API]: sis_imports.html
+
+### Removals
+<div class="changelog"></div>
+| API Calls     | Function |                                                            |
+|---------------|----------|------------------------------------------------------------|
+| [Planner API] |          | Removed the beta warning banner from the API documentation |
+
+  [Planner API]: planner.html

@@ -21,8 +21,13 @@ module QuizzesNext
         QuizzesNext::Service.enabled_in_context?(course)
       end
 
-      def begin_export(course, _)
-        assignments = QuizzesNext::Service.active_lti_assignments_for_course(course)
+      def begin_export(course, opts)
+        selected_assignment_ids = nil
+        if opts[:selective]
+          selected_assignment_ids = opts[:exported_assets].map{|asset| (match = asset.match(/assignment_(\d+)/)) && match[1]}.compact
+          return unless selected_assignment_ids.any?
+        end
+        assignments = QuizzesNext::Service.active_lti_assignments_for_course(course, selected_assignment_ids: selected_assignment_ids)
         return if assignments.empty?
 
         {
@@ -45,16 +50,17 @@ module QuizzesNext
         export_data
       end
 
-      def send_imported_content(new_course, imported_content)
+      def send_imported_content(new_course, content_migration, imported_content)
         imported_content[:assignments].each do |assignment|
           next if QuizzesNext::Service.assignment_not_in_export?(assignment)
           next unless QuizzesNext::Service.assignment_duplicated?(assignment)
 
-          old_assignment_id = assignment.fetch(:original_assignment_id)
-          old_assignment = Assignment.find(old_assignment_id)
-
           new_assignment_id = assignment.fetch(:$canvas_assignment_id)
           new_assignment = Assignment.find(new_assignment_id)
+          next unless new_assignment.created_at > content_migration.started_at # no more recopies
+
+          old_assignment_id = assignment.fetch(:original_assignment_id)
+          old_assignment = Assignment.find(old_assignment_id)
 
           new_assignment.duplicate_of = old_assignment
           new_assignment.workflow_state = 'duplicating'

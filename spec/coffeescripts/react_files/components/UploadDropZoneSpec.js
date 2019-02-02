@@ -18,7 +18,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import {Simulate} from 'react-addons-test-utils'
+import {Simulate} from 'react-dom/test-utils'
 import UploadDropZone from 'jsx/files/UploadDropZone'
 
 const node = document.querySelector('#fixtures')
@@ -33,20 +33,20 @@ QUnit.module('UploadDropZone', {
 })
 
 test('displays nothing by default', function() {
-  const displayText = this.uploadZone.getDOMNode().innerHTML.trim()
+  const displayText = ReactDOM.findDOMNode(this.uploadZone).innerHTML.trim()
   equal(displayText, '')
 })
 
 test('displays dropzone when active', function() {
   this.uploadZone.setState({active: true})
-  ok(this.uploadZone.getDOMNode().querySelector('.UploadDropZone__instructions'))
+  ok(ReactDOM.findDOMNode(this.uploadZone).querySelector('.UploadDropZone__instructions'))
 })
 
 test('handles drop event on target', function() {
   sandbox.stub(this.uploadZone, 'onDrop')
   this.uploadZone.setState({active: true})
   const dataTransfer = {types: ['Files']}
-  const n = this.uploadZone.getDOMNode()
+  const n = ReactDOM.findDOMNode(this.uploadZone)
   Simulate.dragEnter(n, {dataTransfer})
   Simulate.dragOver(n, {dataTransfer})
   Simulate.drop(n)

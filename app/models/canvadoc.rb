@@ -61,12 +61,17 @@ class Canvadoc < ActiveRecord::Base
     Canvadocs.annotations_supported? || has_annotations == true
   end
 
+  def self.jwt_secret
+    secret = Canvas::DynamicSettings.find(service: 'canvadoc', default_ttl: 5.minutes)['secret']
+    Base64.decode64(secret) if secret
+  end
+
   # NOTE: the Setting.get('canvadoc_mime_types', ...) and the
   # Setting.get('canvadoc_submission_mime_types', ...) will
   # pull from the database first. the second parameter is there
   # as a default in case the settings are not located in the
-  # db. this means that for instructure production canvas, 
-  # we need to update the beta and prod databases with any 
+  # db. this means that for instructure production canvas,
+  # we need to update the beta and prod databases with any
   # mime_types we want to add/remove.
   # TODO: find out if opensource users need the second param
   # to the Setting.get(...,...) calls and if not, then remove
@@ -83,6 +88,8 @@ class Canvadoc < ActiveRecord::Base
       application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       application/vnd.openxmlformats-officedocument.presentationml.presentation
       application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      application/vnd.oasis.opendocument.graphics
+      application/vnd.oasis.opendocument.formula
     ].to_json)
   end
 
@@ -96,6 +103,8 @@ class Canvadoc < ActiveRecord::Base
       application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       application/vnd.openxmlformats-officedocument.presentationml.presentation
       application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      application/vnd.oasis.opendocument.graphics
+      application/vnd.oasis.opendocument.formula
       image/bmp
       image/jpeg
       image/jpg

@@ -39,3 +39,39 @@ export default function datePickerFormat (format) {
     .trim()
   // *Time info removed because it's already added by the datetime picker
 }
+
+function quoteLiteralStrings (format) {
+  let ret = ""
+  let inLiteral = false
+  const open = () => {
+    if (!inLiteral) {
+      ret += "'"
+      inLiteral = true
+    }
+  }
+  const close = () => {
+    if (inLiteral) {
+      ret += "'"
+      inLiteral = false
+    }
+  }
+  for (let i = 0; i < format.length; ++i) {
+    if (format[i] === ' ') {
+      close()
+      ret += ' '
+    } else if (format[i] === "%" && format[i+1] === '-' && format[i+2] != null) {
+      close()
+      ret += `%-${format[i+2]}`
+      i += 2
+    } else if (format[i] === "%" && format[i+1] != null) {
+      close()
+      ret += `%${format[i+1]}`
+      i += 1
+    } else {
+      open()
+      ret += format[i]
+    }
+  }
+  close()
+  return ret
+}

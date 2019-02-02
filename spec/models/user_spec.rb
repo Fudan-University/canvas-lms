@@ -25,6 +25,29 @@ describe User do
     it "should create a new instance given valid attributes" do
       expect(user_model).to be_valid
     end
+
+    context 'on update' do
+      let(:user) { user_model }
+
+      it 'fails validation if lti_id changes' do
+        user.short_name = "chewie"
+        user.lti_id = "changedToThis"
+        expect(user).to_not be_valid
+      end
+
+      it 'passes validation if lti_id is not changed' do
+        user
+        user.short_name = "chewie"
+        expect(user).to be_valid
+      end
+    end
+  end
+
+  it 'adds an lti_id on creation' do
+    user = User.new
+    expect(user.lti_id).to be_blank
+    user.save!
+    expect(user.lti_id).to_not be_blank
   end
 
   it "should get the first email from communication_channel" do
@@ -820,29 +843,33 @@ describe User do
 
   context "check_courses_right?" do
     before :once do
-      course_with_teacher(:active_all => true)
-      @student = user_model
-    end
+      course_with_teacher(active_all: true)
+      course_with_student(course: @course, active_all: true)
+      @teacher1 = @teacher
+      @student1 = @student
+      @active_course = @course
 
-    before :each do
-      allow(@course).to receive(:grants_right?).and_return(true)
+      course_with_teacher(active_all: true)
+      course_with_student(course: @course, active_all: true)
+      @teacher2 = @teacher
+      @student2 = @student
+      @concluded_course = @course
+      @concluded_course.complete!
     end
 
     it "should require parameters" do
-      expect(@student.check_courses_right?(nil, :some_right)).to be_falsey
-      expect(@student.check_courses_right?(@teacher, nil)).to be_falsey
+      expect(@student1.check_courses_right?(nil, :some_right)).to be_falsey
+      expect(@student1.check_courses_right?(@teacher1, nil)).to be_falsey
     end
 
-    it "should check current courses" do
-      expect(@student).to receive(:courses).once.and_return([@course])
-      expect(@student).to receive(:concluded_courses).never
-      expect(@student.check_courses_right?(@teacher, :some_right)).to be_truthy
+    it "should check both active and concluded courses" do
+      expect(@student1.check_courses_right?(@teacher1, :manage_wiki)).to be_truthy
+      expect(@student2.check_courses_right?(@teacher2, :read_forum)).to be_truthy
+      @concluded_course.grants_right?(@teacher2, :manage_wiki)
     end
 
-    it "should check concluded courses" do
-      expect(@student).to receive(:courses).once.and_return([])
-      expect(@student).to receive(:concluded_courses).once.and_return([@course])
-      expect(@student.check_courses_right?(@teacher, :some_right)).to be_truthy
+    it "allows for narrowing courses by enrollments" do
+      expect(@student2.check_courses_right?(@teacher2, :manage_account_memberships, @student2.enrollments.concluded)).to be_falsey
     end
   end
 
@@ -1106,29 +1133,16 @@ describe User do
         expect(@student.count_messageable_users_in_course(@course)).to eql 2
       end
 
-      it "should return concluded enrollments in the group if they are still members" do
+      it "users with concluded enrollments should not be messageable" do
         @course.enroll_user(@student, 'StudentEnrollment', :enrollment_state => 'active')
-        @this_section_user_enrollment.conclude
-
-        expect(search_messageable_users(@this_section_user, :context => "group_#{@group.id}").map(&:id)).to eql [@this_section_user.id]
-        expect(@this_section_user.count_messageable_users_in_group(@group)).to eql 1
         expect(search_messageable_users(@student, :context => "group_#{@group.id}").map(&:id)).to eql [@this_section_user.id]
         expect(@student.count_messageable_users_in_group(@group)).to eql 1
-      end
-
-      it "should return concluded enrollments in the group and section if they are still members" do
-        enrollment = @course.enroll_user(@student, 'StudentEnrollment', :enrollment_state => 'active', :limit_privileges_to_course_section => true)
-        # we currently force limit_privileges_to_course_section to be false for students; override it in the db
-        Enrollment.where(:id => enrollment).update_all(:limit_privileges_to_course_section => true)
-
-        @group.users << @other_section_user
         @this_section_user_enrollment.conclude
 
-        expect(search_messageable_users(@this_section_user, :context => "group_#{@group.id}").map(&:id).sort).to eql [@this_section_user.id, @other_section_user.id]
-        expect(@this_section_user.count_messageable_users_in_group(@group)).to eql 2
-        # student can only see people in his section
-        expect(search_messageable_users(@student, :context => "group_#{@group.id}").map(&:id)).to eql [@this_section_user.id]
-        expect(@student.count_messageable_users_in_group(@group)).to eql 1
+        expect(search_messageable_users(@this_section_user, :context => "group_#{@group.id}").map(&:id)).to eql []
+        expect(@this_section_user.count_messageable_users_in_group(@group)).to eql 0
+        expect(search_messageable_users(@student, :context => "group_#{@group.id}").map(&:id)).to eql []
+        expect(@student.count_messageable_users_in_group(@group)).to eql 0
       end
     end
 
@@ -1282,9 +1296,6 @@ describe User do
       expect(User.avatar_fallback_url('%{fallback}')).to eq(
         '%{fallback}'
       )
-      expect(User.avatar_fallback_url("http://somedomain/path",
-                                      OpenObject.new(:host => "somedomain", :protocol => "http://",
-                                                     :params => {:no_avatar_fallback => 1}))).to be_nil
     end
 
     describe "#clear_avatar_image_url_with_uuid" do
@@ -1482,8 +1493,14 @@ describe User do
       end
 
       it "should include cross shard favorite courses" do
-        @user.favorites.by("Course").where("id % 2 = 0").destroy_all
-        expect(@user.menu_courses.size).to eql(@courses.length / 2)
+        expect(@user.menu_courses).to match_array(@courses)
+      end
+
+      it 'works for shadow records' do
+        @shard1.activate do
+          @shadow = User.create!(:id => @user.global_id)
+        end
+        expect(@shadow.favorites.exists?).to be_truthy
       end
     end
   end
@@ -1686,41 +1703,6 @@ describe User do
   end
 
   describe "event methods" do
-    describe "calendar_events_for_calendar" do
-      before(:once) { course_with_student(:active_all => true) }
-      it "should include own scheduled appointments" do
-        ag = AppointmentGroup.create!(:title => 'test appointment', :contexts => [@course], :new_appointments => [[Time.now, Time.now + 1.hour], [Time.now + 1.hour, Time.now + 2.hour]])
-        ag.appointments.first.reserve_for(@user, @user)
-        events = @user.calendar_events_for_calendar
-        expect(events.size).to eql 1
-        expect(events.first.title).to eql 'test appointment'
-      end
-
-      it "should include manageable appointments" do
-        @user = @course.instructors.first
-        ag = AppointmentGroup.create!(:title => 'test appointment', :contexts => [@course], :new_appointments => [[Time.now, Time.now + 1.hour]])
-        events = @user.calendar_events_for_calendar
-        expect(events.size).to eql 1
-        expect(events.first.title).to eql 'test appointment'
-      end
-
-      it "should not include unpublished assignments" do
-        as = @course.assignments.create!({:title => "Published", :due_at => 2.days.from_now})
-        as.publish
-        as2 = @course.assignments.create!({:title => "Unpublished", :due_at => 2.days.from_now})
-        as2.unpublish
-        events = @user.calendar_events_for_calendar(:contexts => [@course])
-        expect(events.size).to eql 1
-        expect(events.first.title).to eql 'Published'
-      end
-
-      it "should not include events for the user if the user asset string is not included" do
-        user_event = @user.calendar_events.create!(context: @user, start_at: 1.minute.from_now, end_at: 5.minutes.from_now)
-        events = @user.calendar_events_for_calendar(contexts: [@course])
-        expect(events).not_to include user_event
-      end
-    end
-
     describe "upcoming_events" do
       before(:once) { course_with_teacher(:active_all => true) }
       it "handles assignments where the applied due_at is nil" do
@@ -1811,25 +1793,29 @@ describe User do
   describe "select_upcoming_assignments" do
     it "filters based on assignment date for asignments the user cannot delete" do
       time = Time.now + 1.day
+      context = double
       assignments = [double, double, double]
       user = User.new
+      allow(context).to receive(:grants_right?).with(user, :manage_assignments).and_return false
       assignments.each do |assignment|
         allow(assignment).to receive_messages(:due_at => time)
-        expect(assignment).to receive(:grants_right?).with(user, :delete).and_return false
+        allow(assignment).to receive(:context).and_return(context)
       end
       expect(user.select_upcoming_assignments(assignments,{:end_at => time})).to eq assignments
     end
 
     it "returns assignments that have an override between now and end_at opt" do
       assignments = [double, double, double, double]
+      context = double
       Timecop.freeze(Time.utc(2013,3,13,0,0)) do
         user = User.new
+        allow(context).to receive(:grants_right?).with(user, :manage_assignments).and_return true
         due_date1 = {:due_at => Time.now + 1.day}
         due_date2 = {:due_at => Time.now + 1.week}
         due_date3 = {:due_at => 2.weeks.from_now }
         due_date4 = {:due_at => nil }
         assignments.each do |assignment|
-          expect(assignment).to receive(:grants_right?).with(user, :delete).and_return true
+          allow(assignment).to receive(:context).and_return(context)
         end
         expect(assignments.first).to receive(:dates_hash_visible_to).with(user).
           and_return [due_date1]
@@ -2492,6 +2478,13 @@ describe User do
         expect(@student.grants_right?(@sub_admin, :manage_user_details)).to eq false
       end
 
+      it "is not granted to custom sub-account admins with inherited roles" do
+        custom_role = custom_account_role("somerole", :account => @root_account)
+        @root_account.role_overrides.create!(role: custom_role, enabled: true, permission: :manage_user_logins)
+        @custom_sub_admin = account_admin_user(account: @sub_account, role: custom_role)
+        expect(@student.grants_right?(@custom_sub_admin, :manage_user_details)).to eq false
+      end
+
       it "is not granted to root account admins on other root account admins who are invited as students" do
         other_admin = account_admin_user account: Account.create!
         course_with_student account: @root_account, user: other_admin, enrollment_state: 'invited'
@@ -2882,13 +2875,6 @@ describe User do
     end
   end
 
-  describe "after_create" do
-    it "sets the new_user_tutorial_on_off feature flag to true" do
-      u = User.create!
-      expect(u.feature_enabled?(:new_user_tutorial_on_off)).to be true
-    end
-  end
-
   describe "#authenticate_one_time_password" do
     let(:user) { User.create! }
     let(:otp) { user.one_time_passwords.create! }
@@ -3073,6 +3059,19 @@ describe User do
         @user.pseudonyms.where(account_id: @other_account).first.destroy
         expect(@user.user_can_edit_name?).to eq false
       end
+    end
+  end
+
+  describe 'generate_observer_pairing_code' do
+    before(:once) do
+      course_with_student
+    end
+
+    it 'doesnt create overlapping active codes' do
+      allow(SecureRandom).to receive(:base64).and_return('abc123', 'abc123', '123abc')
+      @student.generate_observer_pairing_code
+      pairing_code = @student.generate_observer_pairing_code
+      expect(pairing_code.code).to eq '123abc'
     end
   end
 end

@@ -37,20 +37,6 @@ test('Grid.Math.mean', () => {
   ok(Grid.Math.mean([5, 12, 2]) === 6.33, 'rounds to two places')
 })
 
-test('Grid.Math.median', () => {
-  const odd = [1, 3, 2, 5, 4]
-  const even = [1, 3, 2, 6, 5, 4]
-  ok(Grid.Math.median(odd) === 3, 'properly finds median on odd datasets')
-  ok(Grid.Math.median(even) === 3.5, 'properly finds median on even datasets')
-})
-
-test('Grid.Math.mode', () => {
-  const single = [1, 1, 1, 3, 5]
-  const multiple = [1, 1, 2, 2, 3, 5]
-  ok(Grid.Math.mode(single) === 1, 'returns mode when it is a single node')
-  ok(Grid.Math.mode(multiple) === 2, 'averages multiple modes to return a single result')
-})
-
 test('Grid.Util._toRow', () => {
   Grid.students = {1: {}}
   Grid.sections = {1: {}}
@@ -61,6 +47,26 @@ test('Grid.Util._toRow', () => {
   ok(
     isEqual(Grid.Util._toRow([rollup], null).outcome_2, { score: "3", hide_points: true }),
     'correctly returns an object with a score and hide_points for a cell'
+  )
+})
+
+test('Grid.Util.toRows', () => {
+  Grid.students = {1: {id: 1}, 2: {id: 2}, 3: {id: 3}}
+  Grid.sections = {1: {}}
+  const rollups = [
+    {
+      links: { section: "1", user: "3" }
+    },
+    {
+      links: { section: "1", user: "1" }
+    },
+    {
+      links: { section: "1", user: "2" }
+    }
+  ]
+  ok(
+    isEqual(Grid.Util.toRows(rollups).map((r) => r.student.id), [3, 1, 2]),
+    'returns rows in the same user order as rollups'
   )
 })
 
@@ -165,43 +171,35 @@ test('Grid.View.legacyMasteryDetails', () => {
   )
 })
 
-test('Grid.Events.sort', () => {
-  const rows = [
-    {
-      student: {sortable_name: 'Draper, Don'},
-      outcome_1: 3
-    },
-    {
-      student: {sortable_name: 'Olson, Peggy'},
-      outcome_1: 4
-    },
-    {
-      student: {sortable_name: 'Campbell, Pete'},
-      outcome_1: 3
-    }
-  ]
-  const outcomeSort = rows.sort((a, b) => Grid.Events._sortResults(a, b, true, 'outcome_1'))
-  const userSort = rows.sort((a, b) => Grid.Events._sortStudents(a, b, true))
-  ok(isEqual([3, 3, 4], pluck(outcomeSort, 'outcome_1')), 'sorts by result value')
-  ok(
-    outcomeSort.map(r => r.student.sortable_name)[0] === 'Campbell, Pete',
-    'result sort falls back to sortable name'
-  )
-  ok(
-    isEqual(userSort.map(r => r.student.sortable_name), [
-      'Campbell, Pete',
-      'Draper, Don',
-      'Olson, Peggy'
-    ]),
-    'sorts by student name'
-  )
-})
-
 test('Grid.Util.toColumns for xss', () => {
   const outcome = {
     id: 1,
     title: '<script>'
   }
-  const columns = Grid.Util.toColumns([outcome])
+  const columns = Grid.Util.toColumns([outcome], [])
   ok(isEqual(columns[1].name, '&lt;script&gt;'))
+})
+
+test('Grid.Util._studentColumn does not modify default options', () => {
+  Grid.Util._studentColumn()
+  ok(isEqual(121, Grid.Util.COLUMN_OPTIONS.width))
+})
+
+test('Grid.Util.toColumns hasResults', () => {
+  const outcomes = [
+    {
+      id: "1"
+
+    },
+    {
+      id: "2"
+    }
+  ]
+  const rollup = {
+    links: { section: "1", user: "1" },
+    scores: [{ score: "3", hide_points: true, links: { outcome:"2" } }]
+  }
+  const columns = Grid.Util.toColumns(outcomes, [rollup])
+  ok(isEqual(columns[1].hasResults, false))
+  ok(isEqual(columns[2].hasResults, true))
 })

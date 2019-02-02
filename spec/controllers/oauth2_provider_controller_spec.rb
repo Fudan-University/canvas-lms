@@ -20,7 +20,11 @@ require File.expand_path(File.dirname(__FILE__) + '/../spec_helper')
 
 describe Oauth2ProviderController do
   describe 'GET auth' do
-    let_once(:key) { DeveloperKey.create! :redirect_uri => 'https://example.com' }
+    let_once(:key) do
+      d = DeveloperKey.create! :redirect_uri => 'https://example.com'
+      enable_developer_key_account_binding!(d)
+      d
+    end
 
     it 'renders a 401 when there is no client_id' do
       get :auth
@@ -37,10 +41,6 @@ describe Oauth2ProviderController do
 
     context 'with invalid scopes' do
       let(:dev_key) { DeveloperKey.create! redirect_uri: 'https://example.com', require_scopes: true, scopes: [] }
-
-      before do
-        allow_any_instance_of(Account).to receive(:feature_enabled?).with(:developer_key_management_and_scoping).and_return(true)
-      end
 
       it 'renders 400' do
         get :auth, params: {
@@ -172,282 +172,458 @@ describe Oauth2ProviderController do
         expect(response.location).to match(/https:\/\/example.com/)
       end
 
-      context 'when new developer key FF is enabled' do
-        before do
-          allow(Account.site_admin).to receive(:feature_allowed?).and_return(false)
-          allow(Account.default).to receive(:feature_enabled?).and_return(false)
-          allow(Account.default).to receive(:feature_enabled?).with(:developer_key_management_and_scoping).and_return(true)
+      shared_examples_for 'the authorization endpoint' do
+        let(:account_developer_key) { raise 'set in examples' }
+        let(:account) { account_developer_key.account || Account.site_admin }
+
+        it 'should redirect with "unauthorized_client" if binding does not exist for the account' do
+          get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+          redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+          expect(redirect_query_params['error']).to eq 'unauthorized_client'
         end
 
-        shared_examples_for 'the authorization endpoint' do
-          let(:account_developer_key) { raise 'set in examples' }
-          let(:account) { account_developer_key.account || Account.site_admin }
+        it 'should redirect with "unauthorized_client" if binding for the account is set to "allow"' do
+          binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
+          binding.update!(workflow_state: 'allow')
+          get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+          redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+          expect(redirect_query_params['error']).to eq 'unauthorized_client'
+        end
 
-          it 'should redirect with "unauthorized_client" if binding does not exist for the account' do
-            get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-            redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+        it 'should redirect with "unauthorized_client" if binding for the account is set to "off"' do
+          binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
+          binding.update!(workflow_state: 'off')
+          get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+          redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+          expect(redirect_query_params['error']).to eq 'unauthorized_client'
+        end
+
+        it 'should redirect to confirmation page when the binding for the account is set to "on"' do
+          binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
+          binding.update!(workflow_state: 'on')
+          get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+          expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
+        end
+      end
+
+      context 'when key is a site admin key' do
+        let(:root_account) { Account.default }
+        let(:developer_key) { DeveloperKey.create!(redirect_uri: 'https://example.com') }
+        let(:root_account_binding) { developer_key.developer_key_account_bindings.find_by(account: root_account) }
+        let(:sa_account_binding) { developer_key.developer_key_account_bindings.find_by(account: Account.site_admin) }
+        let(:redirect_query_params) { Rack::Utils.parse_query(URI.parse(response.location).query) }
+
+        it_behaves_like 'the authorization endpoint' do
+          let(:account_developer_key) { developer_key }
+        end
+
+        context 'when root account binding exists' do
+          before do
+            developer_key.developer_key_account_bindings.create!(account: root_account)
+          end
+
+          it 'should redirect with "unauthorized_client" if binding for SA is "off" and root account binding is "on"' do
+            root_account_binding.update!(workflow_state: 'on')
+            sa_account_binding.update!(workflow_state: 'off')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
             expect(redirect_query_params['error']).to eq 'unauthorized_client'
           end
 
-          it 'should redirect with "unauthorized_client" if binding for the account is set to "allow"' do
-            binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
-            binding.update!(workflow_state: 'allow')
-            get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-            redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+          it 'should redirect with "unauthorized_client" if binding for SA is "allow" and binding for root account is "allow"' do
+            root_account_binding.update!(workflow_state: 'allow')
+            sa_account_binding.update!(workflow_state: 'allow')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
             expect(redirect_query_params['error']).to eq 'unauthorized_client'
           end
 
-          it 'should redirect with "unauthorized_client" if binding for the account is set to "off"' do
-            binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
-            binding.update!(workflow_state: 'off')
-            get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-            redirect_query_params = Rack::Utils.parse_query(URI.parse(response.location).query)
+          it 'should redirect with "unauthorized_client" if binding for SA is "allow" and binding for root account is "off"' do
+            root_account_binding.update!(workflow_state: 'off')
+            sa_account_binding.update!(workflow_state: 'allow')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
             expect(redirect_query_params['error']).to eq 'unauthorized_client'
           end
 
-          it 'should redirect to confirmation page when the binding for the account is set to "on"' do
-            binding = account_developer_key.developer_key_account_bindings.find_or_create_by(account: account)
-            binding.update!(workflow_state: 'on')
-            get :auth, params: { client_id: account_developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+          it 'should redirect with "unauthorized_client" if binding for SA is "off" and binding for root account is "off"' do
+            root_account_binding.update!(workflow_state: 'off')
+            sa_account_binding.update!(workflow_state: 'off')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+            expect(redirect_query_params['error']).to eq 'unauthorized_client'
+          end
+
+          it 'should redirect to confirmation page if binding for SA is "allow" and binding for root account is "on"' do
+            root_account_binding.update!(workflow_state: 'on')
+            sa_account_binding.update!(workflow_state: 'allow')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+            expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
+          end
+
+          it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "off"' do
+            root_account_binding.update!(workflow_state: 'off')
+            sa_account_binding.update!(workflow_state: 'on')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+            expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
+          end
+
+          it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "allow"' do
+            root_account_binding.update!(workflow_state: 'allow')
+            sa_account_binding.update!(workflow_state: 'on')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
+            expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
+          end
+
+          it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "on"' do
+            root_account_binding.update!(workflow_state: 'on')
+            sa_account_binding.update!(workflow_state: 'on')
+            get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
             expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
           end
         end
+      end
 
-        context 'when key is a site admin key' do
-          let(:root_account) { Account.default }
-          let(:developer_key) { DeveloperKey.create!(redirect_uri: 'https://example.com') }
-          let(:root_account_binding) { developer_key.developer_key_account_bindings.find_by(account: root_account) }
-          let(:sa_account_binding) { developer_key.developer_key_account_bindings.find_by(account: Account.site_admin) }
-          let(:redirect_query_params) { Rack::Utils.parse_query(URI.parse(response.location).query) }
+      context 'when key is a root account key' do
+        let(:root_account) { Account.default }
 
-          it_behaves_like 'the authorization endpoint' do
-            let(:account_developer_key) { developer_key }
-          end
-
-          context 'when root account binding exists' do
-            before do
-              developer_key.developer_key_account_bindings.create!(account: root_account)
-            end
-
-            it 'should redirect with "unauthorized_client" if binding for SA is "off" and root account binding is "on"' do
-              root_account_binding.update!(workflow_state: 'on')
-              sa_account_binding.update!(workflow_state: 'off')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(redirect_query_params['error']).to eq 'unauthorized_client'
-            end
-
-            it 'should redirect with "unauthorized_client" if binding for SA is "allow" and binding for root account is "allow"' do
-              root_account_binding.update!(workflow_state: 'allow')
-              sa_account_binding.update!(workflow_state: 'allow')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(redirect_query_params['error']).to eq 'unauthorized_client'
-            end
-
-            it 'should redirect with "unauthorized_client" if binding for SA is "allow" and binding for root account is "off"' do
-              root_account_binding.update!(workflow_state: 'off')
-              sa_account_binding.update!(workflow_state: 'allow')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(redirect_query_params['error']).to eq 'unauthorized_client'
-            end
-
-            it 'should redirect with "unauthorized_client" if binding for SA is "off" and binding for root account is "off"' do
-              root_account_binding.update!(workflow_state: 'off')
-              sa_account_binding.update!(workflow_state: 'off')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(redirect_query_params['error']).to eq 'unauthorized_client'
-            end
-
-            it 'should redirect to confirmation page if binding for SA is "allow" and binding for root account is "on"' do
-              root_account_binding.update!(workflow_state: 'on')
-              sa_account_binding.update!(workflow_state: 'allow')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
-            end
-
-            it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "off"' do
-              root_account_binding.update!(workflow_state: 'off')
-              sa_account_binding.update!(workflow_state: 'on')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
-            end
-
-            it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "allow"' do
-              root_account_binding.update!(workflow_state: 'allow')
-              sa_account_binding.update!(workflow_state: 'on')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
-            end
-
-            it 'should redirect to confirmation page if binding for SA is "on" and binding for root account is "on"' do
-              root_account_binding.update!(workflow_state: 'on')
-              sa_account_binding.update!(workflow_state: 'on')
-              get :auth, params: { client_id: developer_key.id, redirect_uri: 'https://example.com', response_type: 'code' }
-              expect(response.location).to eq 'http://test.host/login/oauth2/confirm'
-            end
-          end
-        end
-
-        context 'when key is a root account key' do
-          let(:root_account) { Account.default }
-
-          it_behaves_like 'the authorization endpoint' do
-            let(:account_developer_key) { DeveloperKey.create!(redirect_uri: 'https://example.com', account: root_account) }
-          end
+        it_behaves_like 'the authorization endpoint' do
+          let(:account_developer_key) { DeveloperKey.create!(redirect_uri: 'https://example.com', account: root_account) }
         end
       end
     end
   end
 
   describe 'POST token' do
-    let_once(:key) { DeveloperKey.create! }
-    let_once(:user) { User.create! }
-    let(:valid_code) {"thecode"}
-    let(:valid_code_redis_key) {"#{Canvas::Oauth::Token::REDIS_PREFIX}#{valid_code}"}
-    let(:redis) do
-      redis = double('Redis')
-      allow(redis).to receive(:get)
-      allow(redis).to receive(:get).with(valid_code_redis_key).and_return(%Q{{"client_id": #{key.id}, "user": #{user.id}}})
-      allow(redis).to receive(:del).with(valid_code_redis_key).and_return(%Q{{"client_id": #{key.id}, "user": #{user.id}}})
-      redis
+    subject { response }
+
+    let_once(:key) { DeveloperKey.create! scopes: [TokenScopes::USER_INFO_SCOPE[:scope]] }
+    let_once(:other_key) { DeveloperKey.create! }
+    let_once(:inactive_key) { DeveloperKey.create! workflow_state: 'inactive' }
+    let_once(:user) { User.create!(locale: 'zh-Hant') }
+    let(:old_token) { user.access_tokens.create!(developer_key: key) }
+    let(:client_id) { key.id }
+    let(:client_secret) { key.api_key }
+    let(:base_params) do
+      {client_id: client_id, client_secret: client_secret, grant_type: grant_type}
     end
 
-    it 'renders a 401 if theres no client_id' do
-      post :token
-      assert_status(401)
-      expect(response.body).to match /unknown client/
+    shared_examples_for 'common oauth2 token checks' do
+      let(:success_params) { raise 'Override in spec' }
+      let(:success_setup) { nil }
+      let(:success_token_keys) { raise 'Override in spec' }
+      let(:before_post) { nil }
+      let(:overrides) { {} }
+
+      before do
+        before_post
+        parameters = base_params.merge(overrides)
+        post :token, params: parameters
+      end
+
+      context 'invalid key' do
+        context 'key is inactive' do
+          let(:client_id) { inactive_key.id }
+
+          it { is_expected.to have_http_status(401) }
+        end
+
+        context 'key is missing' do
+          let(:client_id) { nil }
+
+          it { is_expected.to have_http_status(401) }
+        end
+
+        context 'key is not found' do
+          let(:client_id) { 0 }
+
+          it { is_expected.to have_http_status(401) }
+        end
+
+        context 'key is not an integer' do
+          let(:client_id) { 'a' }
+
+          it { is_expected.to have_http_status(401) }
+        end
+      end
+
+      context 'secret and key combo invalid' do
+        context 'key secret and provided secret do not match' do
+          let(:client_secret) { other_key.api_key }
+
+          it do
+            skip 'not valid for this grant_type' if grant_type == 'client_credentials'
+            is_expected.to have_http_status(401)
+          end
+        end
+
+        context 'key secret is not provided' do
+          let(:client_secret) { nil }
+
+          it do
+            skip 'not valid for this grant_type' if grant_type == 'client_credentials'
+            is_expected.to have_http_status(401)
+          end
+        end
+      end
+
+      context 'valid request' do
+        let(:before_post) { success_setup }
+        let(:overrides) { success_params }
+
+        it { is_expected.to have_http_status(200) }
+
+        it 'outputs the token json if everything checks out' do
+          json = JSON.parse(response.body)
+          expect(json.keys.sort).to match_array(success_token_keys)
+          expect(json['token_type']).to eq 'Bearer'
+        end
+      end
+
+      context 'invalid grant_type provided' do
+        context 'unsupported grant_type' do
+          let(:grant_type) { 'urn:unsupported' }
+
+          it { is_expected.to have_http_status(400) }
+        end
+
+        context 'missing grant_type' do
+          let(:grant_type) { nil }
+
+          it { is_expected.to have_http_status(400) }
+        end
+      end
     end
 
-    it 'renders a 401 if the secret is invalid' do
-      post :token, params: {:client_id => key.id, :client_secret => key.api_key + "123"}
-      assert_status(401)
-      expect(response.body).to match /invalid client/
-    end
+    context 'authorization_code' do
+      let(:grant_type) { 'authorization_code' }
+      let(:valid_code) {"thecode"}
+      let(:valid_code_redis_key) {"#{Canvas::Oauth::Token::REDIS_PREFIX}#{valid_code}"}
+      let(:redis) do
+        redis = double('Redis')
+        allow(redis).to receive(:get)
+        allow(redis).to receive(:get).with(valid_code_redis_key).and_return(%Q{{"client_id": #{key.id}, "user": #{user.id}}})
+        allow(redis).to receive(:del).with(valid_code_redis_key).and_return(%Q{{"client_id": #{key.id}, "user": #{user.id}}})
+        redis
+      end
 
-    it 'renders a 400 if a code is not provided for an authorization_code grant' do
-      expected_error = Canvas::Oauth::RequestError::ERROR_MAP[:authorization_code_not_supplied]
+      before { allow(Canvas).to receive_messages(:redis => redis) }
 
-      post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: 'authorization_code'}
+      it_behaves_like 'common oauth2 token checks' do
+        let(:success_params) { { code: valid_code } }
+        let(:success_setup) do
+          expect(redis).to receive(:del).with(valid_code_redis_key).at_least(:once)
+        end
+        let(:success_token_keys) { %w(access_token refresh_token user expires_in token_type) }
+      end
 
-      assert_status(400)
+      it 'renders a 400 if a code is not provided for an authorization_code grant' do
+        post :token, params: base_params
 
-      response_hash = JSON.parse(response.body)
-      expect(response_hash['error']).to eq expected_error[:error].to_s
-      expect(response_hash['error_description']).to eq expected_error[:error_description]
-    end
-
-    it 'renders a 400 if the provided code does not match a token' do
-      allow(Canvas).to receive_messages(:redis => redis)
-      post :token, params: {:client_id => key.id, :client_secret => key.api_key, :code => "NotALegitCode"}
-      assert_status(400)
-      expect(response.body).to match /authorization_code not found/
-    end
-
-    it 'outputs the token json if everything checks out' do
-      expect(redis).to receive(:del).with(valid_code_redis_key).at_least(:once)
-      allow(Canvas).to receive_messages(:redis => redis)
-      post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: 'authorization_code', code: valid_code}
-      expect(response).to be_successful
-      json = JSON.parse(response.body)
-      expect(json.keys.sort).to match_array(['access_token',  'refresh_token', 'user', 'expires_in', 'token_type'])
-      expect(json['token_type']).to eq 'Bearer'
-    end
-
-    it 'renders a 400 if the provided code is for the wrong key' do
-      allow(Canvas).to receive_messages(:redis => redis)
-      key2 = DeveloperKey.create!
-      post :token, params: {client_id: key2.id.to_s, client_secret: key2.api_key, grant_type: 'authorization_code', code: valid_code}
-      assert_status(400)
-      expect(response.body).to match(/incorrect client/)
-    end
-
-    it 'default grant_type to authorization_code if none is supplied and code is present' do
-      expect(redis).to receive(:del).with(valid_code_redis_key).at_least(:once)
-      allow(Canvas).to receive_messages(:redis => redis)
-      post :token, params: {:client_id => key.id, :client_secret => key.api_key, :code => valid_code}
-      expect(response).to be_successful
-      json = JSON.parse(response.body)
-      expect(json.keys.sort).to match_array ['access_token', 'refresh_token', 'user', 'expires_in', 'token_type']
-    end
-
-    it 'deletes existing tokens for the same key when replace_tokens=1' do
-      old_token = user.access_tokens.create! :developer_key => key
-      allow(Canvas).to receive_messages(:redis => redis)
-      post :token, params: {:client_id => key.id, :client_secret => key.api_key, :code => valid_code, :replace_tokens => '1'}
-      expect(response).to be_successful
-      expect(AccessToken.not_deleted.exists?(old_token.id)).to be(false)
-    end
-
-    it 'does not delete existing tokens without replace_tokens' do
-      old_token = user.access_tokens.create! :developer_key => key
-      allow(Canvas).to receive_messages(:redis => redis)
-      post :token, params: {:client_id => key.id, :client_secret => key.api_key, :code => valid_code}
-      expect(response).to be_successful
-      expect(AccessToken.not_deleted.exists?(old_token.id)).to be(true)
-    end
-
-    context 'grant_type refresh_token' do
-      it 'must specify grant_type' do
-        post :token, params: {client_id: key.id, client_secret: key.api_key, refresh_token: "SAFASDFASDF"}
         assert_status(400)
-        json = JSON.parse(response.body)
-        expect(json['error']).to eq "unsupported_grant_type"
       end
 
-      it 'should not generate a new access_token with an invalid refresh_token' do
-        old_token = user.access_tokens.create! :developer_key => key
-        refresh_token = old_token.plaintext_refresh_token
-
-        post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: "refresh_token", refresh_token: refresh_token + "ASDAS"}
+      it 'renders a 400 if the provided code does not match a token' do
+        post :token, params: base_params.merge(:code => "NotALegitCode")
         assert_status(400)
-        json = JSON.parse(response.body)
-        expect(json['error']).to eq "invalid_request"
-        expect(json['error_description']).to eq "refresh_token not found"
+        expect(response.body).to match /authorization_code not found/
       end
 
-      it 'should generate a new access_token' do
-        old_token = user.access_tokens.create! :developer_key => key
-        refresh_token = old_token.plaintext_refresh_token
-        access_token = old_token.full_token
-
-        post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: "refresh_token", refresh_token: refresh_token}
-        json = JSON.parse(response.body)
-        expect(json['access_token']).to_not eq access_token
-      end
-
-      it 'errors with a mismatched client id' do
-        old_token = user.access_tokens.create! :developer_key => key
-        refresh_token = old_token.plaintext_refresh_token
-        key2 = DeveloperKey.create!
-
-        post :token, params: {client_id: key2.id, client_secret: key2.api_key, grant_type: "refresh_token", refresh_token: refresh_token}
+      it 'renders a 400 if the provided code is for the wrong key' do
+        post :token, params: base_params.merge(client_id: other_key.id.to_s, client_secret: other_key.api_key, code: valid_code)
         assert_status(400)
         expect(response.body).to match(/incorrect client/)
       end
 
-      it 'should be able to regenerate access_token multiple times' do
-        old_token = user.access_tokens.create! :developer_key => key
-        refresh_token = old_token.plaintext_refresh_token
-        access_token = old_token.full_token
-
-        post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: "refresh_token", refresh_token: refresh_token}
+      it 'default grant_type to authorization_code if none is supplied and code is present' do
+        expect(redis).to receive(:del).with(valid_code_redis_key).at_least(:once)
+        post :token, params: base_params.merge(code: valid_code)
         expect(response).to be_successful
         json = JSON.parse(response.body)
-        expect(json['access_token']).to_not eq access_token
+        expect(json.keys.sort).to match_array ['access_token', 'refresh_token', 'user', 'expires_in', 'token_type']
+        expect(json.dig('user', 'effective_locale')).to eq 'zh-Hant'
+      end
 
-        access_token = json['access_token']
-        post :token, params: {client_id: key.id, client_secret: key.api_key, grant_type: "refresh_token", refresh_token: refresh_token}
+      it 'deletes existing tokens for the same key when replace_tokens=1' do
+        old_token
+        post :token, params: base_params.merge(code: valid_code, replace_tokens: '1')
         expect(response).to be_successful
-        json = JSON.parse(response.body)
-        expect(json['access_token']).to_not eq access_token
+        expect(AccessToken.not_deleted.exists?(old_token.id)).to be(false)
+      end
+
+      it 'does not delete existing tokens without replace_tokens' do
+        old_token
+        post :token, params: base_params.merge(code: valid_code)
+        expect(response).to be_successful
+        expect(AccessToken.not_deleted.exists?(old_token.id)).to be(true)
       end
     end
 
-    context 'unsupported grant_type' do
-      it 'returns a 400' do
-        post :token, params: {:client_id => key.id, :client_secret => key.api_key, :grant_type => "client_credentials"}
+    context 'grant_type refresh_token' do
+      let(:grant_type) { 'refresh_token' }
+      let(:refresh_token) { old_token.plaintext_refresh_token }
+
+      it_behaves_like 'common oauth2 token checks' do
+        let(:success_params) { {refresh_token: refresh_token} }
+        let(:success_token_keys) { %w(access_token user expires_in token_type) }
+      end
+
+      it 'should not generate a new access_token with an invalid refresh_token' do
+        post :token, params: base_params.merge(refresh_token: refresh_token + 'ASDF')
         assert_status(400)
+      end
+
+      it 'should generate a new access_token' do
+        post :token, params: base_params.merge(refresh_token: refresh_token)
         json = JSON.parse(response.body)
-        expect(json['error']).to eq "unsupported_grant_type"
+        expect(json['access_token']).to_not eq old_token.full_token
+      end
+
+      it 'errors with a mismatched client id and refresh_token' do
+        post :token, params: base_params.merge(client_id: other_key.id, client_secret: other_key.api_key, refresh_token: refresh_token)
+        assert_status(400)
+        expect(response.body).to match(/incorrect client/)
+      end
+
+      context "multiple refreshes" do
+        before :each do
+          allow_any_instance_of(Canvas::Oauth::GrantTypes::RefreshToken).
+            to receive(:update_recently_refreshed_tokens?).and_return(false)
+        end
+
+        it 'should be able to regenerate access_token multiple times (with enough time in between)' do
+          post :token, params: base_params.merge(refresh_token: refresh_token)
+          expect(response).to be_successful
+          json = JSON.parse(response.body)
+          expect(json['access_token']).to_not eq old_token.full_token
+
+          Timecop.freeze(1.minute.from_now) do
+            access_token = json['access_token']
+            post :token, params: base_params.merge(refresh_token: refresh_token)
+            expect(response).to be_successful
+            json = JSON.parse(response.body)
+            expect(json['access_token']).to_not eq access_token
+          end
+        end
+
+        it 'should not be able to regenerate access_token multiple times in short succession' do
+          post :token, params: base_params.merge(refresh_token: refresh_token)
+          expect(response).to be_successful
+          json = JSON.parse(response.body)
+          expect(json['access_token']).to_not eq old_token.full_token
+
+          Timecop.freeze(old_token.reload.updated_at + 1.second) do
+            access_token = json['access_token']
+            post :token, params: base_params.merge(refresh_token: refresh_token)
+            expect(response).to be_successful
+            json = JSON.parse(response.body)
+            expect(json['access_token']).to eq access_token # didn't change
+          end
+        end
+      end
+    end
+
+    context 'client_credentials' do
+      let(:grant_type) { 'client_credentials' }
+      let(:aud) { Rails.application.routes.url_helpers.oauth2_token_url host: 'test.host' }
+      let(:iat) { 1.minute.ago.to_i }
+      let(:exp) { 10.minutes.from_now.to_i }
+      let(:signing_key) { JSON::JWK.new(key.private_jwk) }
+      let(:jwt) do
+        {
+          iss: 'someiss',
+          sub: client_id,
+          aud: aud,
+          iat: iat,
+          exp: exp,
+          jti: SecureRandom.uuid
+        }
+      end
+      let(:jws) { JSON::JWT.new(jwt).sign(signing_key, :RS256).to_s }
+      let(:client_credentials_params) do
+        {
+          client_assertion_type: 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+          client_assertion: jws,
+          scope: TokenScopes::USER_INFO_SCOPE[:scope]
+        }
+      end
+
+      before do
+        key.generate_rsa_keypair! overwrite: true
+        key.save!
+      end
+
+      it_behaves_like 'common oauth2 token checks' do
+        let(:success_params) { client_credentials_params }
+        let(:overrides) { client_credentials_params }
+        let(:success_token_keys) { %w(access_token token_type expires_in scope) }
+      end
+
+      describe 'additional client_credentials checks' do
+        subject do
+          parameters = {grant_type: 'client_credentials' }.merge(client_credentials_params)
+          post :token, params: parameters
+          response
+        end
+
+        context 'with bad aud' do
+          let(:aud) { 'doesnotexist' }
+
+          it { is_expected.to have_http_status 400 }
+        end
+
+        context 'with aud as an array' do
+          let(:aud) { [Rails.application.routes.url_helpers.oauth2_token_url(host: 'test.host'), 'doesnotexist'] }
+
+          it { is_expected.to have_http_status 200 }
+        end
+
+        context 'with bad exp' do
+          let(:exp) { 1.minute.ago.to_i }
+
+          it { is_expected.to have_http_status 400 }
+        end
+
+        context 'with bad iat' do
+          let(:iat) { 1.minute.from_now.to_i }
+
+          it { is_expected.to have_http_status 400 }
+
+          context 'with iat too far in future' do
+            let(:iat) { 6.minutes.from_now.to_i }
+
+            it { is_expected.to have_http_status 400 }
+          end
+        end
+
+        context 'with bad signing key' do
+          let(:signing_key) { JSON::JWK.new(other_key.private_jwk) }
+          before do
+            other_key.generate_rsa_keypair! overwrite: true
+            other_key.save!
+          end
+
+          it { is_expected.to have_http_status 400 }
+        end
+
+        context 'with missing assertion' do
+          Canvas::Security::JwtValidator::REQUIRED_ASSERTIONS.each do |assertion|
+            it "returns 400 when #{assertion} missing" do
+              jwt.delete assertion.to_sym
+              expected = assertion != 'sub' ? 400 : 401
+              expect(subject).to have_http_status expected
+            end
+          end
+        end
+
+        context 'with same token' do
+          it 'returns 200' do
+            enable_cache do
+              expect(subject).to have_http_status 200
+              Setting.set('oauth.allowed_timestamp_future_skew', 0.seconds)
+
+              parameters = {grant_type: 'client_credentials' }.merge(client_credentials_params)
+              post :token, params: parameters
+              expect(response).to have_http_status 200
+            end
+          end
+        end
       end
     end
   end
@@ -491,5 +667,23 @@ describe Oauth2ProviderController do
       expect(response).to redirect_to(oauth2_auth_url(:code => 'code', :state => '1234567890'))
     end
 
+  end
+
+  describe 'GET deny' do
+    let_once(:key) { DeveloperKey.create! }
+    let(:session_hash) { { :oauth2 => { :client_id => key.id, :redirect_uri => Canvas::Oauth::Provider::OAUTH2_OOB_URI  } } }
+
+    it 'forwards the oauth state if it was provided' do
+      session_hash[:oauth2][:state] = '1234567890'
+      get 'deny', session: session_hash
+      expect(response).to be_redirect
+      expect(response.location).to match(/state=1234567890/)
+    end
+
+    it "does not provide state if there wasn't one provided" do
+      get 'deny', session: session_hash
+      expect(response).to be_redirect
+      expect(response.location).not_to match(/state=/)
+    end
   end
 end

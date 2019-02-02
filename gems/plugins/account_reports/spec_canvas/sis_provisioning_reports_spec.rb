@@ -298,6 +298,18 @@ describe "Default Account Reports" do
     @gm4.destroy
   end
 
+  def create_some_blueprint_course_stuff
+    @bc1 = Course.create!(:name => 'bc1', :account => @account, :sis_source_id => "SIS_BLUEPRINT_1")
+    @template1 = MasterCourses::MasterTemplate.set_as_master_course(@bc1)
+    @bc2 = Course.create!(:name => 'bc2', :account => @account, :sis_source_id => "SIS_BLUEPRINT_2")
+    @template2 = MasterCourses::MasterTemplate.set_as_master_course(@bc2)
+    @ac1_a = Course.create!(:name => 'ac1 a', :account => @account, :sis_source_id => "SIS_CHILD_BC1_A")
+    @ac1_b = Course.create!(:name => 'ac1 b', :account => @account, :sis_source_id => "SIS_CHILD_BC1_B")
+    [@ac1_a, @ac1_b].each{|ac| @template1.add_child_course!(ac)}
+    @ac2 = Course.create!(:name => 'ac2', :account => @account, :sis_source_id => "SIS_CHILD_BC2")
+    @template2.add_child_course!(@ac2)
+  end
+
   describe "SIS export and Provisioning reports" do
     before(:once) do
       Notification.where(name: "Report Generated").first_or_create
@@ -574,10 +586,10 @@ describe "Default Account Reports" do
         expect(parsed.length).to eq 3
         expect(parsed).to match_array [[@course1.sis_source_id, nil, @course1.course_code, @course1.name,
                                         @sub_account.sis_source_id, @term1.sis_source_id, "active",
-                                        @course1.start_at.iso8601, @course1.end_at.iso8601, @course1.course_format],
+                                        @course1.start_at.iso8601, @course1.end_at.iso8601, @course1.course_format, nil],
                                        ["SIS_COURSE_ID_2", nil, "MAT101", "Math 101", nil, nil,
-                                        "active", nil, @course2.end_at.iso8601, @course2.course_format],
-                                       ["SIS_COURSE_ID_3", nil, "SCI101", "Science 101", nil, nil, "active", nil, nil, nil]]
+                                        "active", nil, @course2.end_at.iso8601, @course2.course_format, nil],
+                                       ["SIS_COURSE_ID_3", nil, "SCI101", "Science 101", nil, nil, "active", nil, nil, nil, nil]]
       end
 
       it "should run the SIS report with sis term and deleted courses" do
@@ -591,9 +603,9 @@ describe "Default Account Reports" do
         expect(parsed.length).to eq 2
         expect(parsed).to match_array [[@course1.sis_source_id, nil, @course1.course_code, @course1.name,
                                         @sub_account.sis_source_id, @term1.sis_source_id, "completed",
-                                        @course1.start_at.iso8601, @course1.conclude_at.iso8601, @course1.course_format],
+                                        @course1.start_at.iso8601, @course1.conclude_at.iso8601, @course1.course_format, nil],
                                        ["SIS_COURSE_ID_5", nil, "ENG101", "Sd Math 100", "sub1",
-                                        "fall12", "deleted", nil, nil, nil]]
+                                        "fall12", "deleted", nil, nil, nil, nil]]
       end
 
       it "should run the provisioning report" do
@@ -608,24 +620,24 @@ describe "Default Account Reports" do
         expect(parsed).to match_array [[@course5.id.to_s, @course5.sis_source_id, nil,
                                         @course5.course_code, @course5.name,
                                         @sub_account.id.to_s, "sub1", @term1.id.to_s,
-                                        "fall12", "deleted", nil, nil, nil, "true"],
+                                        "fall12", "deleted", nil, nil, nil, nil, "true"],
                                        [@course1.id.to_s, "SIS_COURSE_ID_1", nil, "ENG101",
                                         "English 101", @course1.account_id.to_s,
                                         @sub_account.sis_source_id, @term1.id.to_s,
                                         @term1.sis_source_id, "active",
                                         @course1.start_at.iso8601,
-                                        @course1.conclude_at.iso8601, @course1.course_format, "true"],
+                                        @course1.conclude_at.iso8601, @course1.course_format, nil, "true"],
                                        [@course2.id.to_s, "SIS_COURSE_ID_2", nil, "MAT101",
                                         "Math 101", @course2.account_id.to_s, nil,
                                         @default_term.id.to_s, nil, "active", nil,
-                                        @course2.conclude_at.iso8601, @course2.course_format, "true"],
+                                        @course2.conclude_at.iso8601, @course2.course_format, nil, "true"],
                                        [@course3.id.to_s, "SIS_COURSE_ID_3", nil, "SCI101",
                                         "Science 101", @course3.account_id.to_s, nil,
                                         @default_term.id.to_s, nil, "active", nil, nil, nil,
-                                        "true"],
+                                        nil, "true"],
                                        [@course4.id.to_s, nil, nil, "self", "self help",
                                         @course4.account_id.to_s, nil, @default_term.id.to_s,
-                                        nil, "deleted", nil, nil, nil, "false"]]
+                                        nil, "deleted", nil, nil, nil, nil, "false"]]
         expect(parsed.length).to eq 5
       end
 
@@ -649,7 +661,7 @@ describe "Default Account Reports" do
                                         @sub_account.id.to_s, @sub_account.sis_source_id,
                                         @term1.id.to_s, @term1.sis_source_id, "active",
                                         @course1.start_at.iso8601,
-                                        @course1.conclude_at.iso8601, @course1.course_format, "true"]]
+                                        @course1.conclude_at.iso8601, @course1.course_format, nil, "true"]]
       end
 
       it "should run the sis report with the default term" do
@@ -660,8 +672,26 @@ describe "Default Account Reports" do
 
         expect(parsed.length).to eq 2
         expect(parsed).to match_array [["SIS_COURSE_ID_2", nil, "MAT101", "Math 101", nil,
-                                        nil, "active", nil, @course2.end_at.iso8601, @course2.course_format],
-                                       ["SIS_COURSE_ID_3", nil, "SCI101", "Science 101", nil, nil, "active", nil, nil, nil]]
+                                        nil, "active", nil, @course2.end_at.iso8601, @course2.course_format, nil],
+                                       ["SIS_COURSE_ID_3", nil, "SCI101", "Science 101", nil, nil, "active", nil, nil, nil, nil]]
+      end
+
+      it "should export blueprint course stuff for sis export" do
+        create_some_blueprint_course_stuff
+        parsed = read_report("sis_export_csv",
+          {params: {"enrollment_term_id" => @default_term.id, "courses" => true}, order: 0, parse_header: true})
+        expect(parsed.detect{|r| r["course_id"] == @ac1_a.sis_source_id}["blueprint_course_id"]).to eq @bc1.sis_source_id
+        expect(parsed.detect{|r| r["course_id"] == @ac1_b.sis_source_id}["blueprint_course_id"]).to eq @bc1.sis_source_id
+        expect(parsed.detect{|r| r["course_id"] == @ac2.sis_source_id}["blueprint_course_id"]).to eq @bc2.sis_source_id
+      end
+
+      it "should export blueprint course stuff for provisioning csv" do
+        create_some_blueprint_course_stuff
+        parsed = read_report("provisioning_csv",
+          {params: {"enrollment_term_id" => @default_term.id, "courses" => true}, order: 0, parse_header: true})
+        expect(parsed.detect{|r| r["course_id"] == @ac1_a.sis_source_id}["blueprint_course_id"]).to eq @bc1.sis_source_id
+        expect(parsed.detect{|r| r["course_id"] == @ac1_b.sis_source_id}["blueprint_course_id"]).to eq @bc1.sis_source_id
+        expect(parsed.detect{|r| r["course_id"] == @ac2.sis_source_id}["blueprint_course_id"]).to eq @bc2.sis_source_id
       end
     end
 
@@ -706,11 +736,11 @@ describe "Default Account Reports" do
         parsed = read_report("provisioning_csv", {params: parameters, order: 4})
         expect(parsed.length).to eq 4
         expect(parsed).to match_array [[@section1.id.to_s, @section1.sis_source_id,
-                                        @course1.id.to_s, @course1.sis_source_id, nil,
+                                        @course2.id.to_s, @course2.sis_source_id, nil,
                                         @section1.name, "active",
-                                        @course1.start_at.iso8601,
-                                        @course1.conclude_at.iso8601, @sub_account.id.to_s,
-                                        "sub1", "true"],
+                                        @section1.start_at.iso8601,
+                                        @section1.end_at.iso8601, @account.id.to_s,
+                                        nil, "true"],
                                        [@section4.id.to_s, nil, @course2.id.to_s,
                                         @course2.sis_source_id, nil, @section4.name,
                                         "active", nil, nil, @account.id.to_s, nil,
@@ -1318,6 +1348,22 @@ describe "Default Account Reports" do
                                        ["user_sis_id_04", "user_sis_id_03", "active"]]
         expect(parsed.length).to eq 2
       end
+
+      it 'should not include unassociated observers when running from a sub-account' do
+        parameters = {}
+        parameters["user_observers"] = true
+        parsed = read_report("sis_export_csv", {account: @sub_account, params: parameters, order: 0, header: true})
+        expect(parsed).to match_array [['observer_id', 'student_id', 'status']]
+      end
+
+      it "should include associated observers when running from a sub-account" do
+        course_with_student(:account => @sub_account, :user => @user1)
+        parameters = {}
+        parameters["user_observers"] = true
+        parsed = read_report("sis_export_csv", {account: @sub_account, params: parameters, order: 0, header: true})
+        expect(parsed).to match_array [['observer_id', 'student_id', 'status'],
+          ["user_sis_id_02", "user_sis_id_01", "active"]]
+      end
     end
 
     describe 'admins' do
@@ -1446,7 +1492,7 @@ describe "Default Account Reports" do
                                           'login_id', 'password', 'first_name', 'last_name',
                                           'full_name', 'sortable_name', 'short_name', 'email', 'status']]
       expect(parsed["courses.csv"]).to eq [["course_id", "integration_id", "short_name", "long_name",
-                                            "account_id", "term_id", "status", "start_date", "end_date", "course_format"]]
+                                            "account_id", "term_id", "status", "start_date", "end_date", "course_format", "blueprint_course_id"]]
       expect(parsed["sections.csv"]).to eq [["section_id", "course_id", "integration_id", "name", "status",
                                              "start_date", "end_date"]]
       expect(parsed["enrollments.csv"]).to eq [["course_id", "user_id", "role", "role_id", "section_id",

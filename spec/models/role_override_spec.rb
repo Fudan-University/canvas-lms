@@ -398,6 +398,13 @@ describe RoleOverride do
         expect(Account.site_admin.grants_right?(@site_admin, :manage_site_settings)).to be_truthy
       end
 
+      it "should grant permissions on root accounts to custom site admins" do
+        custom_role = custom_account_role("somerole", :account => Account.site_admin)
+        Account.site_admin.role_overrides.create!(role: custom_role, enabled: true, permission: :manage_site_settings)
+        custom_site_admin = account_admin_user(account: Account.site_admin, role: custom_role)
+        expect(Account.default.grants_right?(@site_admin, :manage_site_settings)).to be_truthy
+      end
+
       it "should not grant root only permissions to sub account admins" do
         expect(Account.default.grants_right?(@root_admin, :become_user)).to be_truthy
         expect(@sub_account.grants_right?(@sub_admin, :become_user)).to be_falsey
@@ -543,7 +550,7 @@ describe RoleOverride do
       let(:permission) { RoleOverride.permissions[:view_audit_trail] }
 
       it 'is enabled by default for teachers, TAs and admins' do
-        expect(permission[:true_for]).to match_array %w(TeacherEnrollment AccountAdmin)
+        expect(permission[:true_for]).to match_array %w(AccountAdmin)
       end
 
       it 'is available to teachers, TAs, admins and account memberships' do
@@ -552,25 +559,4 @@ describe RoleOverride do
     end
   end
 
-  describe 'v2 permissions labels' do
-    before :each do
-      @account = account_model(:parent_account => Account.default)
-    end
-
-    it 'uses original labels when permissions v2 feature flag is off' do
-      @account.root_account.disable_feature!(:permissions_v2_ui)
-      expect(RoleOverride.v2_labels(@account, true)).to be false
-      expect(RoleOverride.v2_labels(@account, false)).to be false
-    end
-
-    it 'uses original labels when feature flag is on and there is no v2 label' do
-      @account.root_account.enable_feature!(:permissions_v2_ui)
-       expect(RoleOverride.v2_labels(@account, false)).to be false
-    end
-
-    it 'uses v2 labels when the feature flag is on and there is a v2 label' do
-      @account.root_account.enable_feature!(:permissions_v2_ui)
-       expect(RoleOverride.v2_labels(@account, true)).to be true
-    end
-  end
 end

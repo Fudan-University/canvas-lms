@@ -59,6 +59,10 @@ define [
     onSaveSuccess: =>
       @shouldPublish = false
       super
+      # Person who creates the assignment should always have permission to update it
+      ENV.PERMISSIONS.by_assignment_id && ENV.PERMISSIONS.by_assignment_id[@model.id] = {
+        update: true
+      }
       if @assignmentGroup
         @assignmentGroup.get('assignments').add(@model)
         @model = @generateNewAssignment()
@@ -66,7 +70,7 @@ define [
     getFormData: =>
       data = super
       unfudged = $.unfudgeDateForProfileTimezone(data.due_at)
-      data.due_at = unfudged.toISOString() if unfudged?
+      data.due_at = @_getDueAt(unfudged) if unfudged?
       data.published = true if @shouldPublish
       data.points_possible = numberHelper.parse(data.points_possible)
       return data
@@ -199,10 +203,30 @@ define [
         ]
       errors
 
+    _getDueAt: (dueAt) ->
+      # If the minutes value of the date is 59, set the seconds to 59 so
+      # the date ends up being one second before the following hour. Otherwise,
+      # set it to 0 seconds.
+      #
+      # If the user has not changed the date, don't touch the seconds value
+      # (so that we don't clobber a date set by the API).
+      if @_dueAtHasChanged(dueAt.toISOString())
+        dueAt.setSeconds(if dueAt.getMinutes() == 59 then 59 else 0)
+      else
+        dueAt.setSeconds(new Date(@model.dueAt()).getSeconds())
+
+      dueAt.toISOString()
+
     _dueAtHasChanged: (dueAt) =>
-      originalDueAt = new Date(@model.dueAt()).getTime()
-      newDueAt = new Date(dueAt).getTime()
-      originalDueAt != newDueAt
+      originalDueAt = new Date(@model.dueAt())
+      newDueAt = new Date(dueAt)
+
+      # Since a user can't edit the seconds field in the UI and the form also
+      # thinks that the seconds is always set to 00, we compare by everything
+      # except seconds.
+      originalDueAt.setSeconds(0)
+      newDueAt.setSeconds(0)
+      originalDueAt.getTime() != newDueAt.getTime()
 
     _validateDueDate: (data, errors) ->
       return errors unless data.due_at

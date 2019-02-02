@@ -44,7 +44,9 @@ module Services
       end
 
       def assignment
-        @assignment ||= progress.context
+        @assignment ||= begin
+          progress.context if progress.context.is_a? Assignment
+        end
       end
 
       def homework_service
@@ -56,8 +58,11 @@ module Services
         clone_url_executor.execute(attachment)
         progress.reload
 
-        homework_service.submit(progress.created_at, eula_agreement_timestamp)
-        homework_service.deliver_email
+        # If the assignment exists, submit it
+        if assignment
+          homework_service.submit(progress.created_at, eula_agreement_timestamp)
+          homework_service.deliver_email
+        end
 
         progress.complete unless progress.failed?
       rescue => error
@@ -98,7 +103,9 @@ module Services
       def submit_job(progress, attachment, eula_agreement_timestamp, clone_url_executor)
         SubmitWorker.new(progress.id, attachment.id, eula_agreement_timestamp, clone_url_executor).
           tap do |worker|
-            Delayed::Job.enqueue(worker, n_strand: 'file_download')
+            Delayed::Job.enqueue(worker,
+                                 priority: Delayed::HIGH_PRIORITY,
+                                 n_strand: Attachment.clone_url_strand(clone_url_executor.url))
           end
       end
     end
@@ -120,25 +127,7 @@ module Services
     end
 
     def deliver_email
-      if @attachment.errored?
-        failure_email
-      else
-        successful_email
-      end
-    end
-
-    def successful_email
-      body = "Your file, #{@attachment.display_name}, has been successfully "\
-             "uploaded to your Canvas assignment, #{@assignment.name}"
-      user_email = User.find(@attachment.user_id).email
-
-      message = OpenStruct.new(
-        from_name: 'notifications@instructure.com',
-        subject: "Submission upload successful: #{@assignment.name}",
-        to: user_email,
-        body: body
-      )
-      queue_email(message)
+      failure_email if @attachment.errored?
     end
 
     def failure_email
@@ -155,6 +144,12 @@ module Services
         body: body
       )
       queue_email(message)
+    end
+
+    private
+
+    def queue_email(message)
+      Delayed::Job.enqueue(EmailWorker.new(message))
     end
 
     private

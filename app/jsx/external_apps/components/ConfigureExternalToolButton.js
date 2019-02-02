@@ -19,63 +19,51 @@
 import $ from 'jquery'
 import I18n from 'i18n!external_tools'
 import React from 'react'
-import { shape } from 'prop-types'
-import Modal from 'react-modal'
+import {shape, func} from 'prop-types'
+import Button from '@instructure/ui-buttons/lib/components/Button'
+import Modal, {ModalBody, ModalFooter}  from '../../shared/components/InstuiModal'
 import iframeAllowances from '../lib/iframeAllowances'
 
-const modalOverrides = {
-  overlay: {
-    backgroundColor: 'rgba(0,0,0,0.5)'
-  },
-  content: {
-    position: 'static',
-    top: '0',
-    left: '0',
-    right: 'auto',
-    bottom: 'auto',
-    borderRadius: '0',
-    border: 'none',
-    padding: '0'
+export default class ConfigureExternalToolButton extends React.Component {
+  static propTypes = {
+    tool: shape({}).isRequired,
+    returnFocus: func.isRequired
   }
-};
 
-export default React.createClass({
-  displayName: 'ConfigureExternalToolButton',
-
-  propTypes: {
-    tool: shape({}).isRequired
-  },
-
-  getInitialState () {
-    return {
-      modalIsOpen: false,
+  constructor (props) {
+    super(props)
+    this.state = {
+      modalIsOpen: props.modalIsOpen,
       beforeExternalContentAlertClass: 'screenreader-only',
       afterExternalContentAlertClass: 'screenreader-only',
       iframeStyle: {}
     }
-  },
+  }
 
-  getLaunchUrl () {
-    const toolConfigUrl = this.props.tool.tool_configuration.url;
-    return ENV.CONTEXT_BASE_URL + '/external_tools/retrieve?url=' + encodeURIComponent(toolConfigUrl) + '&display=borderless';
-  },
+  getLaunchUrl = () => {
+    const toolConfigUrl = this.props.tool.tool_configuration.url
+    return `${ENV.CONTEXT_BASE_URL}/external_tools/retrieve?url=${encodeURIComponent(
+      toolConfigUrl
+    )}&display=borderless`
+  }
 
-  openModal (e) {
-    e.preventDefault();
-    this.setState({modalIsOpen: true});
-  },
+  openModal = e => {
+    e.preventDefault()
+    this.setState({modalIsOpen: true})
+  }
 
-  closeModal (cb) {
+  closeModal = cb => {
     if (typeof cb === 'function') {
-      this.setState({modalIsOpen: false}, cb);
+      this.setState({modalIsOpen: false}, cb)
     } else {
-      this.setState({modalIsOpen: false});
+      this.setState({modalIsOpen: false})
     }
-  },
+    this.props.returnFocus()
+  }
 
-  handleAlertFocus (event) {
+  handleAlertFocus = event => {
     const newState = {
-      iframeStyle: { border: '2px solid #008EE2', width: `${(this.iframe.offsetWidth - 4)}px` }
+      iframeStyle: {border: '2px solid #008EE2', width: `${this.iframe.offsetWidth - 4}px`}
     }
     if (event.target.className.search('before') > -1) {
       newState.beforeExternalContentAlertClass = ''
@@ -83,11 +71,11 @@ export default React.createClass({
       newState.afterExternalContentAlertClass = ''
     }
     this.setState(newState)
-  },
+  }
 
-  handleAlertBlur (event) {
+  handleAlertBlur = event => {
     const newState = {
-      iframeStyle: { border: 'none', width: '100%' }
+      iframeStyle: {border: 'none', width: '100%'}
     }
     if (event.target.className.search('before') > -1) {
       newState.beforeExternalContentAlertClass = 'screenreader-only'
@@ -95,11 +83,15 @@ export default React.createClass({
       newState.afterExternalContentAlertClass = 'screenreader-only'
     }
     this.setState(newState)
-  },
+  }
 
-  renderIframe () {
-    const beforeAlertStyles = `before_external_content_info_alert ${this.state.beforeExternalContentAlertClass}`
-    const afterAlertStyles = `after_external_content_info_alert ${this.state.afterExternalContentAlertClass}`
+  renderIframe = () => {
+    const beforeAlertStyles = `before_external_content_info_alert ${
+      this.state.beforeExternalContentAlertClass
+    }`
+    const afterAlertStyles = `after_external_content_info_alert ${
+      this.state.afterExternalContentAlertClass
+    }`
 
     return (
       <div>
@@ -121,7 +113,9 @@ export default React.createClass({
           title={I18n.t('Tool Configuration')}
           className="tool_launch"
           style={this.state.iframeStyle}
-          ref={(e) => { this.iframe = e; }}
+          ref={e => {
+            this.iframe = e
+          }}
         />
         <div
           onFocus={this.handleAlertFocus}
@@ -137,16 +131,16 @@ export default React.createClass({
           </div>
         </div>
       </div>
-    );
-  },
+    )
+  }
 
-  onAfterOpen () {
+  onAfterOpen = () => {
     if (this.iframe) {
-      this.iframe.setAttribute('allow', iframeAllowances());
+      this.iframe.setAttribute('allow', iframeAllowances())
     }
-  },
+  }
 
-  render () {
+  render() {
     return (
       <li role="presentation" className="ConfigureExternalToolButton">
         <a
@@ -154,45 +148,25 @@ export default React.createClass({
           tabIndex="-1"
           ref="btnTriggerModal"
           role="menuitem"
-          aria-label={I18n.t('Configure %{toolName} App', { toolName: this.props.tool.name })}
+          aria-label={I18n.t('Configure %{toolName} App', {toolName: this.props.tool.name})}
           className="icon-settings-2"
           onClick={this.openModal}
         >
           {I18n.t('Configure')}
         </a>
         <Modal
-          className="ReactModal__Content--canvas"
-          overlayClassName="ReactModal__Overlay--canvas"
-          style={modalOverrides}
-          isOpen={this.state.modalIsOpen}
-          onRequestClose={this.closeModal}
-          onAfterOpen={this.onAfterOpen}
+          open={this.state.modalIsOpen}
+          onDismiss={this.closeModal}
+          onEnter={this.onAfterOpen}
+          label={I18n.t('Configure %{tool} App?', {tool: this.props.tool.name})}
+          size="large"
         >
-          <div className="ReactModal__Layout">
-            <div className="ReactModal__Header">
-              <div className="ReactModal__Header-Title">
-                <h4>{I18n.t('Configure %{tool} App?', {tool: this.props.tool.name})}</h4>
-              </div>
-              <div className="ReactModal__Header-Actions">
-                <button className="Button Button--icon-action" type="button" onClick={this.closeModal}>
-                  <i className="icon-x" />
-                  <span className="screenreader-only">Close</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="ReactModal__Body ReactModal__Body--force-no-padding" style={{overflow: 'auto'}}>
-              {this.renderIframe()}
-            </div>
-
-            <div className="ReactModal__Footer">
-              <div className="ReactModal__Footer-Actions">
-                <button ref="btnClose" type="button" className="Button" onClick={this.closeModal}>{I18n.t('Close')}</button>
-              </div>
-            </div>
-          </div>
+          <ModalBody>{this.renderIframe()}</ModalBody>
+          <ModalFooter>
+            <Button onClick={this.closeModal}>{I18n.t('Close')}</Button>
+          </ModalFooter>
         </Modal>
       </li>
-    );
+    )
   }
-});
+}

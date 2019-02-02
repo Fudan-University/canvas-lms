@@ -32,7 +32,13 @@ import Header from './Header'
 
 class Layout extends Component {
   static propTypes = {
+    assignment: shape({
+      courseId: string.isRequired,
+      gradesPublished: bool.isRequired,
+      id: string.isRequired
+    }).isRequired,
     canEditCustomGrades: bool.isRequired,
+    canViewStudentIdentities: bool.isRequired,
     finalGrader: shape({
       graderId: string.isRequired
     }),
@@ -41,7 +47,6 @@ class Layout extends Component {
         graderId: string.isRequired
       })
     ).isRequired,
-    gradesPublished: bool.isRequired,
     loadStudents: func.isRequired,
     provisionalGrades: shape({}).isRequired,
     selectGrade: func.isRequired,
@@ -58,13 +63,11 @@ class Layout extends Component {
   }
 
   componentDidMount() {
-    if (this.props.graders.length) {
-      this.props.loadStudents()
-    }
+    this.props.loadStudents()
   }
 
   render() {
-    const onGradeSelect = this.props.gradesPublished ? null : this.props.selectGrade
+    const onGradeSelect = this.props.assignment.gradesPublished ? null : this.props.selectGrade
 
     return (
       <div>
@@ -72,37 +75,40 @@ class Layout extends Component {
 
         <Header />
 
-        {this.props.graders.length > 0 && (
-          <View as="div" margin="large 0 0 0">
-            {this.props.students.length > 0 ? (
-              <GradesGrid
-                disabledCustomGrade={!this.props.canEditCustomGrades}
-                finalGrader={this.props.finalGrader}
-                graders={this.props.graders}
-                grades={this.props.provisionalGrades}
-                onGradeSelect={onGradeSelect}
-                selectProvisionalGradeStatuses={this.props.selectProvisionalGradeStatuses}
-                students={this.props.students}
-              />
-            ) : (
-              <Spinner title={I18n.t('Students are loading')} />
-            )}
-          </View>
-        )}
+        <View as="div" margin="large 0 0 0">
+          {this.props.students.length > 0 ? (
+            <GradesGrid
+              anonymousStudents={!this.props.canViewStudentIdentities}
+              assignment={this.props.assignment}
+              disabledCustomGrade={!this.props.canEditCustomGrades}
+              finalGrader={this.props.finalGrader}
+              graders={this.props.graders}
+              grades={this.props.provisionalGrades}
+              onGradeSelect={onGradeSelect}
+              selectProvisionalGradeStatuses={this.props.selectProvisionalGradeStatuses}
+              students={this.props.students}
+            />
+          ) : (
+            <Spinner title={I18n.t('Students are loading')} />
+          )}
+        </View>
       </div>
     )
   }
 }
 
 function mapStateToProps(state) {
-  const {currentUser, finalGrader} = state.context
-  const {gradesPublished} = state.assignment.assignment
+  const {currentUser, finalGrader, graders} = state.context
+  const {assignment} = state.assignment
+
+  const currentUserIsFinalGrader = !!finalGrader && currentUser.id === finalGrader.id
 
   return {
-    canEditCustomGrades: !(gradesPublished || !finalGrader || currentUser.id !== finalGrader.id),
+    assignment,
+    canEditCustomGrades: !assignment.gradesPublished && currentUserIsFinalGrader,
+    canViewStudentIdentities: currentUser.canViewStudentIdentities,
     finalGrader,
-    graders: state.context.graders,
-    gradesPublished,
+    graders,
     provisionalGrades: state.grades.provisionalGrades,
     selectProvisionalGradeStatuses: state.grades.selectProvisionalGradeStatuses,
     students: state.students.list

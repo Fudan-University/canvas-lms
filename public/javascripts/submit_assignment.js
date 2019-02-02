@@ -37,54 +37,12 @@ import './jquery.templateData'
 import './media_comments'
 import './vendor/jquery.scrollTo'
 import 'jqueryui/tabs'
+import React from 'react'
+import ReactDOM from 'react-dom'
+import FileBrowser from 'jsx/shared/rce/FileBrowser'
 
   var SubmitAssignment = {
-    toolDropDownClickHandler: function(event) {
-      event.preventDefault();
-
-      var tool = $(this).data('tool');
-      var url = "/courses/" + ENV.COURSE_ID + "/external_tools/" + tool.id + "/resource_selection?homework=1&assignment_id=" + ENV.SUBMIT_ASSIGNMENT.ID;
-
-      var width = tool.get('homework_submission').selection_width || tool.get('selection_width');
-      var height = tool.get('homework_submission').selection_height || tool.get('selection_height');
-      var title = tool.get('display_text');
-      var $div = $("<div/>", {id: "homework_selection_dialog", style: "padding: 0; overflow-y: hidden;"}).appendTo($("body"));
-
-      $div.append($("<iframe/>", {
-        frameborder: 0,
-        src: url,
-        id: "homework_selection_iframe",
-        tabindex: '0'
-      }).css({width: width, height: height}))
-        .bind('selection', function(event, data) {
-          submitContentItem(event.contentItems[0]);
-          $div.off('dialogbeforeclose', SubmitAssignment.dialogCancelHandler)
-          $div.dialog('close');
-        })
-        .on('dialogbeforeclose', SubmitAssignment.dialogCancelHandler)
-        .dialog({
-          width: 'auto',
-          height: 'auto',
-          title: title,
-          close: function() {
-            $div.remove();
-          }
-        });
-
-      var tabHelperHeight = 35;
-      $div.append(
-      $('<div/>',
-        {id: 'tab-helper', style: 'height:0px;padding:5px', tabindex: '0'}
-      ).focus(function () {
-        $(this).height(tabHelperHeight + 'px')
-        var joke = document.createTextNode(I18n.t('Q: What goes black, white, black, white?  A: A panda rolling down a hill.'))
-        this.appendChild(joke)
-      }).blur(function () {
-        $(this).html('').height('0px');
-      }))
-
-      return $div;
-    },
+   
     beforeUnloadHandler: function(e) {
       return (e.returnValue = I18n.t("Changes you made may not be saved."));
     },
@@ -190,7 +148,7 @@ import 'jqueryui/tabs'
           var badExt = false;
           $.each(uploadedAttachmentIds.split(","), function(index, id) {
             if (id.length > 0) {
-              var ext = $("#uploaded_files .file_" + id + " .name").text().split('.').pop().toLowerCase();
+              var ext = $("#submission_attachment_ids").data(String(id)).split('.').pop().toLowerCase();
               if ($.inArray(ext, ENV.SUBMIT_ASSIGNMENT.ALLOWED_EXTENSIONS) < 0) {
                 badExt = true;
                 $.flashError(I18n.t('#errors.wrong_file_extension', 'The file you selected with extension "%{extension}", is not authorized for submission', {extension: ext}));
@@ -293,8 +251,8 @@ import 'jqueryui/tabs'
       $("#submit_assignment_tabs").tabs({
         beforeActivate: function( event, ui ) {
           // determine if this is an external tool
-          if ($(event.currentTarget).hasClass('external-tool')) {
-            var externalToolId = $(event.currentTarget).data('id');
+          if(ui.newTab.context.classList.contains("external-tool")) {
+            var externalToolId = $(ui.newTab.context).data('id');
             homeworkSubmissionLtiContainer.embedLtiLaunch(externalToolId)
           }
         },
@@ -308,6 +266,10 @@ import 'jqueryui/tabs'
 
           if (ui.newTab.attr("aria-controls") === "submit_google_doc_form") {
             listGoogleDocs();
+          }
+
+          if(ui.newTab.context.classList[0] === "external-tool") {
+            ui.newTab.find("a").click()
           }
         },
         create: function(event, ui) {
@@ -326,25 +288,29 @@ import 'jqueryui/tabs'
       });
     }
 
-    $("#uploaded_files > ul").instTree({
-      autoclose: false,
-      multi: true,
-      dragdrop: false,
-      onClick: function(e, node) {
-        $("#submission_attachment_ids").val("");
-        var ids = []; //submission_attachment_ids
-
-        $("#uploaded_files .file.active-leaf").each(function() {
-          var id = $(this).getTemplateData({textValues: ['id']}).id;
-          ids.push(id);
-        });
-        $("#submission_attachment_ids").val(ids.join(","));
-      }
-    });
+    const fileBrowser = (
+      <FileBrowser
+        selectFile={(fileInfo) => {
+          $("#submission_attachment_ids").val(fileInfo.id);
+          $("#submission_attachment_ids").data(String(fileInfo.id), fileInfo.name);
+          $.screenReaderFlashMessageExclusive(
+            I18n.t('selected %{filename}', {filename: fileInfo.name})
+          )
+          }}
+        allowUpload={false}
+        useContextAssets={false}
+      />);
 
     $(".toggle_uploaded_files_link").click(function(event) {
       event.preventDefault();
-      $("#uploaded_files").slideToggle();
+      const fileEl = $("#uploaded_files")
+      if (fileEl.is(":hidden")) {
+        $.screenReaderFlashMessage(I18n.t('File tree expanded'))
+        ReactDOM.render(fileBrowser, document.getElementById('uploaded_files'));
+      } else {
+        $.screenReaderFlashMessage(I18n.t('File tree collapsed'))
+      }
+      fileEl.slideToggle();
     });
 
     $(".add_another_file_link").click(function(event) {
@@ -500,7 +466,5 @@ import 'jqueryui/tabs'
     $tools.disableWhileLoading(uploadPromise, {buttons: {'.submit': I18n.t('getting_file', 'Retrieving File...')}});
     return uploadPromise;
   };
-
-  $("#submit_from_external_tool_form .tools li").live('click', SubmitAssignment.toolDropDownClickHandler);
 
 export default SubmitAssignment;

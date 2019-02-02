@@ -26,7 +26,8 @@ module Api::V1::Submission
   include Api::V1::SubmissionComment
   include CoursesHelper
 
-  def submission_json(submission, assignment, current_user, session, context = nil, includes = [], params)
+  # TODO: yikes
+  def submission_json(submission, assignment, current_user, session, context = nil, includes = [], params = {}, avatars = false)
     context ||= assignment.context
     hash = submission_attempt_json(submission, assignment, current_user, session, context, params)
 
@@ -37,6 +38,8 @@ module Api::V1::Submission
             quiz_submission_attempt_json(ver.model, assignment, current_user, session, context, params)
           end
         end
+      elsif quizzes_next_submission?(submission)
+        hash['submission_history'] = quizzes_next_submission_history(submission)
       else
         histories = submission.submission_history
         if includes.include?("group")
@@ -51,7 +54,14 @@ module Api::V1::Submission
     end
 
     if current_user && assignment && includes.include?('provisional_grades') && assignment.moderated_grading?
-      hash['provisional_grades'] = submission_provisional_grades_json(submission, assignment, current_user, includes)
+      hash['provisional_grades'] = submission_provisional_grades_json(
+        course: context,
+        assignment: assignment,
+        submission: submission,
+        current_user: current_user,
+        avatars: avatars,
+        includes: includes
+      )
     end
 
     if includes.include?("submission_comments")
@@ -95,16 +105,20 @@ module Api::V1::Submission
       hash['grading_status'] = submission.grading_status
     end
 
+    if context.account_membership_allows(current_user)
+      hash['anonymous_id'] = submission.anonymous_id
+    end
+
     hash
   end
 
   SUBMISSION_JSON_FIELDS = %w(id user_id url score grade excused attempt submission_type submitted_at body
     assignment_id graded_at grade_matches_current_submission grader_id workflow_state late_policy_status
-    points_deducted grading_period_id cached_due_date).freeze
+    points_deducted grading_period_id cached_due_date extra_attempts).freeze
   SUBMISSION_JSON_METHODS = %w(late missing seconds_late entered_grade entered_score).freeze
   SUBMISSION_OTHER_FIELDS = %w(attachments discussion_entries).freeze
 
-  def submission_attempt_json(attempt, assignment, user, session, context = nil, params)
+  def submission_attempt_json(attempt, assignment, user, session, context = nil, params = {})
     context ||= assignment.context
     includes = Array.wrap(params[:include])
 
@@ -137,8 +151,7 @@ module Api::V1::Submission
     unless params[:exclude_response_fields] && params[:exclude_response_fields].include?('preview_url')
       preview_args = { 'preview' => '1' }
       preview_args['version'] = attempt.quiz_submission_version || attempt.version_number
-      hash['preview_url'] = course_assignment_submission_url(
-        context, assignment, attempt[:user_id], preview_args)
+      hash['preview_url'] = course_assignment_submission_url(context, assignment, attempt[:user_id], preview_args)
     end
 
     unless attempt.media_comment_id.blank?
@@ -167,18 +180,18 @@ module Api::V1::Submission
       attachments = attempt.versioned_attachments.dup
       attachments << attempt.attachment if attempt.attachment && attempt.attachment.context_type == 'Submission' && attempt.attachment.context_id == attempt.id
       hash['attachments'] = attachments.map do |attachment|
-        attachment.skip_submission_attachment_lock_checks = true
         includes = includes.include?('canvadoc_document_id') ? ['preview_url', 'canvadoc_document_id'] : ['preview_url']
-        atjson = attachment_json(attachment, user, {},
-                                 submission_attachment: true,
-                                 include: includes,
-                                 enable_annotations: true, # we want annotations on submission's attachment preview_urls
-                                 moderated_grading_whitelist: attempt.moderated_grading_whitelist,
-                                 enrollment_type: user_type(context, user),
-                                 anonymous_instructor_annotations: assignment.anonymous_instructor_annotations?
-                                )
-        attachment.skip_submission_attachment_lock_checks = false
-        atjson
+        options = {
+          anonymous_instructor_annotations: assignment.anonymous_instructor_annotations?,
+          enable_annotations: true,
+          enrollment_type: user_type(context, user),
+          include: includes,
+          moderated_grading_whitelist: attempt.moderated_grading_whitelist(user),
+          skip_permission_checks: true,
+          submission_id: attempt.id
+        }
+
+        attachment_json(attachment, user, {}, options)
       end.compact unless attachments.blank?
     end
 
@@ -294,11 +307,18 @@ module Api::V1::Submission
     hash
   end
 
-  def provisional_grade_json(provisional_grade, submission, assignment, current_user, includes = [])
+  def provisional_grade_json(course:, assignment:, submission:, provisional_grade:, current_user:, avatars: false, includes: [])
     json = provisional_grade.grade_attributes
     json.merge!(speedgrader_url: speed_grader_url(submission, assignment, provisional_grade, current_user))
     if includes.include?('submission_comments')
-      json['submission_comments'] = submission_comments_json(provisional_grade.submission_comments, current_user)
+      json['submission_comments'] = anonymous_moderated_submission_comments_json(
+        course: course,
+        assignment: assignment,
+        submissions: [submission],
+        submission_comments: provisional_grade.submission_comments,
+        current_user: current_user,
+        avatars: avatars
+      )
     end
     if assignment.can_view_other_grader_identities?(current_user)
       if includes.include?('rubric_assessment')
@@ -318,7 +338,7 @@ module Api::V1::Submission
     json
   end
 
-  def submission_provisional_grades_json(submission, assignment, current_user, includes)
+  def submission_provisional_grades_json(course:, assignment:, submission:, current_user:, avatars: false, includes: [])
     provisional_grades = submission.provisional_grades
     if assignment.permits_moderation?(current_user)
       provisional_grades = provisional_grades.sort_by { |pg| pg.final ? CanvasSort::Last : pg.created_at }
@@ -327,7 +347,15 @@ module Api::V1::Submission
     end
 
     provisional_grades.map do |provisional_grade|
-      provisional_grade_json(provisional_grade, submission, assignment, current_user, includes)
+      provisional_grade_json(
+        course: course,
+        assignment: assignment,
+        submission: submission,
+        provisional_grade: provisional_grade,
+        avatars: avatars,
+        current_user: current_user,
+        includes: includes
+      )
     end
   end
 
@@ -349,5 +377,18 @@ module Api::V1::Submission
       assignment_id: assignment.id,
       anchor: anchor.to_json
     )
+  end
+
+  def quizzes_next_submission?(submission)
+    assignment = submission.assignment
+    assignment.quiz_lti? && assignment.root_account.feature_enabled?(:quizzes_next_submission_history)
+  end
+
+  def quizzes_next_submission_history(submission)
+    quiz_lti_submission = BasicLTI::QuizzesNextVersionedSubmission.new(
+      submission.assignment,
+      submission.user
+    )
+    quiz_lti_submission.grade_history
   end
 end

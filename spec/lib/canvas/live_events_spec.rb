@@ -863,4 +863,50 @@ describe Canvas::LiveEvents do
       Canvas::LiveEvents.module_item_updated(content_tag)
     end
   end
+
+  describe '.course_completed' do
+    it 'should trigger a course completed live event' do
+      course = course_model
+      user = user_model
+      context_module = course.context_modules.create!
+      context_module_progression = context_module.context_module_progressions.create!(user_id: user.id, workflow_state: 'completed')
+
+      expected_event_body = {
+        progress: CourseProgress.new(course, user, read_only: true).to_json,
+        user: { id: user.id.to_s, name: user.name, email: user.email },
+        course: { id: course.id.to_s, name: course.name }
+      }
+
+      expect_event('course_completed', expected_event_body).once
+
+      Canvas::LiveEvents.course_completed(context_module_progression)
+    end
+  end
+
+  describe '.discussion_topic_created' do
+    it 'should trigger a discussion topic created live event' do
+      course = course_model
+      assignment = course.assignments.create!
+      topic = course.discussion_topics.create!(
+        title: "test title",
+        message: "test body",
+        assignment_id: assignment.id
+      )
+
+      expect_event('discussion_topic_created', {
+        discussion_topic_id: topic.global_id.to_s,
+        is_announcement: topic.is_announcement,
+        title: topic.title,
+        body: topic.message,
+        assignment_id: topic.assignment_id.to_s,
+        context_id: topic.context_id.to_s,
+        context_type: topic.context_type,
+        workflow_state: topic.workflow_state,
+        lock_at: topic.lock_at,
+        updated_at: topic.updated_at
+      }).once
+
+      Canvas::LiveEvents.discussion_topic_created(topic)
+    end
+  end
 end

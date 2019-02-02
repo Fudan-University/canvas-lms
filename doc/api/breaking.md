@@ -1,10 +1,14 @@
-Breaking Changes
-================
+# Breaking Changes
 
-The breaking changes page displays a comprehensive list of all deprecations noted in the <a href="file.changelog.html">API Change Log</a>.
-<p>
-Instructure may deprecate API elements according to the timelines indicated in the <a href="https://www.canvaslms.com/policies/api-policy">Canvas API Policy page</a>.
+The breaking changes page displays a comprehensive list of all deprecations noted in the [API Change Log](file.changelog.html).
 
-<h2>Changes</h2>
+Instructure may deprecate API elements according to the timelines indicated in the [Canvas API Policy page](https://www.canvaslms.com/policies/api-policy).
 
-Currently there are no breaking Canvas API changes.
+## Removals
+
+### 2018-10-06
+<div class="changelog"></div>
+
+| API | File | Change | Removal Date |
+| --- | --- | --- | --- |
+| [Uploading Files](file.file_uploads.html) | Uploading via POST process | Step 3: Identifies deprecated behavior in replacing GET calls with the deprecated POST request | 2019-04-21 |

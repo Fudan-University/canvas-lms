@@ -99,7 +99,7 @@ module CoursesHelper
          submission.assignment.respond_to?(:points_possible)
          score_out_of_points_possible(submission.grade, submission.assignment.points_possible)
       else
-        i18n_grade(submission.grade, submission.grading_type).to_s.capitalize
+        i18n_grade(submission.grade, submission.grading_type).to_s
       end
     end
   end
@@ -108,8 +108,8 @@ module CoursesHelper
     cr[:count] == 0 && cr[:workflow_state] == 'inactive'
   end
 
-  def user_type(course, user)
-    enrollment = course.enrollments.find_by(user: user)
+  def user_type(course, user, enrollments = nil)
+    enrollment = enrollments ? enrollments[user.id] : course.enrollments.find_by(user: user)
 
     if enrollment.nil?
       return course.account_membership_allows(user) ? "admin" : nil

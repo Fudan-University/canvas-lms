@@ -16,7 +16,7 @@
 # with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require "fileutils"
-require "chromedriver/helper"
+require 'chromedriver-helper'
 require_relative "common_helper_methods/custom_alert_actions"
 
 # WebDriver uses port 7054 (the "locking port") as a mutex to ensure
@@ -70,7 +70,7 @@ module SeleniumDriverSetup
 
   # prevents subsequent specs from failing because tooltips are showing etc.
   def move_mouse_to_known_position
-    driver.mouse.move_to(f("body"), 0, 0) if driver.ready_for_interaction
+    driver.action.move_to(f("body"), 0, 0) if driver.ready_for_interaction
   end
 
   class ServerStartupError < RuntimeError; end
@@ -322,7 +322,16 @@ module SeleniumDriverSetup
     def ruby_chrome_driver
       puts "Thread: provisioning local chrome driver"
       Chromedriver.set_version "2.38"
-      Selenium::WebDriver.for :chrome, switches: %w[--disable-impl-side-painting]
+      chrome_options = Selenium::WebDriver::Chrome::Options.new
+      chrome_options.add_argument('--disable-impl-side-painting')
+
+      # put `auto_open_devtools: true` in your selenium.yml if you want to have
+      # the chrome dev tools open by default by selenium
+      if CONFIG[:auto_open_devtools]
+        chrome_options.add_argument('--auto-open-devtools-for-tabs')
+      end
+
+      Selenium::WebDriver.for :chrome, options: chrome_options
     end
 
     def ruby_safari_driver

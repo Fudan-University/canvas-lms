@@ -252,6 +252,27 @@ describe AssignmentsApiController, type: :request do
                           assignment8)
     end
 
+    it "returns assignments by assignment group" do
+      group1 = @course.assignment_groups.create!(:name => 'group1')
+      group2 = @course.assignment_groups.create!(:name => 'group2')
+      @course.assignments.create!(:title => 'assignment1',
+                                  :assignment_group => group2)
+      @course.assignments.create!(:title => 'assignment2',
+                                  :assignment_group => group2)
+      @course.assignments.create!(:title => 'assignment3',
+                                  :assignment_group => group1)
+      json = api_call(:get,
+                      "/api/v1/courses/#{@course.id}/assignment_groups/#{group2.id}/assignments",
+                      {
+                        controller: 'assignments_api',
+                        action: 'index',
+                        format: 'json',
+                        course_id: @course.to_param,
+                        assignment_group_id: group2.to_param
+                      })
+      expect(json.map { |a| a['name'] }).to match_array(['assignment1', 'assignment2'])
+    end
+
     it "should search for assignments by title" do
       2.times {|i| @course.assignments.create!(:title => "First_#{i}") }
       ids = @course.assignments.map(&:id)
@@ -924,11 +945,15 @@ describe AssignmentsApiController, type: :request do
             :include => ['submission']
              )
       assign = json.first
-      expect(assign['submission']).to eq(
-        json_parse(
-          controller.submission_json(submission, assignment, @user, session, { include: ['submission'] }).to_json
-        )
-      )
+      s_json = controller.submission_json(
+        submission,
+        assignment,
+        @user,
+        session,
+        assignment.context,
+        { include: ['submission'] }
+      ).to_json
+      expect(assign['submission']).to eq(json_parse(s_json))
     end
 
     it "includes all_dates with include flag" do
@@ -1115,7 +1140,7 @@ describe AssignmentsApiController, type: :request do
       ta = ta_in_section(section)
 
       api_get_assignments_user_index(student, @course, ta)
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "returns unauthorized for ta who cannot read target student data" do
@@ -1300,7 +1325,8 @@ describe AssignmentsApiController, type: :request do
         'group_category_id' => group_category.id,
         'turnitin_enabled' => true,
         'vericite_enabled' => true,
-        'grading_type' => 'points'
+        'grading_type' => 'points',
+        'allowed_attempts' => 2
       }
     end
 
@@ -1435,6 +1461,7 @@ describe AssignmentsApiController, type: :request do
       expect(@json['due_at']).to eq @assignment.due_at.iso8601
       expect(@json['html_url']).to eq course_assignment_url(@course,@assignment)
       expect(@json['needs_grading_count']).to eq 0
+      expect(@json['allowed_attempts']).to eq 2
 
       expect(Assignment.count).to eq 1
     end
@@ -1609,6 +1636,50 @@ describe AssignmentsApiController, type: :request do
         expect(new_assignment.tool_settings_tool).to eq message_handler
       end
 
+      context 'when no tool association exists' do
+        let(:assignment) { assignment_model(course: @course) }
+        let(:update_response) do
+          put "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}", params: {
+            assignment: { name: 'banana' }
+          }
+        end
+
+        it 'does not attempt to clear tool associations' do
+          expect(assignment).not_to receive(:clear_tool_settings_tools)
+          update_response
+        end
+      end
+
+      context 'when a tool association already exists' do
+        let(:assignment) do
+          a = assignment_model(course: @course)
+          a.tool_settings_tool = message_handler
+          a.save!
+          a
+        end
+        let(:update_response) do
+          put "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}", params: {
+            assignment: { name: 'banana' }
+          }
+        end
+        let(:lookups) { assignment.assignment_configuration_tool_lookups }
+
+        before do
+          allow_any_instance_of(AssignmentConfigurationToolLookup).to(
+            receive(:create_subscription).and_return(SecureRandom.uuid)
+          )
+          user_session(@user)
+        end
+
+        context 'when switching to unsupported submission type' do
+          it 'destroys tool associations' do
+            expect do
+              update_response
+            end.to change(lookups, :count).from(1).to(0)
+          end
+        end
+      end
+
       context 'sets the configuration LTI 2 tool' do
         shared_examples_for 'sets the tools_settings_tool' do
           let(:submission_types) { raise 'Override in spec' }
@@ -1691,7 +1762,7 @@ describe AssignmentsApiController, type: :request do
               'online_url'
             ]}
       })
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should allow valid submission types as a string (quick add dialog)" do
@@ -1704,7 +1775,7 @@ describe AssignmentsApiController, type: :request do
             'name' => 'some assignment',
             'submission_types' => 'not_graded'}
       })
-      expect(response).to be_success
+      expect(response).to be_successful
     end
 
     it "should not allow unpermitted submission types" do
@@ -2074,6 +2145,32 @@ describe AssignmentsApiController, type: :request do
           }
           })
         expect(@student.messages.detect{|m| m.notification_id == @notification.id}).to be_present
+      end
+
+      it "should send notification on due date update (even if other overrides are passed in)" do
+        section2 = @course.course_sections.create!
+        assignment = @course.assignments.create!(:name => "blah", :workflow_state => 'published', :due_at => 1.hour.from_now)
+        Assignment.where(:id => assignment).update_all(:created_at => 5.hours.ago)
+
+        notification = Notification.create!(:name => "Assignment Due Date Changed")
+        @student.email_channel.notification_policies.create!(notification: notification, frequency: 'immediately')
+
+        @user = @teacher
+        json = api_call(:put,
+          "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}",
+          {
+            :controller => 'assignments_api',
+            :action => 'update', :format => 'json',
+            :course_id => @course.id.to_s,
+            :id => assignment.to_param
+          },
+          {
+            :assignment => {
+              'due_at' => 2.days.from_now.iso8601,
+              'assignment_overrides' => {'0' => {'course_section_id' => section2.id, 'due_at' => 1.day.from_now.iso8601}}
+            }
+          })
+        expect(@student.messages.detect{|m| m.notification_id == notification.id}).to be_present
       end
 
       it "should use new overrides for notifications of creation on save and publish" do
@@ -2546,7 +2643,7 @@ describe AssignmentsApiController, type: :request do
                                   'lock_at' => '',
                                   'unlock_at' => nil,
                                   'peer_reviews_assign_at' => nil })
-      expect(response).to be_success
+      expect(response).to be_successful
       @assignment.reload
 
       expect(@assignment.due_at).to be_nil
@@ -2638,33 +2735,6 @@ describe AssignmentsApiController, type: :request do
         )
         error = json_parse(response.body)['errors']['final_grader_id'].first
         expect(error['message']).to eq 'course has no active instructors with this ID'
-      end
-
-      it 'skips final_grader_id validation if the field has not changed' do
-        assignment = @course.assignments.create!(
-          final_grader: @teacher,
-          grader_count: 2,
-          moderated_grading: true,
-          name: 'Some Assignment'
-        )
-        @course.root_account.role_overrides.create!(
-          permission: 'select_final_grade',
-          role: teacher_role,
-          enabled: false
-        )
-        api_call(
-          :put,
-          "/api/v1/courses/#{@course.id}/assignments/#{assignment.id}",
-          {
-            controller: 'assignments_api',
-            action: 'update',
-            format: 'json',
-            course_id: @course.id,
-            id: assignment.to_param
-          },
-          { assignment: { name: 'a fancy new name' } },
-        )
-        expect(response).to be_success
       end
     end
 
@@ -2843,7 +2913,8 @@ describe AssignmentsApiController, type: :request do
           'grading_type' => 'letter_grade',
           'due_at' => '2011-01-01T00:00:00Z',
           'position' => 1,
-          'muted' => true
+          'muted' => true,
+          'allowed_attempts' => 10
         })
         @assignment.reload
       end
@@ -2940,6 +3011,10 @@ describe AssignmentsApiController, type: :request do
       it "updates the grading standard" do
         expect(@assignment.grading_standard_id).to eq @new_grading_standard.id
         expect(@json['grading_standard_id']).to eq @new_grading_standard.id
+      end
+
+      it "updates the allowed_attempts" do
+        expect(@json['allowed_attempts']).to eq 10
       end
     end
 
@@ -4010,6 +4085,7 @@ describe AssignmentsApiController, type: :request do
           'assignment_id' => @assignment.id,
           'delayed_post_at' => nil,
           'lock_at' => nil,
+          'created_at' => @topic.created_at.iso8601,
           'user_name' => @topic.user_name,
           'pinned' => !!@topic.pinned,
           'position' => @topic.position,
@@ -4040,6 +4116,7 @@ describe AssignmentsApiController, type: :request do
           'allow_rating' => false,
           'only_graders_can_rate' => false,
           'sort_by_rating' => false,
+          'todo_date' => nil,
         })
       end
 
@@ -4193,11 +4270,15 @@ describe AssignmentsApiController, type: :request do
           :format => "json", :course_id => @course.id.to_s,
           :id => assignment.id.to_s},
           {:include => ['submission']})
-        expect(json['submission']).to eq(
-          json_parse(
-            controller.submission_json(submission, assignment, @user, session, { include: ['submission'] }).to_json
-          )
-        )
+        s_json = controller.submission_json(
+          submission,
+          assignment,
+          @user,
+          session,
+          assignment.context,
+          { include: ['submission'] }
+        ).to_json
+        expect(json['submission']).to eq(json_parse(s_json))
       end
 
       context "AssignmentFreezer plugin disabled" do
@@ -4364,7 +4445,7 @@ describe AssignmentsApiController, type: :request do
         course_with_teacher_logged_in(:course => @course, :active_all => true)
 
         json = api_get_assignment_in_course(@assignment, @course)
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(json['id']).to eq @assignment.id
         expect(json['unpublishable']).to eq true
 
@@ -4373,7 +4454,7 @@ describe AssignmentsApiController, type: :request do
         @assignment.submit_homework(@student, :submission_type => "online_text_entry")
         @user = @teacher
         json = api_get_assignment_in_course(@assignment, @course)
-        expect(response).to be_success
+        expect(response).to be_successful
         expect(json['unpublishable']).to eq false
       end
     end
@@ -4788,7 +4869,8 @@ describe AssignmentsApiController, type: :request do
          "points_deducted" => nil,
          "seconds_late" => 0,
          "preview_url" =>
-         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0"
+         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0",
+         "extra_attempts" => nil
        }]
     end
 
@@ -4826,7 +4908,8 @@ describe AssignmentsApiController, type: :request do
          "points_deducted" => nil,
          "seconds_late" => 0,
          "preview_url" =>
-         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0"
+         "http://www.example.com/courses/#{@observer_course.id}/assignments/#{@assignment.id}/submissions/#{@observed_student.id}?preview=1&version=0",
+         "extra_attempts" => nil
        }]
     end
   end
@@ -4876,7 +4959,7 @@ describe AssignmentsApiController, type: :request do
 
     it "calls DueDateCacher with update_grades: false when passed calculate_grades: false" do
       update_grade_value = nil
-      expect(DueDateCacher).to receive(:recompute).once do |update_grades:|
+      expect(DueDateCacher).to receive(:recompute).once do |update_grades:, **|
         update_grade_value = update_grades
       end
 
@@ -4903,7 +4986,7 @@ describe AssignmentsApiController, type: :request do
 
     it "calls DueDateCacher with update_grades: true when passed calculate_grades: true" do
       update_grade_value = nil
-      expect(DueDateCacher).to receive(:recompute).once do |update_grades:|
+      expect(DueDateCacher).to receive(:recompute).once do |update_grades:, **|
         update_grade_value = update_grades
       end
 
@@ -4930,7 +5013,7 @@ describe AssignmentsApiController, type: :request do
 
     it "calls DueDateCacher with update_grades: true when not passed calculate_grades" do
       update_grade_value = nil
-      expect(DueDateCacher).to receive(:recompute).once do |update_grades:|
+      expect(DueDateCacher).to receive(:recompute).once do |update_grades:, **|
         update_grade_value = update_grades
       end
 

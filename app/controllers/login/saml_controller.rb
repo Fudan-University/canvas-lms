@@ -29,7 +29,8 @@ class Login::SamlController < ApplicationController
     increment_saml_stat("login_attempt")
     session[:saml2_processing] = false if Canvas::Plugin.value_to_boolean(params[:saml2_processing], ignore_unrecognized: true) == false
     redirect_to delegated_auth_redirect_uri(aac.generate_authn_request_redirect(host: request.host_with_port,
-                                                                                parent_registration: session[:parent_registration]))
+                                                                                parent_registration: session[:parent_registration],
+                                                                                relay_state: Rails.env.development? && params[:RelayState]))
   end
 
   def create
@@ -61,7 +62,13 @@ class Login::SamlController < ApplicationController
       return redirect_to login_url
     end
 
-    debugging = aac.debugging? && response.is_a?(SAML2::Response) && aac.debug_get(:request_id) == response.in_response_to
+    debugging = if aac.debugging? && response.is_a?(SAML2::Response)
+      if response.in_response_to
+        aac.debug_get(:request_id) == response.in_response_to
+      else
+        aac.debug_set(:request_id, t("IdP Initiated"), overwrite: false)
+      end
+    end
     encrypted_xml = response.to_s if debugging
 
     settings = aac.saml_settings(request.host_with_port)
@@ -97,7 +104,8 @@ class Login::SamlController < ApplicationController
       # and it's easier to not interweave them so the legacy code can be easily stripped
       # in the future
       assertion = response.assertions.first
-      provider_attributes = assertion&.attribute_statements&.first&.to_h || {}
+      # yes, they could be _that_ busted that we put a dangling rescue here.
+      provider_attributes = assertion&.attribute_statements&.first&.to_h || {} rescue {}
       subject_name_id = assertion&.subject&.name_id
       unique_id = if aac.login_attribute == 'NameID'
         subject_name_id&.id
@@ -160,9 +168,27 @@ class Login::SamlController < ApplicationController
         session[:name_qualifier] = subject_name_id&.name_qualifier
         session[:sp_name_qualifier] = subject_name_id&.sp_name_qualifier
         session[:session_index] = assertion.authn_statements.first&.session_index
-        session[:return_to] = relay_state if relay_state&.match(/\A\/(\z|[^\/])/)
         session[:login_aac] = aac.id
 
+        if relay_state.present? && (uri = URI.parse(relay_state) rescue nil)
+          if uri.host
+            # allow relay_state's to other (trusted) domains, by tacking on a session token
+            target_account = Account.find_by_domain(uri.host)
+            if target_account &&
+              target_account != @domain_root_account &&
+              pseudonym.works_for_account?(target_account, true)
+              token = SessionToken.new(pseudonym.global_id,
+                                       current_user_id: pseudonym.global_user_id).to_s
+              uri.query.concat('&') if uri.query
+              uri.query ||= ''
+              uri.query.concat("session_token=#{token}")
+              session[:return_to] = uri.to_s
+            end
+          elsif uri.path[0] == '/'
+            # otherwise, absolute paths on the same domain are okay
+            session[:return_to] = relay_state
+          end
+        end
         successful_login(user, pseudonym)
       else
         unknown_user_url = @domain_root_account.unknown_user_url.presence || login_url
@@ -429,7 +455,13 @@ class Login::SamlController < ApplicationController
   def aac
     @aac ||= begin
       scope = @domain_root_account.authentication_providers.active.where(auth_type: 'saml')
-      params[:id] ? scope.find(params[:id]) : scope.first!
+      id = params[:id] || params[:entityID]
+      return scope.first! unless id
+      if id.to_i == 0
+        scope.find_by!(idp_entity_id: id)
+      else
+        scope.find(id)
+      end
     end
   end
 

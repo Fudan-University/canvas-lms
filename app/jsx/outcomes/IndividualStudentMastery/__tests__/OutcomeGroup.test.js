@@ -24,9 +24,11 @@ import OutcomeGroup from '../OutcomeGroup'
 const outcome = (id, title) => ({
   id,
   title,
+  assignments: [],
   mastered: false,
   mastery_points: 3,
   points_possible: 5,
+  calculation_method: 'highest',
   ratings: [
     { description: 'My first rating' },
     { description: 'My second rating' }
@@ -58,6 +60,7 @@ const defaultProps = (props = {}) => (
         mastered: false,
         mastery_points: 3,
         points_possible: 5,
+        calculation_method: 'highest',
         ratings: [
           { description: 'My first rating' },
           { description: 'My second rating' }
@@ -86,7 +89,7 @@ const defaultProps = (props = {}) => (
 
 it('renders the OutcomeGroup component', () => {
   const wrapper = shallow(<OutcomeGroup {...defaultProps()}/>)
-  expect(wrapper.debug()).toMatchSnapshot()
+  expect(wrapper).toMatchSnapshot()
 })
 
 describe('header', () => {
@@ -105,7 +108,7 @@ it('includes the individual outcomes', () => {
 
 it('renders correctly expanded', () => {
   const wrapper = shallow(<OutcomeGroup {...defaultProps()} expanded />)
-  expect(wrapper.debug()).toMatchSnapshot()
+  expect(wrapper).toMatchSnapshot()
 })
 
 it('renders outcomes in alphabetical order by title', () => {

@@ -21,7 +21,7 @@ class GradingPeriodGroup < ActiveRecord::Base
 
   belongs_to :root_account, inverse_of: :grading_period_groups, foreign_key: :account_id, class_name: "Account"
   belongs_to :course
-  has_many :grading_periods
+  has_many :grading_periods, inverse_of: :grading_period_group
   has_many :enrollment_terms, inverse_of: :grading_period_group
 
   validate :associated_with_course_or_root_account, if: :active?
@@ -117,7 +117,7 @@ class GradingPeriodGroup < ActiveRecord::Base
     end
   end
 
-  def cleanup_associations_and_recompute_scores_later
+  def cleanup_associations_and_recompute_scores_later(updating_user: nil)
     root_account_id = course_id ? course.root_account.global_id : root_account.global_id
     send_later_if_production_enqueue_args(
       :cleanup_associations_and_recompute_scores,
@@ -125,11 +125,12 @@ class GradingPeriodGroup < ActiveRecord::Base
         strand: "GradingPeriodGroup#cleanup_associations_and_recompute_scores:Account#{root_account_id}",
         max_attempts: 1,
         priority: Delayed::LOW_PRIORITY
-      }
+      },
+      updating_user: updating_user
     )
   end
 
-  def cleanup_associations_and_recompute_scores
+  def cleanup_associations_and_recompute_scores(updating_user: nil)
     periods_to_destroy = grading_periods.active
     update_in_batches(periods_to_destroy, workflow_state: :deleted)
 
@@ -139,7 +140,7 @@ class GradingPeriodGroup < ActiveRecord::Base
     # Legacy Grading Period support. Grading Periods can no longer have a course_id.
     if course_id.present?
       course.recompute_student_scores(update_all_grading_period_scores: true, run_immediately: true)
-      DueDateCacher.recompute_course(course, run_immediately: true)
+      DueDateCacher.recompute_course(course, run_immediately: true, executing_user: updating_user)
     else
       term_ids = enrollment_terms.pluck(:id)
       update_in_batches(enrollment_terms, grading_period_group_id: nil)

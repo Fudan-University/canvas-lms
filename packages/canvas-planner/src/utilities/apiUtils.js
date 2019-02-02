@@ -18,21 +18,15 @@
 import moment from 'moment-timezone';
 import _ from 'lodash';
 import parseLinkHeader from 'parse-link-header';
-import { makeEndOfDayIfMidnight } from './dateUtils';
 
 const getItemDetailsFromPlannable = (apiResponse, timeZone) => {
   let { plannable, plannable_type, planner_override } = apiResponse;
   const plannableId = plannable.id || plannable.page_id;
-  const markedComplete = planner_override;
 
   const details = {
-    course_id: plannable.course_id,
-    title: plannable.name || plannable.title,
-    // items are completed if the user marks it as complete or made a submission
-    completed: (markedComplete != null)
-      ? markedComplete.marked_complete
-      : (apiResponse.submissions && apiResponse.submissions.submitted
-    ),
+    course_id: plannable.course_id || apiResponse.course_id,
+    title: plannable.title,
+    completed: isComplete(apiResponse),
     points: plannable.points_possible,
     html_url: apiResponse.html_url || plannable.html_url,
     overrideId: planner_override && planner_override.id,
@@ -40,6 +34,7 @@ const getItemDetailsFromPlannable = (apiResponse, timeZone) => {
     id: plannableId,
     uniqueId: `${plannable_type}-${plannableId}`,
     location: plannable.location_name || null,
+    address: plannable.location_address || null,
     dateStyle: plannable.todo_date ? 'todo' : 'due'
   };
   details.originallyCompleted = details.completed;
@@ -54,6 +49,7 @@ const getItemDetailsFromPlannable = (apiResponse, timeZone) => {
   }
 
   if (plannable_type === 'calendar_event') {
+    details.details = plannable.description;
     details.allDay = plannable.all_day;
     if (!details.allDay && plannable.end_at && plannable.end_at !== apiResponse.plannable_date ) {
       details.endTime = moment(plannable.end_at);
@@ -71,6 +67,7 @@ const TYPE_MAPPING = {
   announcement: "Announcement",
   planner_note: "To Do",
   calendar_event: "Calendar Event",
+  assessment_request: "Peer Review",
 };
 
 const getItemType = (plannableType) => {
@@ -110,8 +107,7 @@ export function transformApiToInternalItem (apiResponse, courses, groups, timeZo
   }
   const details = getItemDetailsFromPlannable(apiResponse, timeZone);
 
-  // Standardize 00:00:00 date to 11:59PM on the current day to make due date less confusing
-  const plannableDate = makeEndOfDayIfMidnight(apiResponse.plannable_date, timeZone);
+  const plannableDate = moment.tz(apiResponse.plannable_date, timeZone);
 
   if ((!contextInfo.context) && apiResponse.plannable_type === 'planner_note' && (details.course_id)) {
     const course = courses.find(c => c.id === details.course_id);
@@ -128,7 +124,7 @@ export function transformApiToInternalItem (apiResponse, courses, groups, timeZo
     dateBucketMoment: moment.tz(plannableDate, timeZone).startOf('day'),
     type: getItemType(apiResponse.plannable_type),
     status: apiResponse.submissions,
-    newActivity: apiResponse.new_activity,
+    newActivity: apiResponse.new_activity && (apiResponse.plannable_type !== 'discussion_topic' || details.unread_count > 0),
     toggleAPIPending: false,
     date: plannableDate,
     ...details,
@@ -218,7 +214,6 @@ function getCourseContext(course) {
     id: course.id,
     title: course.shortName,
     image_url: course.image,
-    inform_students_of_overdue_submissions: course.informStudentsOfOverdueSubmissions,
     color: course.color,
     url: course.href
   };
@@ -231,8 +226,23 @@ function getGroupContext(apiResponse, group) {
     id: group.id,
     title: group.name,
     image_url: undefined,
-    inform_students_of_overdue_submissions: false,  // group items don't have submissions
     color: group.color,
     url: group.url
   };
+}
+
+// is the item complete?
+// either marked as complete by the user, or because the work was completed.
+function isComplete(apiResponse) {
+  const { plannable, plannable_type, planner_override, submissions } = apiResponse;
+
+  let complete = false;
+  if (planner_override) {
+    complete = planner_override.marked_complete
+  } else if (plannable_type === 'assessment_request') {
+    complete = plannable.workflow_state === 'completed';
+  } else if (submissions) {
+    complete = submissions.submitted
+  }
+  return complete;
 }

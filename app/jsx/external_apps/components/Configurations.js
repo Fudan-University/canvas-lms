@@ -19,38 +19,47 @@
 import I18n from 'i18n!external_tools'
 import React from 'react'
 import PropTypes from 'prop-types'
-import Header from '../../external_apps/components/Header'
-import ExternalToolsTable from '../../external_apps/components/ExternalToolsTable'
-import AddExternalToolButton from '../../external_apps/components/AddExternalToolButton'
+import Header from './Header'
+import ExternalToolsTable from './ExternalToolsTable'
+import AddExternalToolButton from './AddExternalToolButton'
 import page from 'page'
-export default React.createClass({
-    displayName: 'Configurations',
 
-    propTypes: {
-        env: PropTypes.object.isRequired
-    },
+export default class Configurations extends React.Component {
+  static propTypes = {
+    env: PropTypes.object.isRequired
+  }
 
-    canAddEdit() {
-      return this.props.env.PERMISSIONS && this.props.env.PERMISSIONS.create_tool_manually
-    },
+  canAddEdit = () => this.props.env.PERMISSIONS && this.props.env.PERMISSIONS.create_tool_manually
 
-    render() {
-      var appCenterLink = function() {
-        if (!this.props.env.APP_CENTER['enabled']) {
-          return '';
-        }
-        const baseUrl = page.base();
-        return <a ref="appCenterLink" href={baseUrl} className="btn view_tools_link lm">{I18n.t('View App Center')}</a>;
-      }.bind(this);
+  focusHeader = () => {
+    this.headerRef.focus()
+  }
 
+  setHeaderRef = (node) => {
+    this.headerRef = node
+  }
+
+  render() {
+    const appCenterLink = function() {
+      if (!this.props.env.APP_CENTER.enabled) {
+        return ''
+      }
+      const baseUrl = page.base()
       return (
-        <div className="Configurations">
-          <Header>
-            {this.canAddEdit() && (<AddExternalToolButton/>)}
-            {appCenterLink()}
-          </Header>
-          <ExternalToolsTable canAddEdit={this.canAddEdit()}/>
-        </div>
-      );
-    }
-  });
+        <a ref="appCenterLink" href={baseUrl} className="btn view_tools_link lm">
+          {I18n.t('View App Center')}
+        </a>
+      )
+    }.bind(this)
+
+    return (
+      <div className="Configurations">
+        <Header ref={this.setHeaderRef}>
+          {this.canAddEdit() && <AddExternalToolButton />}
+          {appCenterLink()}
+        </Header>
+        <ExternalToolsTable canAddEdit={this.canAddEdit()} setFocusAbove={this.focusHeader} />
+      </div>
+    )
+  }
+}

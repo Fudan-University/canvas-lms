@@ -41,7 +41,9 @@ export class Animator {
     // focusing an element causes it to scroll into view, so do the focus first so it doesn't
     // override maintaining the viewport position.
     if (!elt) console.error(`${elt} passed to Animator#focusElement`);
-    else this.queueAnimation(() => elt.focus(), 'unshift');
+    else this.queueAnimation(() => {
+      (typeof elt.focus === 'function') && elt.focus()
+    }, 'unshift');
   }
 
   elementPositionMemo (elt) {
@@ -66,6 +68,14 @@ export class Animator {
     }, 'push');
   }
 
+  // scroll the top of elt offset pixels from the top of the screen
+  forceScrollTo (elt, offset, onComplete) {
+    this.queueAnimation(() => {
+       this.velocity(elt, 'scroll', {offset: -offset, duration: 1000, easing: 'ease-in-out', complete: onComplete});
+    });
+  }
+
+  // scroll the top of elt offset pixels from the top of the screen, but only if it's not currently in view
   scrollTo (elt, offset, onComplete) {
     this.queueAnimation(() => {
       if (this.isOffScreen(elt, offset)) {

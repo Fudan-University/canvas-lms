@@ -17,7 +17,8 @@
  */
 
 import React from 'react';
-import { shallow, mount, ReactWrapper } from 'enzyme';
+import ReactDOM from 'react-dom'
+import { shallow, mount } from 'enzyme';
 import StatusesModal from 'jsx/gradezilla/default_gradebook/components/StatusesModal';
 import { statusColors } from 'jsx/gradezilla/default_gradebook/constants/colors';
 
@@ -34,9 +35,6 @@ function defaultProps (props = {}) {
 
 QUnit.module('StatusesModal', function (suiteHooks) {
   suiteHooks.beforeEach(function () {
-    const applicationElement = document.createElement('div');
-    applicationElement.id = 'application';
-    document.getElementById('fixtures').appendChild(applicationElement);
     clock = sinon.useFakeTimers();
   });
 
@@ -45,65 +43,66 @@ QUnit.module('StatusesModal', function (suiteHooks) {
     clock.restore();
   });
 
+  let wrapper, modal, instance
+
   QUnit.module('StatusesModal', {
     setup () {
-      this.wrapper = shallow(
-        <StatusesModal {...defaultProps()} />
-      );
+      wrapper = shallow(<StatusesModal {...defaultProps()} />)
+      instance = wrapper.instance()
+      modal = wrapper.dive()
     },
 
     teardown () {
-      this.wrapper.unmount();
+      wrapper.unmount();
       document.getElementById('fixtures').innerHTML = '';
     }
   });
 
   test('modal is initially closed', function () {
-    strictEqual(this.wrapper.find('Modal').prop('open'), false);
+    strictEqual(modal.prop('open'), false);
   });
 
   test('modal has a label of "Statuses"', function () {
-    equal(this.wrapper.find('Modal').prop('label'), 'Statuses');
+    equal(modal.prop('label'), 'Statuses');
   });
 
   test('modal has a close button label of "Close"', function () {
-    equal(this.wrapper.find('Modal').prop('closeButtonLabel'), 'Close');
+    equal(modal.find('CloseButton').prop('children'), 'Close');
   });
 
   test('modal has an onDismiss function', function () {
-    equal(typeof this.wrapper.find('Modal').prop('onDismiss'), 'function');
+    equal(typeof modal.prop('onDismiss'), 'function');
   });
 
   test('modal has an onExited function', function () {
-    equal(typeof this.wrapper.find('Modal').prop('onExited'), 'function');
+    equal(typeof modal.prop('onExited'), 'function');
   });
 
   test('modal has a "Statuses" header', function () {
-    equal(this.wrapper.find('Heading').children().text(), 'Statuses');
+    equal(modal.find('Heading').prop('children'), 'Statuses');
   });
 
   test('modal has a "Done" button', function () {
-    equal(this.wrapper.find('Button').children().text(), 'Done');
+    equal(modal.find('Button').children().text(), 'Done');
   });
 
   test('modal opens', function () {
-    this.wrapper.instance().open();
-    strictEqual(this.wrapper.find('Modal').prop('open'), true);
+    instance.open();
+    strictEqual(wrapper.dive().find('Modal').prop('open'), true);
   });
 
   test('modal closes', function () {
-    const statusModal = this.wrapper.instance();
-    statusModal.open();
+    instance.open();
     clock.tick(50); // wait for Modal to transition open
-    statusModal.close();
+    instance.close();
     clock.tick(50); // wait for Modal to transition closed
-    strictEqual(this.wrapper.find('Modal').prop('open'), false);
+    strictEqual(wrapper.dive().find('Modal').prop('open'), false);
   });
 
   test('on close prop is passed to Modal onExit', function () {
     const onClose = sinon.stub();
     const wrapper = shallow(<StatusesModal {...defaultProps({ onClose })} />);
-    equal(wrapper.find('Modal').prop('onExited'), onClose);
+    equal(wrapper.dive().find('Modal').prop('onExited'), onClose);
   });
 
   QUnit.module('StatusesModal#isPopoverShown', {
@@ -203,7 +202,7 @@ QUnit.module('StatusesModal', function (suiteHooks) {
     const { wrapper, instance } = this;
     instance.open();
     wrapper.find('Button').simulate('click');
-    strictEqual(wrapper.find('Modal').prop('open'), false);
+    strictEqual(wrapper.dive().find('Modal').prop('open'), false);
   });
 
   test('renders five StatusColorListItems', function () {
@@ -223,26 +222,57 @@ QUnit.module('StatusesModal', function (suiteHooks) {
     }
   });
 
+  test('opens the color picker when clicking on a color picker trigger button', function () {
+    const { wrapper, instance } = this;
+    instance.open();
+    clock.tick(50); // wait for Modal to transition open
+
+    const $modalContainer = ReactDOM.findDOMNode(wrapper.instance().modalContentRef)
+    const $colorButton = [...$modalContainer.querySelectorAll('button')].find($button => (
+      $button.textContent === 'late Color Picker'
+    ))
+    $colorButton.click()
+
+    strictEqual(document.querySelectorAll('.ColorPicker__Container').length, 1)
+  });
+
   test('after clicking apply in the color picker, the color picker popover is closed', function () {
     const { wrapper, instance } = this;
     instance.open();
     clock.tick(50); // wait for Modal to transition open
-    const modalContent = new ReactWrapper(wrapper.node.modalContentRef, wrapper.node);
-    modalContent.find('StatusColorListItem PopoverTrigger Button').at(0).simulate('click');
-    const colorPickerContent = new ReactWrapper(wrapper.node.colorPickerContents.late, wrapper.node);
-    const applyButton = colorPickerContent.find('button').filterWhere(button => button.text() === 'Apply');
-    applyButton.simulate('click');
-    strictEqual(modalContent.find('StatusColorListItem Popover').at(0).prop('show'), false);
+
+    const $modalContainer = ReactDOM.findDOMNode(wrapper.instance().modalContentRef)
+    const $colorButton = [...$modalContainer.querySelectorAll('button')].find($button => (
+      $button.textContent === 'late Color Picker'
+    ))
+    $colorButton.click()
+
+    const $latePicker = wrapper.instance().colorPickerContents.late
+    const $applyButton = [...$latePicker.querySelectorAll('button')].find($button => (
+      $button.textContent === 'Apply'
+    ))
+    $applyButton.click()
+
+    strictEqual(document.querySelectorAll('.ColorPicker__Container').length, 0)
   });
 
   test('after clicking a color in the color picker, the status modal is not closed', function () {
     sinon.stub(this.instance, 'close');
     this.instance.open();
     clock.tick(50); // wait for Modal to transition open
-    const modalContent = new ReactWrapper(this.wrapper.node.modalContentRef, this.wrapper.node);
-    modalContent.find('StatusColorListItem PopoverTrigger Button').at(0).simulate('click');
-    const colorButton = document.querySelector("button[role='radio'][title='steel (#E9EDF5)']");
-    colorButton.click();
+
+    const $modalContainer = ReactDOM.findDOMNode(this.instance.modalContentRef)
+    const $colorButton = [...$modalContainer.querySelectorAll('button')].find($button => (
+      $button.textContent === 'late Color Picker'
+    ))
+    $colorButton.click()
+
+    const $latePicker = this.instance.colorPickerContents.late
+    const $applyButton = [...$latePicker.querySelectorAll('button')].find($button => (
+      $button.textContent === 'Apply'
+    ))
+    $applyButton.click()
+
     strictEqual(this.instance.close.callCount, 0);
   });
 
@@ -250,12 +280,20 @@ QUnit.module('StatusesModal', function (suiteHooks) {
     const { wrapper, instance } = this;
     instance.open();
     clock.tick(50); // wait for Modal to transition open
-    const modalContent = new ReactWrapper(wrapper.node.modalContentRef, wrapper.node);
-    modalContent.find('StatusColorListItem PopoverTrigger Button').at(0).simulate('click');
-    const colorPickerContent = new ReactWrapper(wrapper.node.colorPickerContents.late, wrapper.node);
-    const applyButton = colorPickerContent.find('button').filterWhere(button => button.text() === 'Cancel');
-    applyButton.simulate('click');
-    strictEqual(modalContent.find('StatusColorListItem Popover').at(0).prop('show'), false);
+
+    const $modalContainer = ReactDOM.findDOMNode(wrapper.instance().modalContentRef)
+    const $colorButton = [...$modalContainer.querySelectorAll('button')].find($button => (
+      $button.textContent === 'late Color Picker'
+    ))
+    $colorButton.click()
+
+    const $latePicker = wrapper.instance().colorPickerContents.late
+    const $cancelButton = [...$latePicker.querySelectorAll('button')].find($button => (
+      $button.textContent === 'Cancel'
+    ))
+    $cancelButton.click()
+
+    strictEqual(document.querySelectorAll('.ColorPicker__Container').length, 0)
   });
 
   QUnit.module('StatusesModal integration behavior with StatusColorListItem');
@@ -267,13 +305,24 @@ QUnit.module('StatusesModal', function (suiteHooks) {
     const instance = wrapper.instance();
     instance.open();
     clock.tick(50); // wait for Modal to transition open
-    const modalContent = new ReactWrapper(wrapper.node.modalContentRef, wrapper.node);
-    modalContent.find('StatusColorListItem PopoverTrigger Button').at(0).simulate('click');
-    const colorPickerContent = new ReactWrapper(wrapper.node.colorPickerContents.late, wrapper.node);
-    const whiteSwatch = colorPickerContent.find('button').findWhere(button => button.prop('title') === 'white (#FFFFFF)');
-    whiteSwatch.simulate('click');
-    const applyButton = colorPickerContent.find('button').filterWhere(button => button.text() === 'Apply');
-    applyButton.simulate('click');
+
+    const $modalContainer = ReactDOM.findDOMNode(instance.modalContentRef)
+    const $colorButton = [...$modalContainer.querySelectorAll('button')].find($button => (
+      $button.textContent === 'late Color Picker'
+    ))
+    $colorButton.click()
+
+    const $latePicker = instance.colorPickerContents.late
+    const $whiteButton = [...$latePicker.querySelectorAll('button')].find($button => (
+      $button.textContent === 'white (#FFFFFF)'
+    ))
+    $whiteButton.click()
+
+    const $applyButton = [...$latePicker.querySelectorAll('button')].find($button => (
+      $button.textContent === 'Apply'
+    ))
+    $applyButton.click()
+
     strictEqual(afterUpdateStatusColors.firstCall.args[0].late, '#FFFFFF');
     wrapper.unmount();
   });

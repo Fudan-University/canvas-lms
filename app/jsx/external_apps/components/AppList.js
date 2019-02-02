@@ -24,68 +24,82 @@ import AppTile from '../../external_apps/components/AppTile'
 import Header from '../../external_apps/components/Header'
 import AppFilters from '../../external_apps/components/AppFilters'
 import ManageAppListButton from '../../external_apps/components/ManageAppListButton'
+import Lti13Apps from './Lti13Apps'
 import splitAssetString from 'compiled/str/splitAssetString'
 
-export default React.createClass({
-    displayName: 'AppList',
+export default class AppList extends React.Component {
+  state = store.getState()
 
-    getInitialState() {
-      return store.getState();
-    },
+  onChange = () => {
+    this.setState(store.getState())
+  }
 
-    onChange() {
-      this.setState(store.getState());
-    },
+  componentDidMount() {
+    store.addChangeListener(this.onChange)
+    store.fetch()
+    if (this.props.alreadyRendered) {
+      this.appFilters.focus()
+    }
+  }
 
-    componentDidMount: function() {
-      store.addChangeListener(this.onChange);
-      store.fetch();
-    },
+  componentWillUnmount() {
+    store.removeChangeListener(this.onChange)
+  }
 
-    componentWillUnmount: function() {
-      store.removeChangeListener(this.onChange);
-    },
+  get contextType() {
+    return splitAssetString(ENV.context_asset_string, false)[0]
+  }
 
-    refreshAppList: function() {
-      store.reset();
-      store.fetch();
-    },
+  refreshAppList = () => {
+    store.reset()
+    store.fetch()
+  }
 
-    manageAppListButton() {
-      var context_type = splitAssetString(ENV.context_asset_string, false)[0]
-      if(context_type === 'account') {
-        return <ManageAppListButton onUpdateAccessToken={this.refreshAppList} extAppStore={extStore}/>;
-      } else {
-        return null;
-      }
-    },
-
-    apps() {
-      if (store.getState().isLoading) {
-        return <div ref="loadingIndicator" className="loadingIndicator"></div>;
-      } else {
-        return store.filteredApps().map((app, index) => {
-          return <AppTile key={index} app={app} pathname={this.props.pathname} />;
-        });
-      }
-    },
-
-    render() {
+  manageAppListButton = () => {
+    if (this.contextType === 'account') {
       return (
-        <div className="AppList">
-          <Header>
-            {this.manageAppListButton()}
-            <a href={`${this.props.pathname}/configurations`} className="btn view_tools_link lm pull-right">{I18n.t('View App Configurations')}</a>
-          </Header>
-          <AppFilters />
-          <div className="app_center">
-            <div className="app_list">
-              <div className="collectionViewItems clearfix">
-                {this.apps()}
-              </div>
-            </div>
+        <ManageAppListButton onUpdateAccessToken={this.refreshAppList} extAppStore={extStore} />
+      )
+    } else {
+      return null
+    }
+  }
+
+  apps = () => {
+    if (store.getState().isLoading) {
+      return <div ref="loadingIndicator" className="loadingIndicator" />
+    } else if (store.getState().filter === 'lti_1_3_tools' && window.ENV.LTI_13_TOOLS_FEATURE_FLAG_ENABLED) {
+      return <Lti13Apps store={store} contextType={this.contextType} />
+    } else {
+      return store
+        .filteredApps()
+        .map((app) => <AppTile key={app.app_id} app={app} pathname={this.props.pathname} />)
+    }
+  }
+
+  setAppFiltersRef = (node) => this.appFilters = node
+
+  render() {
+    return (
+      <div className="AppList">
+        <Header>
+          {this.manageAppListButton()}
+          <a
+            href={`${this.props.pathname}/configurations`}
+            className="btn view_tools_link lm pull-right"
+          >
+            {I18n.t('View App Configurations')}
+          </a>
+        </Header>
+        <AppFilters
+          ref={this.setAppFiltersRef}
+        />
+        <div className="app_center">
+          <div className="app_list">
+            <div className="collectionViewItems clearfix">{this.apps()}</div>
           </div>
         </div>
-      );
-    }
-  });
+      </div>
+    )
+  }
+}

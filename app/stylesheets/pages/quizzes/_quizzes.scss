@@ -103,7 +103,7 @@ li.quiz {
   #quiz_details {
     // display: none so jquery ui toggles correctly
     display: none;
-    margin: 0 auto 10px auto;
+    margin: 0 auto 10px;
     max-height: 500px;
     overflow: auto;
     .submitted_list {
@@ -203,7 +203,7 @@ li.quiz {
     min-width: 120px;
   }
   .button-container {
-    padding: 0 30px 0 30px;
+    padding: 0 30px;
     .previous-question,
     .next-question {
       position: relative;
@@ -254,7 +254,7 @@ li.quiz {
     .answers {
       .answer {
         clear: both;
-        margin: 0 0 8px 0;
+        margin: 0 0 8px;
         position: relative;
         @if $use_high_contrast {
           opacity: 0.7;
@@ -329,7 +329,7 @@ li.quiz {
 #questions.assessing, #questions.assessment_results {
   .question_holder {
     .question {
-      margin: 0.7em 30px 30px 30px;
+      margin: 0.7em 30px 30px;
       &.related {
         border-width: 2px;
       }
@@ -349,7 +349,7 @@ li.quiz {
   padding: 16px;
   min-height: 225px;
   .answer {
-    padding: 5px 5px;
+    padding: 5px;
     margin: 0;
     @include clearfix;
     &:last-child {
@@ -384,12 +384,12 @@ li.quiz {
     display: none;
   }
   .group_placeholder {
-    border-right: 1px solid #aaa;
-    border-left: 1px solid #aaa;
+    border-#{direction(right)}: 1px solid #aaa;
+    border-#{direction(left)}: 1px solid #aaa;
   }
   .group_top {
     border: 1px solid #aaa;
-    padding: 8px 10px 3px 10px;
+    padding: 8px 10px 3px;
     background-color: #eee;
     clear: both;
     position: relative;
@@ -466,8 +466,8 @@ li.quiz {
     border: 1px solid #aaa;
     border-top-width: 0;
     margin-bottom: 30px;
-    -moz-border-radius-bottomright: 5px;
-    -moz-border-radius-bottomleft: 5px;
+    -moz-border-radius-bottom#{direction(right)}: 5px;
+    -moz-border-radius-bottom#{direction(left)}: 5px;
   }
   .question_holder.ui-sortable-placeholder {
     .question_placeholder {
@@ -477,11 +477,11 @@ li.quiz {
     }
   }
   .assessment_question_bank, .question_holder.group, .insufficient_count_warning {
-    border-left: 1px solid #aaa;
-    border-right: 1px solid #aaa;
+    border-#{direction(left)}: 1px solid #aaa;
+    border-#{direction(right)}: 1px solid #aaa;
     border-top: 0;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-#{direction(left)}: 20px;
+    padding-#{direction(right)}: 20px;
     padding-top: 1em;
     -moz-border-radius: 0;
   }
@@ -535,7 +535,7 @@ li.quiz {
 }
 
 #questions.assessment_results .question_holder .question {
-  margin: 0.7em auto 30px auto;
+  margin: 0.7em auto 30px;
   min-width: 415px;
   width: 80%;
 }
@@ -545,7 +545,7 @@ li.quiz {
   background-color: #fff;
   position: relative;
   min-height: 50px;
-  margin: 0.7em auto 30px auto;
+  margin: 0.7em auto 30px;
   _height: 10px;
   &.modified_but_not_saved {
     border-width: 2px;
@@ -557,7 +557,7 @@ li.quiz {
   .move {
     background: none !important;
     float: direction(left);
-    margin: 8px 8px 0 8px;
+    margin: 8px 8px 0;
     width: 16px;
     height: 16px;
     padding: 2px;
@@ -583,7 +583,7 @@ li.quiz {
   }
   .text {
     clear: direction(left);
-    padding: 5px 20px 20px 20px;
+    padding: 5px 20px 20px;
     .button-container {
       clear: both;
     }
@@ -622,8 +622,8 @@ li.quiz {
       th {
         text-align: direction(left);
         font-weight: normal;
-        padding-left: 5px;
-        padding-right: 5px;
+        padding-#{direction(left)}: 5px;
+        padding-#{direction(right)}: 5px;
       }
       td {
         border-top: 1px solid #ccc;
@@ -643,7 +643,7 @@ li.quiz {
         word-wrap: break-word;
       }
       .answer {
-        padding: 8px 30px 0 30px;
+        padding: 8px 30px 0;
         .answer_list {
           margin: 5px;
           padding-#{direction(left)}: 0;
@@ -814,7 +814,7 @@ li.quiz {
     }
   }
   .answer_match {
-    padding: 0 0 10px 0;
+    padding: 0 0 10px;
     .answer_match_left, .answer_match_left_html {
       float: direction(left);
       width: 45%;
@@ -1331,7 +1331,7 @@ ul#quiz_versions {
       }
       .option-group {
         max-width: 478px;
-        padding: 10px 10px 0 10px;
+        padding: 10px 10px 0;
         border: 1px solid #ccc;
         border-radius: 4px;
         margin-bottom: 15px;
@@ -1345,7 +1345,7 @@ ul#quiz_versions {
             position: absolute;
             z-index: -1;
             top: -10px;
-            right: -10px;
+            #{direction(right)}: -10px;
             bottom: -10px;
             #{direction(left)}: -10px;
             background: #E7F4FF;
@@ -1398,12 +1398,6 @@ ul#quiz_versions {
 .true_false_question {
   .delete_answer_link {
     display: none !important;
-  }
-  .question_correct_comment {
-    display: none;
-  }
-  .question_incorrect_comment {
-    display: none;
   }
 }
 
@@ -1480,8 +1474,8 @@ ul#quiz_versions {
     width: 10%;
   }
   .combinations th {
-    padding-right: 5px;
-    padding-left: 5px;
+    padding-#{direction(right)}: 5px;
+    padding-#{direction(left)}: 5px;
   }
   .combinations td.final_answer, .combinations th.final_answer {
     width: 1%;
@@ -1831,8 +1825,29 @@ ul#quiz_versions {
 .answers {
   .quiz_comment {
     font-size: 0.9em;
-    margin: 16px 0 8px 0;
+    margin: 16px 0 8px;
     padding: 5px 10px;
+  }
+}
+
+.question_comments {
+  display: flex;
+  flex-wrap: wrap;
+
+  .comments_header {
+    font-weight: bold;
+  }
+
+  .quiz_comment {
+    font-size: 0.9em;
+  }
+
+  .correct_comments_header {
+    color: $ic-color-success;
+  }
+
+  .incorrect_comments_header {
+    color: $ic-color-danger;
   }
 }
 
@@ -1996,11 +2011,11 @@ ul#quiz_versions {
     vertical-align: top;
   }
   .file-upload-box-with-file {
-    padding: 5px 5px 5px 5px;
+    padding: 5px;
     .icon-end {
       color: grey;
-      border-top-left-radius: 0;
-      border-bottom-left-radius: 0;
+      border-top-#{direction(left)}-radius: 0;
+      border-bottom-#{direction(left)}-radius: 0;
     }
   }
   .file-upload-box {
@@ -2008,11 +2023,11 @@ ul#quiz_versions {
     position: relative;
     display: inline-block;
     width: 85%;
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
+    border-top-#{direction(left)}-radius: 5px;
+    border-bottom-#{direction(left)}-radius: 5px;
   }
   .controls {
-    margin: 0 auto 30px auto;
+    margin: 0 auto 30px;
   }
 }
 
@@ -2107,7 +2122,7 @@ ul#quiz_versions {
   .checkbox {
     input {
       height: 16px;
-      margin: 0 9px 0 0;
+      margin: direction-sides(0 9px 0 0);
     }
   }
   label {
@@ -2121,11 +2136,11 @@ ul#quiz_versions {
 }
 
 .regraded-warning {
-  margin: 0 0 10px 0;
+  margin: 0 0 10px;
 }
 
 #quiz-submission-version-table {
-  margin: 30px 0 20px 0;
+  margin: 30px 0 20px;
   @include clearfix;
 
   .submission-pending-review {
@@ -2172,8 +2187,8 @@ ul#quiz_versions {
 #ldb_deauthorized_dialog {
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  #{direction(left)}: 0;
+  #{direction(right)}: 0;
   bottom: 0;
   background-color: #4b555d;
   background: url("/images/Money_Noise_tm.png"), radial-gradient(50% -100px, circle cover, rgba(255, 255, 255, 0.6) 0%, transparent 100%), linear-gradient(to bottom, #59656e, #3e464c);
@@ -2193,7 +2208,7 @@ ul#quiz_versions {
     padding-#{direction(left)}: 80px;
     h2 {
       font-size: 1.5em;
-      margin: 0 0 -10px 0;
+      margin: direction-sides(0 0 -10px 0);
       height: 41px;
     }
     p {

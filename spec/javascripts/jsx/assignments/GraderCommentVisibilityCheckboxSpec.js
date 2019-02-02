@@ -40,7 +40,7 @@ QUnit.module('GraderCommentVisibilityCheckbox', hooks => {
   }
 
   function formField() {
-    return wrapper.find('input[name="grader_comments_visible_to_graders"][type="hidden"]').node
+    return wrapper.find('input[name="grader_comments_visible_to_graders"][type="hidden"]').instance()
   }
 
   test('renders a checkbox', () => {
@@ -50,13 +50,13 @@ QUnit.module('GraderCommentVisibilityCheckbox', hooks => {
 
   test('renders an unchecked checkbox when passed checked: false', () => {
     mountComponent()
-    strictEqual(checkbox().node.checked, false)
+    strictEqual(checkbox().instance().checked, false)
   })
 
   test('renders a checked checkbox when passed checked: true', () => {
     props.checked = true
     mountComponent()
-    strictEqual(checkbox().node.checked, true)
+    strictEqual(checkbox().instance().checked, true)
   })
 
   test('sets the value of the form input to "false" when passed checked: false', () => {

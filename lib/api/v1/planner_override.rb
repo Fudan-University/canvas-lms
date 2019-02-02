@@ -18,12 +18,14 @@
 
 module Api::V1::PlannerOverride
   include Api::V1::Json
-  include PlannerHelper
+  include PlannerApiHelper
 
-  def planner_override_json(override, user, session)
+  def planner_override_json(override, user, session, type=nil)
     return if override.blank?
     json = api_json(override, user, session)
-    json['plannable_type'] = PLANNABLE_TYPES.key(json['plannable_type'])
+    type = override.plannable.type if override.plannable_type == 'DiscussionTopic' && type.nil?
+    json['plannable_type'] = PlannerHelper::PLANNABLE_TYPES.key(type || json['plannable_type'])
+    json['assignment_id'] = override.associated_assignment_id
     json
   end
 end

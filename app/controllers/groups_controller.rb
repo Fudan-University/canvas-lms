@@ -274,7 +274,7 @@ class GroupsController < ApplicationController
 
     respond_to do |format|
       format.html do
-        @categories  = @context.group_categories.order("role <> 'student_organized'", GroupCategory.best_unicode_collation_key('name')).preload(:root_account)
+        @categories  = @context.group_categories.order(Arel.sql("role <> 'student_organized'"), GroupCategory.best_unicode_collation_key('name')).preload(:root_account)
         @user_groups = @current_user.group_memberships_for(@context) if @current_user
 
         if @context.grants_right?(@current_user, session, :manage_groups)
@@ -480,7 +480,10 @@ class GroupsController < ApplicationController
       end
       respond_to do |format|
         if @group.save
-          @group.add_user(@current_user, 'accepted', true) if @group.should_add_creator?(@current_user)
+          DueDateCacher.with_executing_user(@current_user) do
+            @group.add_user(@current_user, 'accepted', true) if @group.should_add_creator?(@current_user)
+          end
+
           @group.invitees = params[:invitees]
           flash[:notice] = t('notices.create_success', 'Group was successfully created.')
           format.html { redirect_to group_url(@group) }
@@ -675,12 +678,14 @@ class GroupsController < ApplicationController
   def add_user
     @group = @context
     if authorized_action(@group, @current_user, :manage)
-      @membership = @group.add_user(User.find(params[:user_id]))
-      if @membership.valid?
-        @group.touch
-        render :json => @membership
-      else
-        render :json => @membership.errors, :status => :bad_request
+      DueDateCacher.with_executing_user(@current_user) do
+        @membership = @group.add_user(User.find(params[:user_id]))
+        if @membership.valid?
+          @group.touch
+          render :json => @membership
+        else
+          render :json => @membership.errors, :status => :bad_request
+        end
       end
     end
   end
@@ -830,6 +835,30 @@ class GroupsController < ApplicationController
     if authorized_action(@context, @current_user, :read)
       api_render_stream_summary([@context])
     end
+  end
+
+  # @API Permissions
+  # Returns permission information for the calling user in the given group.
+  # See also the {api:AccountsController#permissions Account} and
+  # {api:CoursesController#permissions Course} counterparts.
+  #
+  # @argument permissions[] [String]
+  #   List of permissions to check against the authenticated user.
+  #   Permission names are documented in the {api:RoleOverridesController#add_role Create a role} endpoint.
+  #
+  # @example_request
+  #     curl https://<canvas>/api/v1/groups/<group_id>/permissions \
+  #       -H 'Authorization: Bearer <token>' \
+  #       -d 'permissions[]=read_roster'
+  #       -d 'permissions[]=send_messages_all'
+  #
+  # @example_response
+  #   {'read_roster': 'true', 'send_messages_all': 'false'}
+  def permissions
+    get_context
+    return unless authorized_action(@context, @current_user, :read)
+    permissions = Array(params[:permissions]).map(&:to_sym)
+    render json: @context.rights_status(@current_user, session, *permissions)
   end
 
   protected

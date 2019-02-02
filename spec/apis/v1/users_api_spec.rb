@@ -92,6 +92,7 @@ describe Api::V1::User do
           'sortable_name' => 'User',
           'sis_import_id' => nil,
           'id' => @user.id,
+          'created_at' => @user.created_at.iso8601,
           'short_name' => 'User',
           'sis_user_id' => 'xyz',
           'integration_id' => nil,
@@ -112,6 +113,7 @@ describe Api::V1::User do
         'name' => 'User',
         'sortable_name' => 'User',
         'id' => student.id,
+        'created_at' => student.created_at.iso8601,
         'short_name' => 'User',
         'sis_user_id' => 'xyz',
         'integration_id' => nil,
@@ -133,6 +135,7 @@ describe Api::V1::User do
         'name' => 'User',
         'sortable_name' => 'User',
         'id' => student.id,
+        'created_at' => student.created_at.iso8601,
         'short_name' => 'User',
         'sis_user_id' => 'xyz',
         'integration_id' => nil,
@@ -143,6 +146,7 @@ describe Api::V1::User do
         'name' => 'User',
         'sortable_name' => 'User',
         'id' => student.id,
+        'created_at' => student.created_at.iso8601,
         'short_name' => 'User'
       })
 
@@ -164,6 +168,7 @@ describe Api::V1::User do
         'name' => 'User',
         'sortable_name' => 'User',
         'id' => student.id,
+        'created_at' => student.created_at.iso8601,
         'short_name' => 'User',
         'sis_user_id' => 'xyz',
         'integration_id' => nil,
@@ -174,6 +179,7 @@ describe Api::V1::User do
         'name' => 'User',
         'sortable_name' => 'User',
         'id' => student.id,
+        'created_at' => student.created_at.iso8601,
         'short_name' => 'User'
       })
 
@@ -192,6 +198,7 @@ describe Api::V1::User do
           'sortable_name' => 'User',
           'sis_import_id' => sis_batch.id,
           'id' => @user.id,
+          'created_at' => @user.created_at.iso8601,
           'short_name' => 'User',
           'sis_user_id' => 'xyz',
           'integration_id' => nil,
@@ -212,6 +219,7 @@ describe Api::V1::User do
           'name' => 'User',
           'sortable_name' => 'User',
           'id' => @user.id,
+          'created_at' => @user.created_at.iso8601,
           'short_name' => 'User',
           'login_id' => 'abc',
           'sis_user_id' => 'a',
@@ -231,6 +239,7 @@ describe Api::V1::User do
           'name' => 'User',
           'sortable_name' => 'User',
           'id' => @user.id,
+          'created_at' => @user.created_at.iso8601,
           'short_name' => 'User',
           'integration_id' => nil,
           'sis_import_id' => nil,
@@ -320,21 +329,24 @@ describe Api::V1::User do
 
     def test_context(mock_context, context_to_pass)
       expect(mock_context).to receive(:account).and_return(mock_context)
-      expect(mock_context).to receive(:global_id).and_return(42)
+      expect(mock_context).to receive(:global_id).and_return(42).twice
       expect(mock_context).to receive(:grants_any_right?).with(@admin, :manage_students, :read_sis).and_return(true)
       expect(mock_context).to receive(:grants_right?).with(@admin, {}, :view_user_logins).and_return(true)
-      expect(if context_to_pass
+      json = if context_to_pass
         @test_api.user_json(@student, @admin, {}, [], context_to_pass)
       else
         @test_api.user_json(@student, @admin, {}, [])
-      end).to eq({ "name"=>"Student",
-                      "sortable_name"=>"Student",
-                      "id"=>@student.id,
-                      "short_name"=>"Student",
-                      "sis_user_id"=>"sis-user-id",
-                      "integration_id" => nil,
-                      "sis_import_id"=>@student.pseudonym.sis_batch_id,
-                      "login_id" => "pvuser@example.com"
+      end
+      expect(json).to eq({
+        "name"=>"Student",
+        "sortable_name"=>"Student",
+        "id"=>@student.id,
+        'created_at' => @student.created_at.iso8601,
+        "short_name"=>"Student",
+        "sis_user_id"=>"sis-user-id",
+        "integration_id" => nil,
+        "sis_import_id"=>@student.pseudonym.sis_batch_id,
+        "login_id" => "pvuser@example.com"
       })
     end
 
@@ -346,6 +358,151 @@ describe Api::V1::User do
     it 'should support loading the context as a member var' do
       @test_api.context = double()
       test_context(@test_api.context, nil)
+    end
+  end
+
+  describe "enrollment_json" do
+    let_once(:course) { Course.create! }
+
+    context "when user is the student" do
+      let_once(:student_enrollment) { course_with_user("StudentEnrollment", course: course, active_all: true) }
+      let_once(:student) { student_enrollment.user }
+      let(:grades) { @test_api.enrollment_json(student_enrollment, student, nil).fetch("grades") }
+
+      before(:once) do
+        @course_score = student_enrollment.scores.create!(course_score: true, current_score: 63, final_score: 73)
+        course.update!(grading_standard_enabled: true)
+        course.enable_feature!(:final_grades_override)
+      end
+
+      it "returns the current grade" do
+        expect(grades.fetch("current_grade")).to eq "D-"
+      end
+
+      it "returns the current score" do
+        expect(grades.fetch("current_score")).to be 63.0
+      end
+
+      it "returns the final grade" do
+        expect(grades.fetch("final_grade")).to eq "C-"
+      end
+
+      it "returns the final score" do
+        expect(grades.fetch("final_score")).to be 73.0
+      end
+
+      it "returns the override grade in place of current grade if present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("current_grade")).to eq "A"
+      end
+
+      it "returns the override score in place of current score if present and feature enabled" do
+        course.update!(grading_standard_enabled: false)
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("current_score")).to be 99.0
+      end
+
+      it "returns the lower bound of override in place of current if present, feature enabled, and standards exist" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("current_score")).to be 94.0
+      end
+
+      it "returns the override grade in place of final grade if present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("final_grade")).to eq "A"
+      end
+
+      it "returns the override score in place of final score if present and feature enabled" do
+        course.update!(grading_standard_enabled: false)
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("final_score")).to be 99.0
+      end
+
+      it "returns the lower bound of override in place of final if present, feature enabled, and standards exist" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("final_score")).to be 94.0
+      end
+
+      it "does not return an override_grade key" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.keys).not_to include :override_grade
+      end
+
+      it "does not return an override_score key" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.keys).not_to include :override_score
+      end
+    end
+
+    context "when user is a teacher" do
+      let_once(:student_enrollment) { course_with_user("StudentEnrollment", course: course, active_all: true) }
+      let_once(:student) { student_enrollment.user }
+      let_once(:teacher) { course_with_user("TeacherEnrollment", course: course, active_all: true).user }
+      let(:grades) { @test_api.enrollment_json(student_enrollment, teacher, nil).fetch("grades") }
+
+      before(:once) do
+        @course_score = student_enrollment.scores.create!(course_score: true, current_score: 63, final_score: 73)
+        course.update!(grading_standard_enabled: true)
+        course.enable_feature!(:final_grades_override)
+      end
+
+      it "returns the current grade" do
+        expect(grades.fetch("current_grade")).to eq "D-"
+      end
+
+      it "returns the current score" do
+        expect(grades.fetch("current_score")).to be 63.0
+      end
+
+      it "returns the final grade" do
+        expect(grades.fetch("final_grade")).to eq "C-"
+      end
+
+      it "returns the final score" do
+        expect(grades.fetch("final_score")).to be 73.0
+      end
+
+      it "returns the course current grade, even if override is present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("current_grade")).to eq "D-"
+      end
+
+      it "returns the course current score, even if override is present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("current_score")).to be 63.0
+      end
+
+      it "returns the course final grade, even if override is present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("final_grade")).to eq "C-"
+      end
+
+      it "returns the course final score, even if override is present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("final_score")).to be 73.0
+      end
+
+      it "returns the override grade if present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("override_grade")).to eq "A"
+      end
+
+      it "returns the override score if present and feature enabled" do
+        @course_score.update!(override_score: 99.0)
+        expect(grades.fetch("override_score")).to be 99.0
+      end
+
+      it "does not return the override grade if feature disabled" do
+        course.disable_feature!(:final_grades_override)
+        @course_score.update!(override_score: 99.0)
+        expect(grades.keys).not_to include "override_grade"
+      end
+
+      it "does not return the override score if feature disabled" do
+        course.disable_feature!(:final_grades_override)
+        @course_score.update!(override_score: 99.0)
+        expect(grades.keys).not_to include "override_score"
+      end
     end
   end
 
@@ -392,7 +549,6 @@ describe Api::V1::User do
     end
 
   end
-
 end
 
 describe "Users API", type: :request do
@@ -519,6 +675,7 @@ describe "Users API", type: :request do
          'sortable_name' => @other_user.sortable_name,
          'sis_import_id' => nil,
          'id' => @other_user.id,
+        'created_at' => @other_user.created_at.iso8601,
          'short_name' => @other_user.short_name,
          'sis_user_id' => @other_user.pseudonym.sis_user_id,
          'integration_id' => nil,
@@ -537,8 +694,10 @@ describe "Users API", type: :request do
          'name' => @other_user.name,
          'sortable_name' => @other_user.sortable_name,
          'id' => @other_user.id,
+        'created_at' => @other_user.created_at.iso8601,
          'short_name' => @other_user.short_name,
          'locale' => nil,
+         'effective_locale' => 'en',
          'permissions' => {'can_update_name' => true, 'can_update_avatar' => false}
       })
     end
@@ -554,6 +713,24 @@ describe "Users API", type: :request do
       json = api_call(:get, "/api/v1/users/self",
                       { :controller => 'users', :action => 'api_show', :id => 'self', :format => 'json' })
       expect(json['permissions']).to eq({'can_update_name' => false, 'can_update_avatar' => true})
+    end
+
+    it "should retrieve the right avatar permissions" do
+      @user = @other_user
+      json = api_call(:get, "/api/v1/users/self",
+                      { :controller => 'users', :action => 'api_show', :id => 'self', :format => 'json' })
+      expect(json['permissions']['can_update_avatar']).to eq(false)
+
+      Account.default.tap { |a| a.enable_service(:avatars) }.save
+      json = api_call(:get, "/api/v1/users/self",
+                      { :controller => 'users', :action => 'api_show', :id => 'self', :format => 'json' })
+      expect(json['permissions']['can_update_avatar']).to eq(true)
+
+      @user.avatar_state = :locked
+      @user.save
+      json = api_call(:get, "/api/v1/users/self",
+                      { :controller => 'users', :action => 'api_show', :id => 'self', :format => 'json' })
+      expect(json['permissions']['can_update_avatar']).to eq(false)
     end
 
     it "requires :read_roster or :manage_user_logins permission from the account" do
@@ -582,6 +759,7 @@ describe "Users API", type: :request do
           'sortable_name' => user.sortable_name,
           'sis_import_id' => nil,
           'id' => user.id,
+          'created_at' => user.created_at.iso8601,
           'short_name' => user.short_name,
           'sis_user_id' => user.pseudonym.sis_user_id,
           'integration_id' => nil,
@@ -634,6 +812,21 @@ describe "Users API", type: :request do
       end
     end
 
+    it "doesn't kersplode when filtering by role and sorting" do
+      @account = Account.default
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users",
+        { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param },
+        { :role_filter_id => student_role.id.to_s, :sort => "sis_id"})
+
+      expect(json.map{|r| r['id']}).to eq [@student.id]
+
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users",
+        { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param },
+        { :role_filter_id => student_role.id.to_s, :sort => "email"})
+
+      expect(json.map{|r| r['id']}).to eq [@student.id]
+    end
+
     it "includes last login info" do
       @account = Account.default
       u = User.create!(name: 'test user')
@@ -642,9 +835,33 @@ describe "Users API", type: :request do
       p.save!
 
       json = api_call(:get, "/api/v1/accounts/#{@account.id}/users", { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param }, { include: ['last_login'], search_term: u.id.to_s })
-
       expect(json.count).to eq 1
       expect(json.first['last_login']).to eq p.current_login_at.iso8601
+
+      # it should sort too
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users",
+        { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param },
+        { include: ['last_login'], sort: "last_login", order: 'desc'})
+      expect(json.first['last_login']).to eq p.current_login_at.iso8601
+
+      # it should include automatically when sorting by
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users",
+        { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param },
+        { sort: "last_login", order: 'desc'})
+      expect(json.first['last_login']).to eq p.current_login_at.iso8601
+    end
+
+    it "does return a next header on the last page" do
+      @account = Account.default
+      u = User.create!(name: 'test user')
+      p = u.pseudonyms.create!(account: @account, unique_id: 'user')
+
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users", { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param }, { search_term: u.id.to_s, per_page: '1', page: '1' })
+      expect(json.length).to eq 1
+      expect(response.headers['Link']).to include("rel=\"next\"")
+      json = api_call(:get, "/api/v1/accounts/#{@account.id}/users", { :controller => 'users', :action => "index", :format => 'json', :account_id => @account.id.to_param }, { search_term: u.id.to_s, per_page: '1', page: '2' })
+      expect(json).to be_empty
+      expect(response.headers['Link']).to_not include("rel=\"next\"")
     end
   end
 
@@ -729,6 +946,7 @@ describe "Users API", type: :request do
 
           expect(json).to eq({
             "id"            => user.id,
+            "created_at"    => user.created_at.iso8601,
             "integration_id"=> nil,
             "name"          => "",
             "sortable_name" => "",
@@ -782,6 +1000,7 @@ describe "Users API", type: :request do
           "short_name"       => "Test",
           "sortable_name"    => "User, T.",
           "id"               => user.id,
+          "created_at"       => user.created_at.iso8601,
           "sis_user_id"      => "12345",
           "sis_import_id"    => user.pseudonym.sis_batch_id,
           "login_id"         => "test@example.com",
@@ -847,13 +1066,16 @@ describe "Users API", type: :request do
           other_user = user_with_pseudonym(:active_all => true)
           @pseudonym.sis_user_id = "12345"
           @pseudonym.save!
+          @user.communication_channel.workflow_state = 'registered'
           other_user.remove_from_root_account(Account.default)
+          expect(other_user.communication_channel).to be_nil
 
           @user = @site_admin
           json = api_call(:post, "/api/v1/accounts/#{Account.default.id}/users",
             { :controller => 'users', :action => 'create', :format => 'json', :account_id => Account.default.id.to_s },
-            { :enable_sis_reactivation => '1', :user => { :name => "Test User" },
+            { :enable_sis_reactivation => '1', :user => { :name => "Test User", :skip_registration => true },
               :pseudonym => { :unique_id => "test@example.com", :password => "password123", :sis_user_id => "12345"},
+              :communication_channel => { :skip_confirmation => true}
             }
           )
 
@@ -863,6 +1085,8 @@ describe "Users API", type: :request do
           expect(other_user).to be_registered
           expect(other_user.user_account_associations.where(:account_id => Account.default).first).to_not be_nil
           expect(@pseudonym).to be_active
+          expect(other_user.communication_channel).to be_present
+          expect(other_user.communication_channel.workflow_state).to eq('active')
         end
 
         it "should raise an error trying to reactivate an active section" do
@@ -1064,7 +1288,7 @@ describe "Users API", type: :request do
           }
         }
       )
-      expect(response).to be_success
+      expect(response).to be_successful
       users = User.where(name: "Test User").to_a
       expect(users.size).to eq 1
       expect(users.first.pseudonyms.first.unique_id).to eq "test"
@@ -1165,7 +1389,7 @@ describe "Users API", type: :request do
                      }
                  }
                 )
-        expect(response).to be_success
+        expect(response).to be_successful
         users = User.where(name: "Test User").to_a
         expect(users.size).to eq 1
         expect(users.first.pseudonyms.first.unique_id).to eq "test@test.com"
@@ -1212,6 +1436,7 @@ describe "Users API", type: :request do
           'sis_user_id' => 'sis-user-id',
           'sis_import_id' => nil,
           'id' => user.id,
+          'created_at' => user.created_at.iso8601,
           'short_name' => 'Tobias',
           'integration_id' => nil,
           'login_id' => 'student@example.com',
@@ -2122,7 +2347,7 @@ describe "Users API", type: :request do
       {
         "url" => "https://example.com/pandata/events",
         "ios-key" => "IOS_key",
-        "ios-secret" => "teamrocketblastoffatthespeedoflight",
+        "ios-secret" => "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0tCk1JSGJBZ0VCQkVFemZx\nZStiTjhEN2VRY0tKa3hHSlJpd0dqaHE0eXBsdFJ3aXNMUkx6ZXpBSmQ4QTlL\nRTdNY2YKbkorK0ptNGpwcjNUaFpybHRyN2dXQ2VJWWdvZDZPSmhzS0FIQmdV\ncmdRUUFJNkdCaVFPQmhnQUVBSmV5NCszeAp0UGlja2h1RFQ3QWFsTW1BWVdz\neU5IMnlEejRxRjhCamhHZzgwVkE2QWJPMHQ2YVE4TGQyaktMVEFrU1U5SFFW\nClkrMlVVeUp0Q3FTWEg4dVlBTEI0ZmFwbGhwVWNoQ1pSa3pMMXcrZzVDUUJY\nMlhFS25PdXJabU5ieEVSRzJneGoKb3hsbmxub0pwQjR5YUkvbWNpWkJOYlVz\nL0hTSGJtRzRFUFVxeVViQgotLS0tLUVORCBFQyBQUklWQVRFIEtFWS0tLS0t\nCg==\n",
         "android-key" => "ANDROID_key",
         "android-secret" => "surrendernoworpreparetofight"
       }
@@ -2145,6 +2370,17 @@ describe "Users API", type: :request do
       expect(json['auth_token']).to be_present
       expect(json['props_token']).to be_present
       expect(json['expires_at']).to be_present
+
+      public_key = OpenSSL::PKey::EC.new(<<-PUBLIC)
+-----BEGIN PUBLIC KEY-----
+MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAl7Lj7fG0+JySG4NPsBqUyYBhazI0
+fbIPPioXwGOEaDzRUDoBs7S3ppDwt3aMotMCRJT0dBVj7ZRTIm0KpJcfy5gAsHh9
+qmWGlRyEJlGTMvXD6DkJAFfZcQqc66tmY1vEREbaDGOjGWeWegmkHjJoj+ZyJkE1
+tSz8dIduYbgQ9SrJRsE=
+-----END PUBLIC KEY-----
+PUBLIC
+      body = Canvas::Security.decode_jwt(json['auth_token'], [public_key])
+      expect(body[:iss]).to eq "IOS_key"
     end
 
     it 'returns bad_request for incorrect app keys' do

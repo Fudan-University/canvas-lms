@@ -34,8 +34,8 @@ export const {
   'SIDEBAR_ENOUGH_ITEMS_LOADED',
 );
 
-export const ENOUGH_ITEMS_TO_SHOW_LIST = 5;
-export const DESIRED_ITEMS_TO_HAVE_LOADED = 10;
+export const ENOUGH_ITEMS_TO_SHOW_LIST = 7;
+export const DESIRED_ITEMS_TO_HAVE_LOADED = 14;
 
 function incompleteItems (state) {
   return state.sidebar.items.filter(item => !item.completed)
@@ -66,24 +66,32 @@ function handleSidebarLoadingResponse (response, dispatch, getState) {
 export const sidebarLoadNextItems = identifiableThunk(() => (dispatch, getState) => {
   if (!getState().sidebar.loading && getState().sidebar.nextUrl) {
     dispatch(sidebarItemsLoading());
-    return axios.get(getState().sidebar.nextUrl, { params: {
-      order: 'asc'
-    }}).then((response) => {
+    const params = {
+      order: 'asc',
+    };
+    if (getState().sidebar.course_id) {
+      // eslint-disable-next-line
+      params.context_codes = [`course_${getState().sidebar.course_id}`, `user_${ENV.current_user_id}`];
+    }
+    return axios.get(getState().sidebar.nextUrl, { params }).then((response) => {
       return handleSidebarLoadingResponse(response, dispatch, getState);
     }).catch(response => dispatch(sidebarItemsLoadingFailed(response)));
   }
 });
 
-export const sidebarLoadInitialItems = currentMoment => (
+export const sidebarLoadInitialItems = (currentMoment, course_id) => (
   (dispatch, getState) => {
     const firstMomentDate = currentMoment.clone().subtract(2, 'weeks');
-    const lastMomentDate = currentMoment.clone().add(2, 'weeks');
-    dispatch(sidebarItemsLoading({firstMoment: firstMomentDate, lastMoment: lastMomentDate}));
-    return axios.get('/api/v1/planner/items', { params: {
+    dispatch(sidebarItemsLoading({firstMoment: firstMomentDate, course_id}));
+    const params = {
       start_date: firstMomentDate.toISOString(),
-      end_date: lastMomentDate.toISOString(),
-      order: 'asc'
-    }}).then((response) => {
+      order: 'asc',
+    };
+    if (course_id) {
+      // eslint-disable-next-line
+      params.context_codes = [`course_${course_id}`, `user_${ENV.current_user_id}`];
+    }
+    return axios.get('/api/v1/planner/items', { params }).then((response) => {
       return handleSidebarLoadingResponse(response, dispatch, getState);
     }).catch(response => dispatch(sidebarItemsLoadingFailed(response)));
   }

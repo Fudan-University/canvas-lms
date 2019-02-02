@@ -37,8 +37,10 @@ class User < ActiveRecord::Base
   attr_accessor :previous_id, :menu_data, :gradebook_importer_submissions, :prior_enrollment
 
   before_save :infer_defaults
+  before_validation :ensure_lti_id, on: :update
   after_create :set_default_feature_flags
   after_update :clear_cached_short_name, if: -> (user) {user.saved_change_to_short_name? || (user.read_attribute(:short_name).nil? && user.saved_change_to_name?)}
+  validate :preserve_lti_id, on: :update
 
   serialize :preferences
   include TimeZoneHelper
@@ -249,10 +251,8 @@ class User < ActiveRecord::Base
     end
   }
 
-  scope :linked_through_root_accounts, lambda {|root_accounts|
-    root_accounts = Array(root_accounts)
-    root_accounts << nil # TODO: remove after root_account_id is populated and is not-nulled (a)
-    where(UserObservationLink.table_name => {:root_account_id => root_accounts})
+  scope :linked_through_root_account, lambda {|root_account|
+    where(UserObservationLink.table_name => {:root_account_id => [root_account.id, nil] + root_account.trusted_account_ids})
   }
 
   def reload(*)
@@ -305,7 +305,7 @@ class User < ActiveRecord::Base
 
   scope :for_course_with_last_login, lambda { |course, root_account_id, enrollment_type|
     # add a field to each user that is the aggregated max from current_login_at and last_login_at from their pseudonyms
-    scope = select("users.*, MAX(current_login_at) as last_login, MAX(current_login_at) IS NULL as login_info_exists").
+    scope = select("users.*, MAX(current_login_at) as last_login").
       # left outer join ensures we get the user even if they don't have a pseudonym
       joins(sanitize_sql([<<-SQL, root_account_id])).where(:enrollments => { :course_id => course })
         LEFT OUTER JOIN #{Pseudonym.quoted_table_name} ON pseudonyms.user_id = users.id AND pseudonyms.account_id = ?
@@ -756,11 +756,20 @@ class User < ActiveRecord::Base
     self.reminder_time_for_due_dates ||= 48.hours.to_i
     self.reminder_time_for_grading ||= 0
     self.initial_enrollment_type = nil unless ['student', 'teacher', 'ta', 'observer'].include?(initial_enrollment_type)
+    self.lti_id ||= SecureRandom.uuid
     true
   end
 
+  def preserve_lti_id
+    errors.add(:lti_id, 'Cannot change lti_id!') if lti_id_changed? && lti_id_was != nil
+  end
+
+  def ensure_lti_id
+    self.lti_id ||= SecureRandom.uuid
+  end
+
   def set_default_feature_flags
-    self.enable_feature!(:new_user_tutorial_on_off)
+    self.enable_feature!(:new_user_tutorial_on_off) unless Rails.env.test?
   end
 
   def sortable_name
@@ -897,18 +906,18 @@ class User < ActiveRecord::Base
   end
 
   # avoid extraneous callbacks when enrolled in multiple sections
-  def delete_enrollments(enrollment_scope=self.enrollments)
+  def delete_enrollments(enrollment_scope=self.enrollments, updating_user: nil)
     courses_to_update = enrollment_scope.active.distinct.pluck(:course_id)
     Enrollment.suspend_callbacks(:set_update_cached_due_dates) do
-      enrollment_scope.each{ |e| e.destroy }
+      enrollment_scope.preload(:course, :enrollment_state).each{ |e| e.destroy }
     end
     user_ids = enrollment_scope.pluck(:user_id).uniq
     courses_to_update.each do |course|
-      DueDateCacher.recompute_users_for_course(user_ids, course)
+      DueDateCacher.recompute_users_for_course(user_ids, course, nil, executing_user: updating_user)
     end
   end
 
-  def remove_from_root_account(root_account)
+  def remove_from_root_account(root_account, updating_user: nil)
     ActiveRecord::Base.transaction do
       if root_account == :all
         # make sure to hit all shards
@@ -918,6 +927,7 @@ class User < ActiveRecord::Base
         pseudonym_scope = self.pseudonyms.active.shard(self)
         account_users = self.account_users.active.shard(self)
         has_other_root_accounts = false
+        group_memberships_scope = self.group_memberships.active.shard(self)
       else
         # make sure to do things on the root account's shard. but note,
         # root_account.enrollments won't include the student view user's
@@ -932,9 +942,11 @@ class User < ActiveRecord::Base
         account_users = root_account.account_users.where(user_id: self).to_a +
           self.account_users.shard(root_account).where(:account_id => root_account.all_accounts).to_a
         has_other_root_accounts = self.associated_accounts.shard(self).where('accounts.id <> ?', root_account).exists?
+        group_memberships_scope = self.group_memberships.active.shard(root_account.shard).joins(:group).where(:groups => {:root_account_id => root_account})
       end
 
-      self.delete_enrollments(enrollment_scope)
+      self.delete_enrollments(enrollment_scope, updating_user: updating_user)
+      group_memberships_scope.destroy_all
       user_observer_scope.destroy_all
       user_observee_scope.destroy_all
       pseudonym_scope.each(&:destroy)
@@ -1011,20 +1023,21 @@ class User < ActiveRecord::Base
     self.courses
   end
 
-  def check_courses_right?(user, sought_right)
+  def check_courses_right?(user, sought_right, enrollments_to_check=nil)
+    enrollments_to_check ||= enrollments.current_and_concluded
     # Look through the currently enrolled courses first.  This should
     # catch most of the calls.  If none of the current courses grant
     # the right then look at the concluded courses.
-    user && sought_right && (
-      self.courses.any?{ |c| c.grants_right?(user, sought_right) } ||
-      self.concluded_courses.any?{ |c| c.grants_right?(user, sought_right) }
-    )
+    user && sought_right &&
+      self.courses_for_enrollments(enrollments_to_check).any?{ |c| c.grants_right?(user, sought_right) }
   end
 
   def check_accounts_right?(user, sought_right)
     # check if the user we are given is an admin in one of this user's accounts
     return false unless user
     return true if Account.site_admin.grants_right?(user, sought_right)
+    return self.account.grants_right?(user, sought_right) if self.fake_student? # doesn't have account association
+
     common_shards = associated_shards & user.associated_shards
     search_method = ->(shard) do
       associated_accounts.shard(shard).any?{|a| a.grants_right?(user, sought_right) }
@@ -1062,7 +1075,7 @@ class User < ActiveRecord::Base
     given { |user| self.check_courses_right?(user, :manage_user_notes) }
     can :create_user_notes and can :read_user_notes
 
-    given { |user| self.check_courses_right?(user, :generate_observer_pairing_code) }
+    given { |user| self.check_courses_right?(user, :generate_observer_pairing_code, enrollments.not_deleted) }
     can :generate_observer_pairing_code
 
     given {|user| self.check_accounts_right?(user, :manage_user_notes) }
@@ -1310,6 +1323,10 @@ class User < ActiveRecord::Base
     [:approved, :locked, :re_reported].include?(avatar_state)
   end
 
+  def avatar_locked?
+    avatar_state == :locked
+  end
+
   def self.avatar_key(user_id)
     user_id = user_id.to_s
     if !user_id.blank? && user_id != '0'
@@ -1325,11 +1342,11 @@ class User < ActiveRecord::Base
   end
 
   AVATAR_SETTINGS = ['enabled', 'enabled_pending', 'sis_only', 'disabled']
-  def avatar_url(size=nil, avatar_setting=nil, fallback=nil, request=nil)
+  def avatar_url(size=nil, avatar_setting=nil, fallback=nil, request=nil, use_fallback=true)
     return fallback if avatar_setting == 'disabled'
     size ||= 50
     avatar_setting ||= 'enabled'
-    fallback = self.class.avatar_fallback_url(fallback, request)
+    fallback = use_fallback ? self.class.avatar_fallback_url(fallback, request) : nil
     if avatar_setting == 'enabled' || (avatar_setting == 'enabled_pending' && avatar_approved?) || (avatar_setting == 'sis_only')
       @avatar_url ||= self.avatar_image_url
     end
@@ -1350,7 +1367,6 @@ class User < ActiveRecord::Base
 
   def self.avatar_fallback_url(fallback=nil, request=nil)
     return fallback if fallback == '%{fallback}'
-    return nil if Canvas::Plugin.value_to_boolean(request&.params&.[](:no_avatar_fallback))
     if fallback and uri = URI.parse(fallback) rescue nil
       uri.scheme ||= request ? request.protocol[0..-4] : HostUrl.protocol # -4 to chop off the ://
       if HostUrl.cdn_host
@@ -1436,6 +1452,10 @@ class User < ActiveRecord::Base
     preferences[:course_nicknames] ||= {}
   end
 
+  def course_nickname_hash
+    course_nicknames.any? ? Digest::MD5.hexdigest(course_nicknames.sort.join(",")) : "default"
+  end
+
   def course_nickname(course)
     shard.activate do
       course_nicknames[course.id]
@@ -1452,6 +1472,10 @@ class User < ActiveRecord::Base
 
   def send_scores_in_emails?(root_account)
     preferences[:send_scores_in_emails] == true && root_account.settings[:allow_sending_scores_in_emails] != false
+  end
+
+  def send_observed_names_in_notifications?
+    preferences[:send_observed_names_in_notifications] == true
   end
 
   def close_announcement(announcement)
@@ -1750,39 +1774,45 @@ class User < ActiveRecord::Base
   end
 
   def participating_student_current_and_concluded_course_ids
-    @participating_student_current_and_concluded_course_ids ||=
-      participating_course_ids('student_current_and_concluded') do |enrollments|
-        enrollments.current_and_concluded.not_inactive_by_date_ignoring_access
-      end
+    cached_course_ids('student_current_and_concluded') do |enrollments|
+      enrollments.current_and_concluded.not_inactive_by_date_ignoring_access.where(type: %w{StudentEnrollment StudentViewEnrollment})
+    end
   end
 
   def participating_student_course_ids
-    @participating_student_course_ids ||=
-      participating_course_ids('student') do |enrollments|
-        enrollments.current.active_by_date
-      end
-  end
-
-  def participating_course_ids(cache_qualifier)
-    self.shard.activate do
-      cache_path = [self, "participating_#{cache_qualifier}_course_ids", ApplicationController.region]
-      Rails.cache.fetch(cache_path.cache_key) do
-        enrollments = yield self.enrollments.
-          shard(in_region_associated_shards).
-          where(type: %w{StudentEnrollment StudentViewEnrollment})
-        enrollments.distinct.pluck(:course_id)
-      end
+    cached_course_ids('participating_student') do |enrollments|
+      enrollments.current.active_by_date.where(type: %w{StudentEnrollment StudentViewEnrollment})
     end
   end
-  private :participating_course_ids
 
   def participating_instructor_course_ids
-    @participating_instructor_course_ids ||= self.shard.activate do
-      Rails.cache.fetch([self, 'participating_instructor_course_ids', ApplicationController.region].cache_key) do
-        self.enrollments.shard(in_region_associated_shards).of_instructor_type.current.active_by_date.distinct.pluck(:course_id)
-      end
+    cached_course_ids('participating_instructor') do |enrollments|
+      enrollments.of_instructor_type.current.active_by_date
     end
   end
+
+  def participating_course_ids
+    cached_course_ids('participating') do |enrollments|
+      enrollments.current.active_by_date
+    end
+  end
+
+  def all_course_ids
+    cached_course_ids('all') do |enrollments|
+      enrollments.where.not(:workflow_state => ['rejected', 'deleted', 'inactive'])
+    end
+  end
+
+  def cached_course_ids(type)
+    @cached_course_ids ||= {}
+    @cached_course_ids[type] ||=
+      self.shard.activate do
+        Rails.cache.fetch([self, "cached_course_ids", type, ApplicationController.region].cache_key) do
+          yield(self.enrollments.shard(in_region_associated_shards)).distinct.pluck(:course_id)
+        end
+      end
+  end
+  private :cached_course_ids
 
   def participating_enrollments
     @participating_enrollments ||= self.shard.activate do
@@ -1792,42 +1822,32 @@ class User < ActiveRecord::Base
     end
   end
 
-  def participated_course_ids
-    @participated_course_ids ||= self.shard.activate do
-      Rails.cache.fetch([self, 'participated_course_ids', ApplicationController.region].cache_key) do
-        self.not_removed_enrollments.shard(in_region_associated_shards).distinct.pluck(:course_id)
-      end
-    end
-  end
-
-  def submissions_for_context_codes(context_codes, opts={})
+  def submissions_for_context_codes(context_codes, start_at: nil, limit: 20)
     return [] unless context_codes.present?
 
-    opts = {limit: 20}.merge(opts.slice(:start_at, :limit))
     shard.activate do
-      Rails.cache.fetch([self, 'submissions_for_context_codes', context_codes, opts].cache_key, expires_in: 15.minutes) do
-        opts[:start_at] ||= 4.weeks.ago
+      Rails.cache.fetch([self, 'submissions_for_context_codes', context_codes, start_at, limit].cache_key, expires_in: 15.minutes) do
+        start_at ||= 4.weeks.ago
 
         Shackles.activate(:slave) do
           submissions = []
-          submissions += self.submissions.where("GREATEST(submissions.submitted_at, submissions.created_at) > ?", opts[:start_at]).
+          submissions += self.submissions.where("GREATEST(submissions.submitted_at, submissions.created_at) > ?", start_at).
             for_context_codes(context_codes).eager_load(:assignment).
             where("submissions.score IS NOT NULL AND assignments.workflow_state=? AND assignments.muted=?", 'published', false).
             order('submissions.created_at DESC').
-            limit(opts[:limit]).to_a
+            limit(limit).to_a
 
-          subs_with_comment_scope = Submission.active.where(user_id: self).for_context_codes(context_codes).
+          submissions += Submission.active.where(user_id: self).for_context_codes(context_codes).
             joins(:assignment).
             where(assignments: {muted: false, workflow_state: 'published'}).
-            where('last_comment_at > ?', opts[:start_at])
-          # have to order by last_updated_at_from_db in another query because of distinct_on in the first one
-          submissions += Submission.from(subs_with_comment_scope).limit(opts[:limit]).order("last_comment_at").select("*").to_a
+            where('last_comment_at > ?', start_at).
+            limit(limit).order("last_comment_at").to_a
 
           submissions = submissions.sort_by{|t| t.last_comment_at || t.created_at}.reverse
           submissions = submissions.uniq
-          submissions.first(opts[:limit])
+          submissions.first(limit)
 
-          ActiveRecord::Associations::Preloader.new.preload(submissions, [:assignment, :user, :submission_comments])
+          ActiveRecord::Associations::Preloader.new.preload(submissions, [{:assignment => :context}, :user, :submission_comments])
           submissions
         end
       end
@@ -1835,14 +1855,17 @@ class User < ActiveRecord::Base
   end
 
   # This is only feedback for student contexts (unless specific contexts are passed in)
-  def recent_feedback(opts={})
-    context_codes = opts[:context_codes]
-    context_codes ||= if opts[:contexts]
-        setup_context_lookups(opts[:contexts])
+  def recent_feedback(
+    context_codes: nil,
+    contexts: nil,
+    **opts # forwarded to submissions_for_context_codes
+  )
+    context_codes ||= if contexts
+        setup_context_lookups(contexts)
       else
         self.participating_student_course_ids.map { |id| "course_#{id}" }
       end
-    submissions_for_context_codes(context_codes, opts)
+    submissions_for_context_codes(context_codes, **opts)
   end
 
   def visible_stream_item_instances(opts={})
@@ -1858,6 +1881,8 @@ class User < ActiveRecord::Base
       instances = instances.polymorphic_where('stream_item_instances.context' => opts[:contexts])
     elsif opts[:context]
       instances = instances.where(:context_type => opts[:context].class.base_class.name, :context_id => opts[:context])
+    elsif opts[:only_active_courses]
+      instances = instances.where(:context_type => "Course", :context_id => self.participating_course_ids)
     end
 
     instances
@@ -1908,27 +1933,6 @@ class User < ActiveRecord::Base
     end
   end
 
-  def calendar_events_for_contexts(context_codes, opts={})
-    event_codes = context_codes
-    event_codes += AppointmentGroup.manageable_by(self, context_codes).intersecting(opts[:start_at], opts[:end_at]).map(&:asset_string)
-    CalendarEvent.active.for_user_and_context_codes(self, event_codes, []).between(opts[:start_at], opts[:end_at]).
-      updated_after(opts[:updated_at])
-  end
-
-  def calendar_events_for_calendar(opts={})
-    opts = opts.dup
-    context_codes = opts[:context_codes] || (opts[:contexts] ? setup_context_lookups(opts[:contexts]) : self.cached_context_codes)
-    return [] if !context_codes || context_codes.empty?
-    opts[:start_at] ||= 2.weeks.ago
-    opts[:end_at] ||= 1.week.from_now
-
-    events = []
-    events += calendar_events_for_contexts(context_codes, opts)
-    events += Assignment.published.for_context_codes(context_codes).due_between(opts[:start_at], opts[:end_at]).
-      updated_after(opts[:updated_at]).with_just_calendar_attributes
-    events.sort_by{|e| [e.start_at, Canvas::ICU.collation_key(e.title || CanvasSort::First)] }.uniq
-  end
-
   def upcoming_events(opts={})
     context_codes = opts[:context_codes] || (opts[:contexts] ? setup_context_lookups(opts[:contexts]) : self.cached_context_codes)
     return [] if (!context_codes || context_codes.empty?)
@@ -1969,7 +1973,7 @@ class User < ActiveRecord::Base
     assignments = Assignment.published.
       for_context_codes(context_codes).
       due_between_with_overrides(now, opts[:end_at]).
-      include_submitted_count
+      include_submitted_count.to_a
 
     if assignments.any?
       if AssignmentOverrideApplicator.should_preload_override_students?(assignments, self, "upcoming_events")
@@ -1984,10 +1988,10 @@ class User < ActiveRecord::Base
     events.sort_by{|e| [e.start_at ? 0: 1,e.start_at || 0, Canvas::ICU.collation_key(e.title)] }.uniq.first(opts[:limit])
   end
 
-  def select_available_assignments(assignments, opts = {})
+  def select_available_assignments(assignments, include_concluded: false)
     return [] if assignments.empty?
-    available_course_ids = if opts[:include_concluded]
-                            participated_course_ids
+    available_course_ids = if include_concluded
+                            all_course_ids
                           else
                             Shard.partition_by_shard(assignments.map(&:context_id).uniq) do |course_ids|
                               self.enrollments.shard(Shard.current).where(course_id: course_ids).active_by_date.pluck(:course_id)
@@ -2000,7 +2004,7 @@ class User < ActiveRecord::Base
   def select_upcoming_assignments(assignments,opts)
     time = opts[:time] || Time.zone.now
     assignments.select do |a|
-      if a.grants_right?(self, :delete)
+      if a.context.grants_right?(self, :manage_assignments)
         a.dates_hash_visible_to(self).any? do |due_hash|
           due_hash[:due_at] && due_hash[:due_at] >= time && due_hash[:due_at] <= opts[:end_at]
         end
@@ -2258,7 +2262,7 @@ class User < ActiveRecord::Base
 
     return @roles if @roles
     root_account.shard.activate do
-      @roles = Rails.cache.fetch(['user_roles_for_root_account3', self, root_account].cache_key) do
+      @roles = Rails.cache.fetch(['user_roles_for_root_account4', self, root_account].cache_key) do
         user_roles(root_account)
       end
     end
@@ -2678,7 +2682,7 @@ class User < ActiveRecord::Base
   end
 
   def associated_shards(strength = :strong)
-    [Shard.default]
+    strength == :strong ? [Shard.default] : []
   end
 
   def in_region_associated_shards
@@ -2829,6 +2833,7 @@ class User < ActiveRecord::Base
       roles << 'admin'
       root_ids = [root_account.id,  Account.site_admin.id]
       roles << 'root_admin' if account_users.any?{|au| root_ids.include?(au.account_id) }
+      roles << 'consortium_admin' if account_users.any?{|au| au.shard != root_account.shard}
     end
     roles
   end
@@ -2852,6 +2857,11 @@ class User < ActiveRecord::Base
   end
 
   def generate_observer_pairing_code
-    observer_pairing_codes.create(expires_at: 1.day.from_now, code: SecureRandom.hex(3))
+    code = nil
+    loop do
+      code = SecureRandom.base64().gsub(/\W/, '')[0..5]
+      break if ObserverPairingCode.active.where(code: code).count == 0
+    end
+    observer_pairing_codes.create(expires_at: 7.days.from_now, code: code)
   end
 end

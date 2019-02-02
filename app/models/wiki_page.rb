@@ -38,7 +38,7 @@ class WikiPage < ActiveRecord::Base
 
   include MasterCourses::Restrictor
   restrict_columns :content, [:body, :title]
-  restrict_columns :settings, [:editing_roles]
+  restrict_columns :settings, [:editing_roles, :url]
   restrict_assignment_columns
   restrict_columns :state, [:workflow_state]
 
@@ -216,7 +216,7 @@ class WikiPage < ActiveRecord::Base
     self.versions.map(&:model)
   end
 
-  scope :deleted_last, -> { order("workflow_state='deleted'") }
+  scope :deleted_last, -> { order(Arel.sql("workflow_state='deleted'")) }
 
   scope :not_deleted, -> { where("wiki_pages.workflow_state<>'deleted'") }
 
@@ -255,6 +255,7 @@ class WikiPage < ActiveRecord::Base
     end
 
     self.wiki.set_front_page_url!(self.url)
+    self.touch if self.persisted?
   end
 
   def context_module_tag_for(context)
@@ -445,6 +446,10 @@ class WikiPage < ActiveRecord::Base
         })
     end
     result
+  end
+
+  def can_duplicate?
+    true
   end
 
   def initialize_wiki_page(user)

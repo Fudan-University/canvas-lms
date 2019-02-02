@@ -370,9 +370,8 @@ describe "submissions" do
         wait_for_animations
 
         # traverse the tree
-        f('#uploaded_files > ul > li.folder > .sign').click
-        expect(f('#uploaded_files > ul > li.folder .file .name')).to be_displayed
-        f('#uploaded_files > ul > li.folder .file .name').click
+        f('li[aria-label="My files"] button').click
+        f('li[aria-label="html-editing-test.html"] button').click
 
         expect_new_page_load { f('#submit_file_button').click }
 
@@ -400,9 +399,9 @@ describe "submissions" do
         wait_for_animations
 
         # traverse the tree
-        f('#uploaded_files > ul > li.folder > .sign').click
-        expect(f('#uploaded_files > ul > li.folder .file .name')).to be_displayed
-        f('#uploaded_files > ul > li.folder .file .name').click
+        f('li[aria-label="My files"] button').click
+        f('li[aria-label="'+FILENAME+'"] button').click
+
         f('#submit_file_button').click
 
         # Make sure the flash message is being displayed
@@ -415,6 +414,45 @@ describe "submissions" do
         driver.switch_to.default_content
       end
     end
+
+    describe "using lti tool for submission" do
+      def create_submission_tool
+        tool = @course.context_external_tools.create!(
+          name: 'submission tool',
+          url: 'https://example.com/lti',
+          consumer_key: 'key',
+          shared_secret: 'secret',
+          settings: {
+            homework_submission: {
+              enabled: true
+            }
+          }
+        )
+      end
+
+      it "should load submission lti tool on clicking tab" do
+        tool = create_submission_tool
+        @assignment.update_attributes(submission_types: "online_upload")
+        get "/courses/#{@course.id}/assignments/#{@assignment.id}"
+
+        f(".submit_assignment_link").click
+        tool_tab = f("a[href='#submit_from_external_tool_form_#{tool.id}']")
+        expect(tool_tab).to include_text("submission tool")
+        tool_tab.click
+        expect(f("iframe[src^='/courses/#{@course.id}/external_tools/#{tool.id}/resource_selection?launch_type=homework_submission']")).to be_displayed
+      end
+
+      it "should load submission lti tool on kb-nav to tab" do
+        tool = create_submission_tool
+        @assignment.update_attributes(submission_types: "online_upload")
+        get "/courses/#{@course.id}/assignments/#{@assignment.id}"
+
+        f(".submit_assignment_link").click
+        f('a.submit_online_upload_option').send_keys :arrow_right
+        expect(f("iframe[src^='/courses/#{@course.id}/external_tools/#{tool.id}/resource_selection?launch_type=homework_submission']")).to be_displayed
+      end
+    end
+
   end
 
   context 'Excused assignment' do

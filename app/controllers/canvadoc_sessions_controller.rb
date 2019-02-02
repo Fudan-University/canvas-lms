@@ -31,15 +31,27 @@ class CanvadocSessionsController < ApplicationController
 
     if attachment.canvadocable?
       opts = {
-        preferred_plugins: [Canvadocs::RENDER_PDFJS, Canvadocs::RENDER_BOX, Canvadocs::RENDER_CROCODOC]
+        preferred_plugins: [Canvadocs::RENDER_PDFJS, Canvadocs::RENDER_BOX, Canvadocs::RENDER_CROCODOC],
+        enable_annotations: blob['enable_annotations']
       }
 
-      opts[:enable_annotations] = blob["enable_annotations"] && !anonymous_grading_enabled?(attachment)
+
+      submission_id = blob["submission_id"]
+      if submission_id
+        submission = Submission.preload(:assignment).find(submission_id)
+        user_session_params = Canvadocs.user_session_params(@current_user, submission: submission)
+      else
+        user_session_params = Canvadocs.user_session_params(@current_user, attachment: attachment)
+      end
+
       if opts[:enable_annotations]
         # Docviewer only cares about the enrollment type when we're doing annotations
         opts[:enrollment_type] = blob["enrollment_type"]
         # If we STILL don't have a role, something went way wrong so let's be unauthorized.
         return render(plain: 'unauthorized', status: :unauthorized) if opts[:enrollment_type].blank?
+
+        assignment = submission.assignment
+        opts[:audit_url] = submission_docviewer_audit_events_url(submission_id) if assignment.auditable?
         opts[:anonymous_instructor_annotations] = !!blob["anonymous_instructor_annotations"] if blob["anonymous_instructor_annotations"]
       end
 
@@ -50,11 +62,8 @@ class CanvadocSessionsController < ApplicationController
       # TODO: Remove the next line after the DocViewer Data Migration project RD-4702
       opts[:region] = attachment.shard.database_server.config[:region] || "none"
       attachment.submit_to_canvadocs(1, opts) unless attachment.canvadoc_available?
-      url = attachment.canvadoc.session_url(opts.merge({
-        user: @current_user,
-        moderated_grading_whitelist: blob["moderated_grading_whitelist"]
-      }))
 
+      url = attachment.canvadoc.session_url(opts.merge(user_session_params))
       # For the purposes of reporting student viewership, we only
       # care if the original attachment owner is looking
       # Depending on how the attachment came to exist that might be
@@ -73,15 +82,5 @@ class CanvadocSessionsController < ApplicationController
   rescue Timeout::Error
     render :plain => "Service is currently unavailable. Try again later.",
            :status => :service_unavailable
-  end
-
-  private
-
-  def anonymous_grading_enabled?(attachment)
-    Assignment.joins(submissions: :attachment_associations).
-      where(
-        submissions: {attachment_associations: {context_type: 'Submission', attachment: attachment}},
-        anonymous_grading: true
-      ).exists?
   end
 end

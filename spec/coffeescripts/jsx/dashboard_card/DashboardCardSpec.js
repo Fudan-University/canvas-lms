@@ -19,7 +19,7 @@
 import $ from 'jquery'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import TestUtils from 'react-addons-test-utils'
+import TestUtils from 'react-dom/test-utils'
 import DashboardCard from 'jsx/dashboard_card/DashboardCard'
 import CourseActivitySummaryStore from 'jsx/dashboard_card/CourseActivitySummaryStore'
 import assertions from 'helpers/assertions'
@@ -47,7 +47,8 @@ QUnit.module('DashboardCard', {
       id: '1',
       backgroundColor: '#EF4437',
       image: null,
-      imagesEnabled: false
+      connectDragSource: c => c,
+      connectDropTarget: c => c
     }
     return sandbox.stub(CourseActivitySummaryStore, 'getStateForCourse').returns({})
   },
@@ -92,7 +93,6 @@ test('unreadCount', function() {
 })
 
 test('does not have image attribute when a url is not provided', function() {
-  this.props.imagesEnabled = true
   const DashCard = <DashboardCard {...this.props} />
   this.component = TestUtils.renderIntoDocument(DashCard)
   ok(
@@ -103,7 +103,6 @@ test('does not have image attribute when a url is not provided', function() {
 })
 
 test('has image attribute when url is provided', function() {
-  this.props.imagesEnabled = true
   this.props.image = 'http://coolUrl'
   const DashCard = <DashboardCard {...this.props} />
   this.component = TestUtils.renderIntoDocument(DashCard)

@@ -41,7 +41,8 @@ module Canvas
                      environment: nil,
                      cluster: nil,
                      default_ttl: DEFAULT_TTL,
-                     kv_client: Imperium::KV.default_client)
+                     kv_client: Imperium::KV.default_client,
+                     data_center: nil)
         @prefix = prefix
         @tree = tree
         @service = service
@@ -49,6 +50,7 @@ module Canvas
         @cluster = cluster
         @default_ttl = default_ttl
         @kv_client = kv_client
+        @data_center = data_center
       end
 
       # Fetch the value at the requested key using the prefix passed to the
@@ -71,9 +73,10 @@ module Canvas
         ].uniq
 
         fallback_keys = [
-          [tree, service, prefix, key].compact.join("/"), # for backcompat only
+          [tree, service, prefix, key].compact.join("/"),
           full_key(key, global: true),
-        ] - keys
+          ["global", tree, service, prefix, key].compact.join("/"),
+        ].uniq - keys
 
         # pre-cache an entire tree
         tree_key = [tree, service, environment].compact.join("/")
@@ -125,7 +128,8 @@ module Canvas
           environment: environment,
           cluster: cluster,
           default_ttl: default_ttl,
-          kv_client: @kv_client
+          kv_client: @kv_client,
+          data_center: @data_center
         )
       end
 
@@ -136,7 +140,8 @@ module Canvas
       # @param global [boolean] Is it a global key?
       # @return [Imperium::TransactionResponse]
       def set_keys(kvs, global: false)
-        @kv_client.transaction do |tx|
+        opts = @data_center.present? && global ? { dc: @data_center } : {}
+        @kv_client.transaction(opts) do |tx|
           kvs.each { |k, v| tx.set(full_key(k, global: global), v) }
         end
       end

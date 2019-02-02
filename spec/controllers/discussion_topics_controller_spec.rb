@@ -27,6 +27,8 @@ describe DiscussionTopicsController do
     student_in_course(active_all: true, course: @course)
   end
 
+  let(:now) { Time.zone.now.change(usec: 0) }
+
   def course_topic(opts={})
     @topic = @course.discussion_topics.build(:title => "some topic", :pinned => opts.fetch(:pinned, false))
     user = opts[:user] || @user
@@ -108,6 +110,34 @@ describe DiscussionTopicsController do
         get 'index', params: {:group_id => @group.id}
         expect(response).to be_successful
         expect(assigns["topics"]).to include(@child_topic)
+      end
+
+      it "should assign the create permission if the term is concluded and course is open" do
+        @course.update_attribute(:restrict_enrollments_to_course_dates, true)
+        term = @course.account.enrollment_terms.create!(:name => 'mew', :end_at => Time.now.utc - 1.minute)
+        @course.enrollment_term = term
+        @course.update_attribute(:conclude_at, Time.now.utc + 1.hour)
+        @course.save!
+        user_session(@teacher)
+
+        get 'index', params: {:course_id => @course.id}
+
+        expect(assigns[:js_env][:permissions][:create]).to be_truthy
+      end
+
+      it "should not assign the create permission if the term and course are concluded" do
+        term = @course.account.enrollment_terms.create!(
+          :name => 'mew',
+          :start_at => 6.months.ago(now),
+          :end_at => 1.months.ago(now)
+        )
+        @course.enrollment_term = term
+        @course.update!(start_at: 5.months.ago(now), conclude_at: 2.months.ago(now))
+        user_session(@teacher)
+
+        get 'index', params: {:course_id => @course.id}
+
+        expect(assigns[:js_env][:permissions][:create]).to be_falsy
       end
 
       it "should not return graded group discussions if a student has no visibility" do
@@ -449,6 +479,24 @@ describe DiscussionTopicsController do
       expect(@topic.read_state(@student)).to eq 'unread'
       get 'show', params: {:course_id => @course.id, :id => @topic.id}
       expect(@topic.reload.read_state(@student)).to eq 'read'
+    end
+
+    it "should mark as read when topic is in the future as teacher" do
+      course_topic(:skip_set_user => true)
+      teacher2 = @course.shard.activate { user_factory() }
+      teacher2enrollment = @course.enroll_user(teacher2, "TeacherEnrollment")
+      teacher2.save!
+      teacher2enrollment.course = @course # set the reverse association
+      teacher2enrollment.workflow_state = 'active'
+      teacher2enrollment.save!
+      @course.reload
+      @topic.available_from = 1.day.from_now
+      @topic.save!
+      @topic.reload
+      expect(@topic.read_state(teacher2)).to eq 'unread'
+      user_session(teacher2)
+      get 'show', params: {:course_id => @course.id, :id => @topic.id}
+      expect(@topic.reload.read_state(teacher2)).to eq 'read'
     end
 
     it "should not mark as read if not visible" do
@@ -867,7 +915,7 @@ describe DiscussionTopicsController do
         allow(ConditionalRelease::Service).to receive(:enabled_in_context?).and_return(true)
         allow(ConditionalRelease::Service).to receive(:env_for).and_return({ dummy: 'value' })
         get :edit, params: {course_id: @course.id, id: @topic.id}
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(controller.js_env[:dummy]).to eq 'value'
       end
 
@@ -875,7 +923,7 @@ describe DiscussionTopicsController do
         allow(ConditionalRelease::Service).to receive(:enabled_in_context?).and_return(false)
         allow(ConditionalRelease::Service).to receive(:env_for).and_return({ dummy: 'value' })
         get :edit, params: {course_id: @course.id, id: @topic.id}
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(controller.js_env).not_to have_key :dummy
       end
     end
@@ -1103,7 +1151,7 @@ describe DiscussionTopicsController do
         post 'create',
           params: topic_params(@course, {is_announcement: true, specific_sections: @section1.id.to_s}),
           :format => :json
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(DiscussionTopic.last.course_sections.first).to eq @section1
         expect(DiscussionTopicSectionVisibility.count).to eq 1
       end
@@ -1113,7 +1161,7 @@ describe DiscussionTopicsController do
         post 'create',
           params: topic_params(@course, {is_announcement: true}),
           :format => :json
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(DiscussionTopic.count).to eq old_count + 1
         expect(DiscussionTopic.last.is_section_specific).to be_falsey
       end
@@ -1145,14 +1193,14 @@ describe DiscussionTopicsController do
         post 'create',
           params: topic_params(@course, {is_announcement: true, specific_sections: @section1.id.to_s}),
           :format => :json
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(DiscussionTopic.last.course_sections.first).to eq @section1
       end
 
       it 'creates a discussion with sections' do
         post 'create',
           params: topic_params(@course, {specific_sections: @section1.id.to_s}), :format => :json
-        expect(response).to have_http_status :success
+        expect(response).to be_successful
         expect(DiscussionTopic.last.course_sections.first).to eq @section1
         expect(DiscussionTopicSectionVisibility.count).to eq 1
       end
@@ -1228,7 +1276,7 @@ describe DiscussionTopicsController do
       params = topic_params(@course, {is_announcement: true})
       params.delete(:locked)
       post('create', params: params, format: :json)
-      expect(response).to have_http_status :success
+      expect(response).to be_successful
       expect(DiscussionTopic.last.locked).to be_truthy
     end
 
@@ -1237,7 +1285,7 @@ describe DiscussionTopicsController do
       params = topic_params(@course, {is_announcement: false})
       params.delete(:locked)
       post('create', params: params, format: :json)
-      expect(response).to have_http_status :success
+      expect(response).to be_successful
       expect(DiscussionTopic.last.locked).to be_falsy
     end
 
@@ -1425,6 +1473,39 @@ describe DiscussionTopicsController do
         title: "foobers"
       })
       expect(response).to have_http_status 200
+    end
+
+    it "triggers module progression recalculation if needed after changing sections" do
+      section1 = @course.course_sections.create!(name: "Section")
+      section2 = @course.course_sections.create!(name: "Section2")
+      topic = @course.discussion_topics.create!(title: "foo", message: "bar", user: @teacher)
+      mod = @course.context_modules.create!
+      tag = mod.add_item({:id => topic.id, :type => 'discussion_topic'})
+      mod.completion_requirements = {tag.id => {:type => 'must_view'}}
+      mod.save!
+      prog = mod.evaluate_for(@student)
+      expect(prog).to be_unlocked
+
+      user_session(@teacher)
+      put 'update', params: {course_id: @course.id, topic_id: topic.id, specific_sections: section2.id}
+      expect(response).to be_successful
+
+      expect(prog.reload).to be_completed
+    end
+
+    it "triggers module progression recalculation if undoing section specificness" do
+      section1 = @course.course_sections.create!(name: "Section")
+      section2 = @course.course_sections.create!(name: "Section2")
+      topic = @course.discussion_topics.create!(title: "foo", message: "bar", user: @teacher, 
+        is_section_specific: true, course_sections: [section2])
+      mod = @course.context_modules.create!
+      tag = mod.add_item({:id => topic.id, :type => 'discussion_topic'})
+      mod.completion_requirements = {tag.id => {:type => 'must_view'}}
+
+      user_session(@teacher)
+      expect_any_instantiation_of(mod).to receive(:invalidate_progressions)
+      put 'update', params: {course_id: @course.id, topic_id: topic.id, specific_sections: 'all'}
+      expect(response).to be_successful
     end
 
     it "can turn graded topic into ungraded section-specific topic in one edit" do

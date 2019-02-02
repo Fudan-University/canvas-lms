@@ -145,7 +145,7 @@ describe UserLearningObjectScopes do
       it "should include assignments with no locks" do
         @quiz.save!
         DueDateCacher.recompute(@quiz.assignment)
-        list = @student.assignments_for_student('submitting', context: [@course])
+        list = @student.assignments_for_student('submitting', contexts: [@course])
         expect(list.size).to be 1
         expect(list.first.title).to eq 'Test Assignment'
       end
@@ -154,7 +154,7 @@ describe UserLearningObjectScopes do
         @quiz.unlock_at = 1.hour.ago
         @quiz.save!
         DueDateCacher.recompute(@quiz.assignment)
-        list = @student.assignments_for_student('submitting', context: [@course])
+        list = @student.assignments_for_student('submitting', contexts: [@course])
         expect(list.size).to be 1
         expect(list.first.title).to eq 'Test Assignment'
       end
@@ -163,7 +163,7 @@ describe UserLearningObjectScopes do
         @quiz.lock_at = 1.hour.from_now
         @quiz.save!
         DueDateCacher.recompute(@quiz.assignment)
-        list = @student.assignments_for_student('submitting', context: [@course])
+        list = @student.assignments_for_student('submitting', contexts: [@course])
         expect(list.size).to be 1
         expect(list.first.title).to eq 'Test Assignment'
       end
@@ -746,7 +746,13 @@ describe UserLearningObjectScopes do
 
       # make some assignments and submissions
       [@course1, @course2].each do |course|
-        assignment = course.assignments.create!(:title => "some assignment", :submission_types => ['online_text_entry'])
+        assignment = course.assignments.create!(
+          final_grader: @teacher,
+          grader_count: 2,
+          moderated_grading: true,
+          submission_types: ['online_text_entry'],
+          title: 'some assignment'
+        )
         [@student_a, @student_b].each do |student|
           assignment.submit_homework student, body: "submission for #{student.name}"
         end
@@ -759,19 +765,34 @@ describe UserLearningObjectScopes do
       expect(@teacher.assignments_needing_moderation.length).to eq 0
     end
 
-    it "should count assignments needing moderation" do
+    it "shows a count for final grader" do
       assmt = @course2.assignments.first
-      assmt.grade_student(@student_a, :grade => "1", :grader => @teacher, :provisional => true)
-      expect(@teacher.assignments_needing_moderation.length).to eq 1
+      assmt.update!(final_grader: @teacher)
+      assmt.grade_student(@student_a, grade: "1", grader: @teacher, provisional: true)
+      expect(@teacher.assignments_needing_moderation).to eq [assmt]
+    end
 
-      assmt.update_attribute(:grades_published_at, Time.now.utc)
-      expect(@teacher.assignments_needing_moderation.length).to eq 0 # should not count anymore once grades are published
+    it "does not show a count for admins that can moderate grades but are not final grader" do
+      admin = account_admin_user(account: @course2.account)
+      assmt = @course2.assignments.first
+      assmt.update!(final_grader: @teacher)
+      assmt.grade_student(@student_a, grade: "1", grader: @teacher, provisional: true)
+      expect(admin.assignments_needing_moderation).to be_empty
+    end
+
+    it "does not count assignments whose grades have been published" do
+      assmt = @course2.assignments.first
+      assmt.update!(final_grader: @teacher)
+      assmt.grade_student(@student_a, grade: "1", grader: @teacher, provisional: true)
+      assmt.update!(grades_published_at: Time.now.utc)
+      expect(@teacher.assignments_needing_moderation).to be_empty
     end
 
     it "should not return duplicates" do
       assmt = @course2.assignments.first
-      assmt.grade_student(@student_a, :grade => "1", :grader => @teacher, :provisional => true)
-      assmt.grade_student(@student_b, :grade => "2", :grader => @teacher, :provisional => true)
+      assmt.update!(final_grader: @teacher)
+      assmt.grade_student(@student_a, grade: "1", grader: @teacher, provisional: true)
+      assmt.grade_student(@student_b, grade: "2", grader: @teacher, provisional: true)
       expect(@teacher.assignments_needing_moderation.length).to eq 1
       expect(@teacher.assignments_needing_moderation.first).to eq assmt
     end
@@ -1128,66 +1149,6 @@ describe UserLearningObjectScopes do
         opts = @opts.merge({course_ids: [@course1.id], group_ids: [@group.id]})
         expect(@student.wiki_pages_needing_viewing(opts).order(:id)).to eq [@discussion1, @group_discussion]
       end
-    end
-  end
-
-  describe "submission_statuses" do
-    before :once do
-      course_factory active_all: true
-      student_in_course active_all: true
-      assignment_model(course: @course, submission_types: 'online_text_entry')
-      @assignment.workflow_state = "published"
-      @assignment.save!
-    end
-
-    it 'should indicate that an assignment is submitted' do
-      @assignment.submit_homework(@student, body: "/shrug")
-
-      expect(@student.submission_statuses[:submitted]).to match_array([@assignment.id])
-    end
-
-    it 'should indicate that an assignment is missing' do
-      @assignment.update!(due_at: 1.week.ago)
-
-      expect(@student.submission_statuses[:missing]).to match_array([@assignment.id])
-    end
-
-    it 'should indicate that an assignment is excused' do
-      submission = @assignment.submit_homework(@student, body: "b")
-      submission.excused = true
-      submission.save!
-
-      expect(@student.submission_statuses[:excused]).to match_array([@assignment.id])
-    end
-
-    it 'should indicate that an assignment is graded' do
-      submission = @assignment.submit_homework(@student, body: "o")
-      submission.update(score: 10)
-      submission.grade_it!
-
-      expect(@student.submission_statuses[:graded]).to match_array([@assignment.id])
-      expect(@student.submission_statuses[:has_feedback]).to match_array([])
-    end
-
-    it 'should indicate that an assignment is late' do
-      @assignment.update!(due_at: 1.week.ago)
-      @assignment.submit_homework(@student, body: "d")
-
-      expect(@student.submission_statuses[:late]).to match_array([@assignment.id])
-    end
-
-    it 'should indicate that an assignment needs grading' do
-      @assignment.submit_homework(@student, body: "y")
-
-      expect(@student.submission_statuses[:needs_grading]).to match_array([@assignment.id])
-    end
-
-    it 'should indicate that an assignment has feedback' do
-      submission = @assignment.submit_homework(@student, body: "the stuff")
-      submission.add_comment(user: @teacher, comment: "nice work, fam")
-      submission.grade_it!
-
-      expect(@student.submission_statuses[:has_feedback]).to match_array([@assignment.id])
     end
   end
 end
