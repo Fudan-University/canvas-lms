@@ -1,0 +1,11 @@
+ARG CANVAS_VERSION
+FROM sinicize/install_libs:${CANVAS_VERSION}
+
+COPY . $APP_HOME
+
+ARG npm_config_sentrycli_cdnurl='https://source.fudan.edu.cn/ts/sentry-cli'
+
+RUN bundle install --local \
+  && rails canvas:compile_assets
+
+ENTRYPOINT puma -e production -t 0:1

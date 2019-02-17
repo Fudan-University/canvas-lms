@@ -2,8 +2,7 @@ FROM ruby:2.5.3-stretch
 
 ENV APP_HOME /opt/canvas/
 ENV RAILS_ENV 'production'
-ENV YARN_VERSION '1.12.3'
-ENV NODE_VERSION '8.15.0'
+ENV YARN_VERSION='1.12.3' NODE_VERSION='8.15.0'
 
 ENV DISABLE_V8_COMPILE_CACHE 1
 
@@ -20,8 +19,14 @@ RUN echo 'deb http://mirrors.tuna.tsinghua.edu.cn/debian stretch main' > /etc/ap
        postgresql-client \
        unzip \
        fontforge \
+       locales \
   && apt-get clean \
-  && rm -rf /var/lib/apt/list/*
+  && rm -rf /var/lib/apt/list/* \
+  # 设置locale
+  && sed -i -e 's/# zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen \
+  && locale-gen
+
+ENV LANG='zh_CN.UTF-8' LANGUAGE='zh_CN:zh' LC_ALL='zh_CN.UTF-8'
 
 WORKDIR /opt/lib
 RUN pwd \

@@ -1,4 +1,5 @@
-FROM sinicize/install_tools:latest
+ARG CANVAS_VERSION
+FROM sinicize/install_tools:${CANVAS_VERSION}
 
 # 将Ruby源设置为清华镜像
 # 安装指定版本的bundler

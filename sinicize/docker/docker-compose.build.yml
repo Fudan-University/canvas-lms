@@ -3,17 +3,29 @@ version: '3'
 services:
   # 安装需要的工具
   install_tools:
-    image: 'sinicize/install_tools:latest'
+    image: 'sinicize/install_tools:${CANVAS_VERSION}'
     build:
       context: '../../'
       dockerfile: 'sinicize/docker/install_tools.docker'
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
 
   install_libs:
-    image: 'sinicize/install_libs:latest'
+    image: 'sinicize/install_libs:${CANVAS_VERSION}'
     depends_on:
       - 'install_tools'
     build:
       context: '../../'
       dockerfile: 'sinicize/docker/install_libs.docker'
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
 
-
+  canvas_app:
+    image: 'sinicize/app:${CANVAS_VERSION}'
+    depends_on:
+      - 'install_libs'
+    build:
+      context: '../../'
+      dockerfile: 'sinicize/docker/canvas_app.docker'
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
