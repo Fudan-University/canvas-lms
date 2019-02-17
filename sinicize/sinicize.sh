@@ -8,7 +8,12 @@ YARNPKG_PREFIX="https://registry.yarnpkg.com/"
 YARNPKG_MIRROR_PREFIX="https://npmreg.proxy.ustclug.org/"
 
 # 切换到当前目录
-cd $(dirname $(readlink -f $0))
+echo "$(dirname $(readlink -f $0))/.."
+cd $(dirname $(readlink -f $0))/..
+
+echo "重定向 Gemfile的GitHub库"
+echo "  GitHub镜像: ${GITHUB_PREFIX} -> ${GITHUB_MIRROR_PREFIX}"
+sed -i "s,${GITHUB_PREFIX},${GITHUB_MIRROR_PREFIX},g" Gemfile.d/_before.rb
 
 echo "处理 package.json:"
 echo "  GitHub镜像: ${GITHUB_PREFIX} -> ${GITHUB_MIRROR_PREFIX}"

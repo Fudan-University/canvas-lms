@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  # 安装需要的工具
+  install_tools:
+    image: 'sinicize/install_tools:latest'
+    build:
+      context: '../../'
+      dockerfile: 'sinicize/docker/install_tools.docker'
+
+  install_libs:
+    image: 'sinicize/install_libs:latest'
+    depends_on:
+      - 'install_tools'
+    build:
+      context: '../../'
+      dockerfile: 'sinicize/docker/install_libs.docker'
+
+

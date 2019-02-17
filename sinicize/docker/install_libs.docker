@@ -1,0 +1,26 @@
+FROM sinicize/install_tools:latest
+
+# 将Ruby源设置为清华镜像
+# 安装指定版本的bundler
+# bundle install
+RUN gem sources --add https://mirrors.tuna.tsinghua.edu.cn/rubygems/ --remove https://rubygems.org/ \
+      && bundle config mirror.https://rubygems.org https://mirrors.tuna.tsinghua.edu.cn/rubygems
+
+WORKDIR $APP_HOME
+
+COPY Gemfile      ${APP_HOME}
+COPY Gemfile.d    ${APP_HOME}Gemfile.d
+COPY config       ${APP_HOME}config
+COPY gems         ${APP_HOME}gems
+COPY packages     ${APP_HOME}packages
+COPY script       ${APP_HOME}script
+COPY package.json ${APP_HOME}
+COPY yarn.lock    ${APP_HOME}
+
+# 替换GitHub的链接为复旦source
+# 替换NPM库到USTC
+COPY sinicize/sinicize.sh ./sinicize/
+RUN sinicize/sinicize.sh
+
+RUN bundle install -j 4
+RUN yarn install --pure-lockfile
