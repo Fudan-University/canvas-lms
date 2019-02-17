@@ -39,7 +39,9 @@ module ConfigFile
         return @yaml_cache[config_name]&.[](with_rails_env)
       end
 
-      path = Rails.root.join('config', "#{config_name}.yml")
+      # Put config files in seperated folder for docker
+      path = Rails.root.join('sinicize', 'config', "#{config_name}.yml")
+      path = Rails.root.join('config', "#{config_name}.yml") unless File.exist?(path)
       if File.exist?(path)
         config_string = ERB.new(File.read(path))
         config = YAML.load(config_string.result)

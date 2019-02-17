@@ -38,4 +38,7 @@ Dockerfile-production
 Gemfile.lock
 mkmf.log
 
-sinicize/
+# sinicize
+sinicize/docker
+sinicize/config
+
