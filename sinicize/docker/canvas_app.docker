@@ -5,7 +5,14 @@ COPY . $APP_HOME
 
 ARG npm_config_sentrycli_cdnurl='https://source.fudan.edu.cn/ts/sentry-cli'
 
+ARG CANVAS_DB_HOST
+ARG CANVAS_DB_USERNAME
+ARG CANVAS_DB_PASSWORD
+ARG CANVAS_ENCRYPTION_KEY
+
 RUN bundle install --local \
   && rails canvas:compile_assets
+
+VOLUME $APP_HOME/sinicize/config
 
 ENTRYPOINT puma -e production -t 0:1
