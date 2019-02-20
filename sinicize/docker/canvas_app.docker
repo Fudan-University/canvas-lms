@@ -3,6 +3,9 @@ FROM sinicize/install_libs:${CANVAS_VERSION}
 
 COPY . $APP_HOME
 
+# 避免下载Chromium
+ARG PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# 使用复旦sentry-cli镜像
 ARG npm_config_sentrycli_cdnurl='https://source.fudan.edu.cn/ts/sentry-cli'
 
 ARG CANVAS_DB_HOST

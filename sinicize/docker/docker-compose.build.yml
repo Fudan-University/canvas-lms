@@ -7,8 +7,6 @@ services:
     build:
       context: '../../'
       dockerfile: 'sinicize/docker/install_tools.docker'
-      args:
-        CANVAS_VERSION: ${CANVAS_VERSION}
 
   install_libs:
     image: 'sinicize/install_libs:${CANVAS_VERSION}'
@@ -19,9 +17,10 @@ services:
       dockerfile: 'sinicize/docker/install_libs.docker'
       args:
         CANVAS_VERSION: ${CANVAS_VERSION}
+        RUBYGEMS_MIRROR: ${RUBYGEMS_MIRROR}
 
   canvas_app:
-    image: 'sinicize/app:${CANVAS_VERSION}'
+    image: 'sinicize/canvas_app:${CANVAS_VERSION}'
     depends_on:
       - 'install_libs'
     build:
