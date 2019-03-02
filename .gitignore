@@ -84,3 +84,4 @@ coverage-karma
 
 # sinicize
 /sinicize/config/
+/sinicize/docker/env_file

@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  # 安装需要的工具
+  install_tools:
+    image: 'sinicize/install_tools:${CANVAS_VERSION}'
+    build:
+      context: '../../'
+      dockerfile: 'sinicize/docker/install_tools.docker'
+
+  install_libs:
+    image: 'sinicize/install_libs:${CANVAS_VERSION}'
+    depends_on:
+      - 'install_tools'
+    build:
+      context: '../../'
+      dockerfile: 'sinicize/docker/install_libs.docker'
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
+        RUBYGEMS_MIRROR: ${RUBYGEMS_MIRROR}

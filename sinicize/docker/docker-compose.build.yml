@@ -1,30 +1,36 @@
 version: '3'
 
 services:
-  # 安装需要的工具
-  install_tools:
-    image: 'sinicize/install_tools:${CANVAS_VERSION}'
-    build:
-      context: '../../'
-      dockerfile: 'sinicize/docker/install_tools.docker'
 
-  install_libs:
-    image: 'sinicize/install_libs:${CANVAS_VERSION}'
-    depends_on:
-      - 'install_tools'
-    build:
-      context: '../../'
-      dockerfile: 'sinicize/docker/install_libs.docker'
-      args:
-        CANVAS_VERSION: ${CANVAS_VERSION}
-        RUBYGEMS_MIRROR: ${RUBYGEMS_MIRROR}
-
-  canvas_app:
-    image: 'sinicize/canvas_app:${CANVAS_VERSION}'
-    depends_on:
-      - 'install_libs'
+  app:
+    image: 'sinicize/canvas-app:${CANVAS_VERSION}'
     build:
       context: '../../'
       dockerfile: 'sinicize/docker/canvas_app.docker'
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
+        CANVAS_DB_HOST: ${CANVAS_DB_HOST}
+        CANVAS_DB_NAME: ${CANVAS_DB_NAME}
+        CANVAS_DB_USERNAME: ${CANVAS_DB_USERNAME}
+        CANVAS_DB_PASSWORD: ${CANVAS_DB_PASSWORD}
+        CANVAS_ENCRYPTION_KEY: ${CANVAS_ENCRYPTION_KEY}
+
+  daemon:
+    image: "sinicize/canvas-daemon:${CANVAS_VERSION}"
+    depends_on:
+      - "app"
+    build:
+      context: "."
+      dockerfile: "daemon.docker"
+      args:
+        CANVAS_VERSION: ${CANVAS_VERSION}
+
+  web:
+    image: "sinicize/canvas-web:${CANVAS_VERSION}"
+    depends_on:
+      - "app"
+    build:
+      context: "."
+      dockerfile: "web.docker"
       args:
         CANVAS_VERSION: ${CANVAS_VERSION}

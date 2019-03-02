@@ -1,0 +1,6 @@
+ARG CANVAS_VERSION
+FROM sinicize/canvas-app:$CANVAS_VERSION
+
+ENTRYPOINT touch log/delayed_job.log \
+             && script/delayed_job start \
+             && tail -f log/delayed_job.log

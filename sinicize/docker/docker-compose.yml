@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  app:
+    image: "${DOCKER_REGISTRY}/canvas-app:${CANVAS_VERSION}"
+    env_file: env_file
+    depends_on:
+      - redis
+    volumes:
+      - "/opt/canvas/files:/opt/canvas/tmp/files"
+      - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
+      - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
+      - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 60s
+      restart_policy:
+        condition: any
+        delay: 60s
+        window: 40s
+
+  daemon:
+    image: "${DOCKER_REGISTRY}/canvas-daemon:${CANVAS_VERSION}"
+    env_file: env_file
+    depends_on:
+      - redis
+    volumes:
+      - "/opt/canvas/files:/opt/canvas/tmp/files"
+      - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
+      - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
+      - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
+      - "/opt/canvas/config/delayed_jobs.yml:/opt/canvas/config/delayed_jobs.yml:ro"
+    extra_hosts:
+      - "kafka1.fudan.edu.cn:10.108.68.21"
+
+  web:
+    image: "${DOCKER_REGISTRY}/canvas-web:${CANVAS_VERSION}"
+    env_file: env_file
+    depends_on:
+      - app
+    volumes:
+      - "./web/sites-enabled:/etc/apache2/sites-enabled"
+    ports:
+      - "80:80"
+
+  redis:
+    image: "redis:3"

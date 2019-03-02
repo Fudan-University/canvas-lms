@@ -1,0 +1,8 @@
+ARG CANVAS_VERSION
+FROM sinicize/canvas-app:${CANVAS_VERSION}
+
+# 安装Apache2
+RUN apt-get install -qqy --no-install-recommends apache2 \
+  && a2enmod headers lbmethod_byrequests proxy_http rewrite ssl
+
+ENTRYPOINT apachectl -D FOREGROUND

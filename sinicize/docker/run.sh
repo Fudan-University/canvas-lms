@@ -10,4 +10,4 @@ set -a
 . ./env_file
 set +a
 
-docker-compose -f docker-compose.build.yml build
+docker stack deploy --compose-file docker-compose.yml canvas
