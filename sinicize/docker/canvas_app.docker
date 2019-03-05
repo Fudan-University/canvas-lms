@@ -8,6 +8,10 @@ ARG PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 # 使用复旦sentry-cli镜像
 ARG npm_config_sentrycli_cdnurl='https://source.fudan.edu.cn/ts/sentry-cli'
 
+# 安装QTI Migration Tool
+RUN mkdir vendor \
+  && git clone https://source.fudan.edu.cn/gitlab/canvas/mirrors/instructure/QTIMigrationTool.git vendor/QTIMigrationTool
+
 ARG CANVAS_DB_HOST
 ARG CANVAS_DB_NAME
 ARG CANVAS_DB_USERNAME

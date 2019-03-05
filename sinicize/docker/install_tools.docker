@@ -20,6 +20,7 @@ RUN echo 'deb http://mirrors.tuna.tsinghua.edu.cn/debian stretch main' > /etc/ap
        unzip \
        fontforge \
        locales \
+       python-lxml \
   && apt-get clean \
   && rm -rf /var/lib/apt/list/* \
   # 设置locale
