@@ -4965,8 +4965,8 @@ zh-Hans:
         aria_new_label: 创建新题库
         create_new_question: "-- 创建新题库 --"
         default_question_bank_label: 默认题库
-        question_bank_placeholder: 问题银行名称
-        question_bank_placeholder_aria: 输入新的问题银行名称
+        question_bank_placeholder: 题库名称
+        question_bank_placeholder_aria: 输入新题库名称
         question_bank_title: 新题库名称
         question_banks_disabled: 此选项已被禁用
         select_question_bank: 选择题库
@@ -8922,7 +8922,7 @@ zh-Hans:
   forgot_password_url_3f9c04b: 忘记密码的URL
   form_background_fb654518: 表格背景
   form_border_f61f12dc: 表格边框
-  formula_many_warning_title: "该银行内有%{count}个公式问题，需要更新可能的答案"
+  formula_many_warning_title: "该题库内有%{count}个公式问题，需要更新可能的答案"
   formula_warning_title: 将需要为公式问题重新生成可能的答案
   found_count_broken_links_9224b8dd: 
     one: "找到 %{count} 损坏的链接"
@@ -18366,9 +18366,9 @@ zh-Hans:
       enrolled_as_teacher: 教师
       favorited_tooltip: 单击可从课程菜单中删除。
       nonfavorited_tooltip: 单击可添加到课程菜单。
-      published_course: 是
+      published_course: 已发布
       published_course_tooltip: 这门课程已发布。
-      unpublished_course: 否、不是
+      unpublished_course: 未发布
       unpublished_course_tooltip: 此课程尚未发布。学生应联系课程导师进行访问。
     custom_search_results: 
       links: 
