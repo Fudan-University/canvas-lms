@@ -9,7 +9,7 @@ ARG PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ARG npm_config_sentrycli_cdnurl='https://source.fudan.edu.cn/ts/sentry-cli'
 
 # 安装QTI Migration Tool
-RUN mkdir vendor \
+RUN mkdir -p vendor \
   && git clone https://source.fudan.edu.cn/gitlab/canvas/mirrors/instructure/QTIMigrationTool.git vendor/QTIMigrationTool
 
 ARG CANVAS_DB_HOST
@@ -18,7 +18,7 @@ ARG CANVAS_DB_USERNAME
 ARG CANVAS_DB_PASSWORD
 ARG CANVAS_ENCRYPTION_KEY
 
-RUN bundle install --local \
+RUN sinicize/sinicize.sh \
   && rails canvas:compile_assets
 
 VOLUME $APP_HOME/sinicize/config

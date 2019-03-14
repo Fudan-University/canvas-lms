@@ -41,4 +41,5 @@ mkmf.log
 # sinicize
 sinicize/docker
 sinicize/config
+vendor/QTIMigrationTool
 

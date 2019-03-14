@@ -33,5 +33,6 @@ COPY yarn.lock    ${APP_HOME}
 COPY sinicize/sinicize.sh ./sinicize/
 RUN sinicize/sinicize.sh
 
-RUN bundle install -j 4
+RUN gem install bundler -v ${BUNDLE_VERSION} \
+      && bundle _${BUNDLE_VERSION}_ install -j 4
 RUN yarn install --pure-lockfile
