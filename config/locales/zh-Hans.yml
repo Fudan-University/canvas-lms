@@ -4790,7 +4790,7 @@ zh-Hans:
   content_for_section_1_7ecfb319: "第 1节的内容"
   content_for_section_2_e7c6e2a3: "第 2节的内容"
   content_for_section_3_90c1d235: "第 3节的内容"
-  content_import_files_cannot_be_downloaded_after_en_7e3a2099: "%{ENV.CONTENT_MIGRATIONS_EXPIRE_DA} 后将无法再下载目录导入文件。"
+  content_import_files_cannot_be_downloaded_after_en_7e3a2099: "%{ENV.CONTENT_MIGRATIONS_EXPIRE_DA} 天后将无法再下载内容导入文件。"
   content_imports: 
     errors: 
       import_failed: "在导入过程中发生错误。请通知系统管理员，并向其提供如下代码: \"%{code}\""
