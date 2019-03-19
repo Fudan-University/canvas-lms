@@ -20,6 +20,8 @@ services:
         condition: any
         delay: 60s
         window: 40s
+    networks:
+      - app_net
 
   daemon:
     image: "${DOCKER_REGISTRY}/canvas-daemon:${CANVAS_VERSION}"
@@ -32,8 +34,8 @@ services:
       - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
       - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
       - "/opt/canvas/config/delayed_jobs.yml:/opt/canvas/config/delayed_jobs.yml:ro"
-    extra_hosts:
-      - "kafka1.fudan.edu.cn:10.108.68.21"
+    networks:
+      - app_net
 
   web:
     image: "${DOCKER_REGISTRY}/canvas-web:${CANVAS_VERSION}"
@@ -44,6 +46,16 @@ services:
       - "./web/sites-enabled:/etc/apache2/sites-enabled"
     ports:
       - "80:80"
+    networks:
+      - app_net
 
   redis:
     image: "redis:3"
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    ipam:
+      config:
+        - subnet: 172.16.213.0/24
