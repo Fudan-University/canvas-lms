@@ -1,0 +1,62 @@
+/* 照片由圆形转为方形 */
+
+/* 导航栏 */
+/* app/stylesheets/base/_ic_app_header.scss */
+.ic-avatar {
+  border-radius: 0;
+  border: 0px;
+}
+body.primary-nav-expanded #header .ic-app-header__main-navigation ul.ic-app-header__menu-list li:first-child .menu-item-icon-container {
+  width: 72px;
+}
+body.primary-nav-expanded .menu-item-icon-container .ic-avatar {
+  width: 72px;
+  height: 96px;
+}
+.menu-item-icon-container .ic-avatar {
+  width: 48px;
+  height: 64px;
+}
+
+/* 通用 */
+/* app/stylesheets/components/_avatars.scss */
+.avatar {
+  border-radius: 0;
+  width: 48px;
+  height: 64px;
+}
+
+/* 人员 */
+/* app/stylesheets/bundles/roster.scss */
+.rosterUser .avatar {
+  width: 48px;
+  height: 64px;
+}
+
+/* 讨论 */
+/* app/stylesheets/bundles/discussions.scss */
+.discussion-entries .entry .entry .avatar {
+  width: 36px;
+  height: 48px;
+}
+
+/* 评分 */
+/* app/stylesheets/pages/gradebook/_gradebook.scss */
+.meta-cell .avatar {
+  width: 24px;
+  height: 32px;
+  margin-top: 0px;
+  border: 0px;
+}
+
+/* ui-elements Avatar */
+/* .root */
+span._36_4nLY {
+  height: 4em;
+}
+
+/* .circle 覆盖circle的style，变成矩形的，减少对上游代码的修改量 */
+span._2U6Ep00 {
+  width: 3em;
+  border-radius: 0;
+}
