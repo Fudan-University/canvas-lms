@@ -215,7 +215,7 @@ zh-Hans:
           您应添加%{callback_url}作为一个OAuth 2.0 授权重定向的URL， 并设置应用状态到现场。
           当您创建应用程序后，记下客户ID和客户密钥，并在此输入它们。
     login_required: 必须提供
-    no_changing_auth_types: 无法更改授权配置类型，请删除，然后创建新的配置。
+    no_changing_auth_types: 无法更改授权配置类型，请删除，然后新建配置。
     password_required: 必须提供
     saml_required: "如果要测试 SAML，需要先配置 SAML。"
     saml_settings_test: 
@@ -470,7 +470,7 @@ zh-Hans:
       add_new_domain: 添加新域
       labels: 
         consortium_autocreate_reverse_trust: 自动让母帐户相信新的根帐户(反之亦成立)
-        consortium_autocreate_web_of_trust: 自动创建一个信任的网络当创建新帐户时。
+        consortium_autocreate_web_of_trust: 自动创建一个信任的网络当新建帐户时。
         consortium_can_create_own_accounts: 联盟管理员可以创建根帐户
         consortium_parent_account: 联盟母帐户
         shard_per_account: 为每个新的根帐户创建新根帐户
@@ -1104,7 +1104,7 @@ zh-Hans:
       confirm_turnitin_settings_link: "确认 Turnitin 设置"
       course_roles: "课程角色:"
       create_courses_description: （帐户管理员可随时创建课程）
-      create_courses_title: 谁可以创建新课程
+      create_courses_title: 谁可以新建课程
       custom_links_to_include_in_the_help_dialog_popup: 定制链接以包含帮助对话框弹出窗口
       default_language_description: 这将覆盖所有浏览器/操作系统语言设置。首选的语言仍可在课程/用户级设置。
       delete: 删除
@@ -1917,7 +1917,7 @@ zh-Hans:
   allows_user_to_create_edit_and_delete_course_rubri_92b58f29: 允许用户在“评估表格”链接中创建、编辑和删除课程评估表格。
   allows_user_to_create_edit_and_delete_rubrics_1c0acc08: 允许用户创建、编辑和删除评估表格。
   allows_user_to_create_import_edit_and_delete_outco_472c842e: 允许用户在课程级别创建、导入、编辑和删除结果和结果组。
-  allows_user_to_create_new_conferences_allows_user__89cebec2: 允许用户创建新会议。允许用户启动由其创建的会议。
+  allows_user_to_create_new_conferences_allows_user__89cebec2: 允许用户新建会议。允许用户启动由其创建的会议。
   allows_user_to_designate_a_course_as_a_blueprint_c_bc5ff9bc: |-
       允许用户将课程指定为模板课程。
       允许用户在“课程设置”中管理模板课程设置。
@@ -1994,11 +1994,11 @@ zh-Hans:
   allows_user_to_view_a_link_to_the_faculty_journal__13b353a8: |-
       允许用户在“用户详情”页面侧边栏中查看“教师日志”链接。
       允许用户查看个别学生的“教师日志”信息。
-      允许用户在“教师日志”中创建新条目。
+      允许用户在“教师日志”中新建条目。
   allows_user_to_view_a_link_to_the_faculty_journal__61d9560e: |-
       允许用户在“用户详情”页面侧边栏中查看“教师日志”链接。
       允许用户查看个别学生的“教师日志”信息。
-      允许用户在“教师日志”中创建新条目。
+      允许用户在“教师日志”中新建条目。
   allows_user_to_view_account_analytics_98fbc6ad: 允许用户查看帐户分析。
   allows_user_to_view_all_course_groups_not_just_tho_bad6d687: 允许用户在“协作”窗口中查看所有课程组，而不仅仅是他们注册的课程组。
   allows_user_to_view_all_student_assignment_submiss_d8ee5830: 允许用户查看所有学生作业提交项并添加评论。
@@ -2427,7 +2427,7 @@ zh-Hans:
   as_you_type_in_this_field_the_list_of_groups_will__16688a5f: 当您在此字段中输入时，组列表将自动过滤，以便仅包括名称与您的输入内容相匹配的组。
   as_you_type_in_this_field_the_list_of_results_will_c1a1a3e4: 当您在该栏输入，结果列表将自动地更新。
   ask_your_instructor_a_question_a61ca5e9: 向您的教师提问
-  assess_and_survey_your_students_ce8172a9: 对您的学生进行评估和调查
+  assess_and_survey_your_students_ce8172a9: 对您的学生进行测验或进行问卷调查
   assessment_audit_d4a76709: 评估审核
   assessment_audit_events_for_username_eb2144ad: "...的评估审计活动%{userName}"
   assessment_audit_tray_5dd11721: 评估审核托盘
@@ -2628,7 +2628,7 @@ zh-Hans:
     assignment_group_selector: 
       assignment_group: 作业小组
       assignment_group_options: 
-        new_group: 创建新小组
+        new_group: 新建小组
     assignment_groups_count: 
       one: "%{count} 个小组"
       other: "%{count} 个小组"
@@ -3153,11 +3153,11 @@ zh-Hans:
         details: 详细信息
       instructions: 
         syllabus: |-
-            教学大纲页面显示了课程表的导向表格视图，以及课程评分的基础。
+            教学大纲页面以表格形式展示了课程进度以及课程评分的标准。
             您可以添加其它评论、注释或有关课程结构的想法，
             课程条款或其他内容。
             
-            要添加一些评论，点击顶部的“编辑”链接。
+            如需添加说明，请点击顶部的“编辑”链接。
       labels: 
         assignments_summary: 课程总结
         syllabus_body: 大纲说明
@@ -3359,7 +3359,7 @@ zh-Hans:
           您应将 %{callback_url} 添加为 OAuth 2.0 授权的重定向 URL，并将申请状态设置为 Live「活跃」。
           创建申请后，记下客户端 ID 和客户端密钥，并在此处输入。
     login_required: 必须提供
-    no_changing_auth_types: 无法更改授权配置类型，请删除，然后创建新的配置。
+    no_changing_auth_types: 无法更改授权配置类型，请删除，然后重新创建配置。
     password_required: 必须提供
     saml_required: "如果要测试 SAML，需要先配置 SAML。"
     saml_settings_test: 
@@ -3592,7 +3592,7 @@ zh-Hans:
   browse_your_computer_for_a_course_image_d7db2376: 为课程图像浏览您的电脑
   bucket_name_must_be_one_of_the_following_bucket_na_81c1be40: "桶的名称必须是下列情况之一: %{bucket_names}"
   build_pages_containing_content_and_educational_res_4cdaec6: 构建含有内容和教学资源的页面，可帮助学生学习，但不是作业。包含文本、多媒体以及文件和外部资源链接。
-  build_pages_containing_content_and_educational_res_6474319f: 构建含有内容和教学资源的页面，可帮助学生学习，但不是作业。包含文本、多媒体以及文件和外部资源链接。
+  build_pages_containing_content_and_educational_res_6474319f: 构建含有内容和教学资源的页面，包括文本、多媒体以及文件和外部资源链接，可帮助学生学习，但不是作业。
   bulk_course_migration: 
     export_failed: "从 Blackboard 导出 %{id}的bb_lcid类型的课程时出现错误"
     export_failed_no_id: 导出课程时出现错误
@@ -3832,7 +3832,7 @@ zh-Hans:
       send_message: 发送
       sending_message: 正在发送...
     calendar_header: 
-      create_event: 创建新事件
+      create_event: 新建事件
       done_go_back_to_list: 完成，返回列表
       links: 
         accessibility_warning: 警告：为了提高对日历活动的访问，请使用日程视图。
@@ -4115,9 +4115,9 @@ zh-Hans:
         i_would_like_to: 我要
       links: 
         change_date: 更改事件/作业的日期
-        create_assignment: 创建新作业
+        create_assignment: 新建作业
         delete: 删除事件/作业
-        new: 创建新事件
+        new: 新建事件
   calendars_a756c286: 日历
   calendars_toggle_list_visibility_488db143: 日历切换可视列表
   can_create_rename_and_edit_course_pages_by_default_f9ad4253: 按照默认设置，可用创建、重命名、编辑课程页面
@@ -4241,7 +4241,7 @@ zh-Hans:
   captions_subtitles_af2c47e: 说明/字幕
   card_movement_menu_for_title_b94c09af: "卡片移动菜单%{title}"
   card_view_eaf73185: 卡片视图
-  careful_changes_to_group_membership_will_apply_to__19a9089c: "注意！小组成员的更改将应用于已有作业提交的组群。 小组作业提交可能无法与结果对齐。 您想为以后的作业创建新组群吗？"
+  careful_changes_to_group_membership_will_apply_to__19a9089c: "注意！小组成员的更改将应用于已有作业提交的组群。 小组作业提交可能无法与结果对齐。 您想为以后的作业新建组群吗？"
   cas_server_rejected_ticket_5dc2a0bc: "CAS 服务器已拒绝票证。"
   cas_server_rejected_ticket_message_code_a6ef4093: "CAS 服务器已拒绝票证：%{message}(%{code})"
   cas_url_4ba2843e: "CAS URL"
@@ -4340,8 +4340,8 @@ zh-Hans:
   click_to_add_a_name_6cf551b0: 单击以添加名称
   click_to_change_profile_picture_for_display_name_6a4b41db: "单击以更改个人资料照片%{display_name}"
   click_to_collapse_outcome_details_1d751617: 点击以折叠结果详情
-  click_to_create_a_new_user_for_address_325f6683: "单击以为……创建新用户%{address}"
-  click_to_create_a_new_user_for_login_56d2daf5: "单击以为……创建新用户%{login}"
+  click_to_create_a_new_user_for_address_325f6683: "单击以为……新建用户%{address}"
+  click_to_create_a_new_user_for_login_56d2daf5: "单击以为……新建用户%{login}"
   click_to_edit_drag_to_reorder_ab725681: 单击可编辑，拖放可重新排序
   click_to_enter_comments_if_the_student_chooses_thi_507c20f6: 如果学生选择此答案，点击此处，输入评论
   click_to_expand_outcome_details_74a2a967: 点击以扩展结果详情
@@ -4962,8 +4962,8 @@ zh-Hans:
         assessment_help_title_icon: 覆盖测验帮助图标
         overwrite_assessment_content: "覆盖具有匹配 ID 的测验内容"
       question_bank: 
-        aria_new_label: 创建新题库
-        create_new_question: "-- 创建新题库 --"
+        aria_new_label: 新建题库
+        create_new_question: "-- 新建题库 --"
         default_question_bank_label: 默认题库
         question_bank_placeholder: 题库名称
         question_bank_placeholder_aria: 输入新题库名称
@@ -6587,19 +6587,19 @@ zh-Hans:
   create_14873ed7: 创建
   create_a_64f6f82: 创建
   create_a_developer_key_cabaa013: 创建开发人员密钥
-  create_a_new_account_4cf7c0f9: 创建新帐户
-  create_a_new_module_6f31b0fe: 创建新模块
-  create_a_new_user_for_address_7487e9c9: "为“%{address}”创建新用户"
+  create_a_new_account_4cf7c0f9: 新建帐户
+  create_a_new_module_6f31b0fe: 新建模块
+  create_a_new_user_for_address_7487e9c9: "为“%{address}”新建用户"
   create_account_263ec6: 创建帐户
   create_an_ba36d171: 创建
-  create_and_administer_online_quizzes_and_surveys_b_7d2fa85f: 创建和管理已评分和未评分的在线测验和调查。
+  create_and_administer_online_quizzes_and_surveys_b_7d2fa85f: 创建和管理在线测验和调查问卷。
   create_announcements_above_1c36202b: 在上方创建公告
   create_as_many_discussion_topics_as_needed_as_assi_45ec1df: 创建您需要的讨论主题作为评分作业或共享意见和信息的论坛。
   create_as_many_discussion_topics_as_needed_as_assi_f1221307: 创建您需要的讨论主题作为评分作业或共享意见和信息的论坛。
   create_assessments_with_quizzes_next_and_migrate_e_eaaee5e6: "使用 Quizzes.Next 创建评估并迁移现有的 Canvas 测验。"
   create_assignment_68532ceb: 创建作业
   create_assignments_on_the_assignments_page_organiz_8838b18a: 在“作业”页面上创建作业。将作业整理分组，例如家庭作业、课堂作业、论文、讨论和测验。作业组可以加权。
-  create_assignments_on_the_assignments_page_organiz_90c78fdc: 在“作业”页面上创建作业。将作业整理分组，例如家庭作业、课堂作业、论文、讨论和测验。作业组可以加权。
+  create_assignments_on_the_assignments_page_organiz_90c78fdc: 在“作业”页面上创建作业。将作业整理分组，例如家庭作业、课堂作业、论文、讨论和测验。不同的作业组可以设置不同的权重。
   create_content_for_your_course_500a7032: 为您的课程创建内容
   create_criterion_6df4d4ad: 创建标准
   create_developer_key_78de8510: 创建开发人员密钥
@@ -6623,11 +6623,11 @@ zh-Hans:
     quiz_name: 测验名称
     ungrded_survey: 非评分调查
     url: URL
-  create_new_course_e3ef9cd0: 创建新课程
-  create_new_discussions_6ab69da2: 创建新讨论
+  create_new_course_e3ef9cd0: 新建课程
+  create_new_discussions_6ab69da2: 新建讨论
   create_new_e0946c49: 新建
-  create_slots_71dbb2f8: 创建时段
-  create_theme_based_on_40651ed3: 在基础上创建主题
+  create_slots_71dbb2f8: 新建时段
+  create_theme_based_on_40651ed3: 在基础上新建主题
   create_users_view: 
     required: 请输入一些电子邮件地址
   created_58b8a75a: 已创建
@@ -8615,7 +8615,7 @@ zh-Hans:
   failed_to_add_new_feed_ee1c5ea: 添加新源失败
   failed_to_change_last_attended_date_1e340ba6: 更改上次出勤日期失败
   failed_to_close_discussion_for_comments_28603bca: 锁定讨论失败
-  failed_to_create_new_role_e336e461: 创建新角色失败
+  failed_to_create_new_role_e336e461: 新建角色失败
   failed_to_create_webhook_b766cf5c: 无法创建webhook。
   failed_to_create_zip_file_1a943d06: 无法创建压缩文件
   failed_to_delete_discussion_title_986df717: "删除讨论失败%{title}"
@@ -10493,7 +10493,7 @@ zh-Hans:
   idp_logoutresponse_encoded_bac9de6b: IdPLogoutResponse已编码
   idp_logoutresponse_xml_fe65de19: IdPLogoutResponseXML
   idp_metadata_uri_dae5314a: "IdP 元数据 URI"
-  if_an_attribute_is_marked_as_provisioning_only_the_6545b46f: 如果一个属性标志只能配置，那么它就仅可用作创建新用户的临时配置，且不会在用户每次登录时更新。
+  if_an_attribute_is_marked_as_provisioning_only_the_6545b46f: 如果一个属性标志只能配置，那么它就仅可用作新建用户的临时配置，且不会在用户每次登录时更新。
   if_both_grades_edit_and_grades_view_all_grades_are_795578a5: "如果“评分 - 编辑”和“评分 - 查看所有评分”都被禁用，则会从课程导航中隐藏评分册。"
   if_both_grades_edit_and_grades_view_all_grades_are_ed522d43: "如果“评分 - 编辑”和“评分 - 查看所有评分”都被禁用，则会从“课程导航”中隐藏评分册。"
   if_disabled_the_outcomes_page_becomes_read_only_an_29ea1940: 如果禁用，“结果”页面将变为只读并隐藏“管理评估表格”按钮。用户仍然可以通过作业访问个别作业评估表格。
@@ -10675,7 +10675,7 @@ zh-Hans:
   inner_box_background_6f9092f: 盒内背景
   inner_box_border_d0524b03: 盒内边距
   input_and_distribute_grades_for_students_display_g_95b9b6ee: "输入和分配学生评分。显示评分为得分、百分数、完成或未完成、合格或不合格、GPA 评分以及字母评分。用于评分加权的小组作业。"
-  input_and_distribute_grades_for_students_display_g_9a2e46a0: "输入和分配学生评分。显示评分为得分、百分数、完成或未完成、合格或不合格、GPA 评分以及字母评分。用于评分加权的小组作业。"
+  input_and_distribute_grades_for_students_display_g_9a2e46a0: "输入和分配学生评分。显示评分为得分、百分数、完成或未完成、合格或不合格、GPA 评分以及字母评分。同一作业组的内容会合并计算权重。"
   insert_equella_links_49a8dacd: "插入 Equella 链接"
   insert_math_equation_57c6e767: 插入数学等式
   insert_row_below_25187f89: 在下面插入行
@@ -11073,7 +11073,7 @@ zh-Hans:
       no_points_comment: "外部工具尝试将此作业评分为 %{grade}，但无法做到，⏎因为该作业没有分数。"
       no_points_possible: 作业没有得分。
       no_score: 未打分
-      no_submission_created: 此结果请求未能创建新的家作提交项。
+      no_submission_created: 此结果请求未能新建作业提交项。
     canvas: 
       migration: 
         announcements: 公告
@@ -13551,7 +13551,7 @@ zh-Hans:
       has_unlock_date: 锁定单元至指定日期
       lock_datea: 锁定日期
       module_name: 模块名称
-      new_module: 创建新单元
+      new_module: 新建单元
     module_item_view: 
       button: 
         delete: 删除
@@ -13821,7 +13821,7 @@ zh-Hans:
   new_quiz_34aacba6: 新测验
   new_quiz_statistics_desc: 启用某课程的新测验统计页面。
   new_rating_canceled_eed3c4ff: 新评分已取消
-  new_rating_created_54125331: 已创建新评级
+  new_rating_created_54125331: 已新建评级
   new_sis_integrations: |-
       此功能适用于具有现有 SIS Canvas 集成的机构。
       目前使用 Canvas 中的评分回传解决方案或合作伙伴产品的任何客户应启用此功能以获得增强的作业数据验证工作流。启用后，此功能将在帐户设置中对 SIS 同步启用新的 SIS 集成设置（作业级评分回传）。“发布到 SIS 功能选项”已添加到此新设置中并默认启用。
@@ -14604,7 +14604,7 @@ zh-Hans:
         outcome: 结果
   outcomes_and_rubrics_account_course_68d0bf1d: 结果和评估表格（帐户/课程）
   outcomes_and_rubrics_f893d141: 结果和评估表格
-  outcomes_are_created_here_to_track_mastery_in_a_co_2f487549: "在此处创建结果以跟踪课程掌握程度。要开始使用，请查看顶部的菜单栏。单击“+结果”按钮可创建新结果，或单击“+小组”按钮可创建新组，以整理您的结果。使用“查找”按钮可使用您所在的机构创建的结果。在您创建和使用结果时，您可以使用左侧面板在结果中导航。您可以将结果拖放到不同级别，以创建结构。"
+  outcomes_are_created_here_to_track_mastery_in_a_co_2f487549: "在此处创建结果以跟踪课程掌握程度。要开始使用，请查看顶部的菜单栏。单击“+结果”按钮可新建结果，或单击“+小组”按钮可新建组，以整理您的结果。使用“查找”按钮可使用您所在的机构创建的结果。在您创建和使用结果时，您可以使用左侧面板在结果中导航。您可以将结果拖放到不同级别，以创建结构。"
   outcomes_csv_format_9005acfb: 结果CSV格式
   outcomes_d1b18d33: 结果
   outcomes_import_completed_baff5cb0: 结果导入完成
@@ -15296,7 +15296,7 @@ zh-Hans:
   position_f9c9b93c: 位置
   position_select_c2dd3980: 位置选择
   possible_combination_count_db651ca4: 可能的组合数
-  possible_matches_for_address_select_the_correct_on_e206f972: "可能与“%{address}”匹配的结果从以下选择正确的一个或创建新用户。"
+  possible_matches_for_address_select_the_correct_on_e206f972: "可能与“%{address}”匹配的结果从以下选择正确的一个或新建用户。"
   possible_pts_b63dff4c: "%{possible}分"
   possible_pts_f4681c49: "共 %{possible} 分"
   possible_score_5e0a328e: "可能：%{score}"
@@ -15438,7 +15438,7 @@ zh-Hans:
         authorize_google_drive: "授权访问 Google Drive"
         authorize_twitter: "授权 Twitter 访问"
         generate_token: 生成令牌
-        new_access_token: 创建新访问许可证
+        new_access_token: 新建访问许可证
         regenerate_token: 重新生成令牌
         register_linkedin_account: "注册您的 LinkedIn 帐户"
         save_login: 保存登录信息
@@ -15558,7 +15558,7 @@ zh-Hans:
         click_to_change_profile_pic: 单击以更改头像
         delicious_login: "Delicious 登录"
         diigo_login: "Diigo 登录"
-        new_access_token: 创建新访问许可证
+        new_access_token: 新建访问许可证
         register_skype: "注册 Skype"
         remove_account_from_profile: 从此个人资料中删除帐户
         unregister_service: 取消注册服务
@@ -16477,7 +16477,7 @@ zh-Hans:
           select_all_banks: 全选
           view_question_banks: 查看课程题库
         options: 
-          new_group: "[创建新小组]"
+          new_group: "[新建小组]"
           no_group: "[无小组]"
         select_a_question_bank: 从下面的列表中选择一个题库以将其链接到此测验作为问题组。
         titles: 
@@ -17521,7 +17521,7 @@ zh-Hans:
       become_user: 成为其他用户
       change_course_state: 更改课程状态
       comment_on_others_submissions: 查看所有学生的提交文件并对其进行评论
-      create_accounts: 创建新的根帐户
+      create_accounts: 新建根帐户
       create_collaborations: 创建学生协作
       create_conferences: 创建网络会议
       manage_: 管理（添加/编辑/删除）
@@ -18082,7 +18082,7 @@ zh-Hans:
     errors: 
       assignment_name_blank: 作业名称不能为空。
       external_tool_url: "没有 URL，无法保存外部工具。"
-      failed_to_create_item: 无法创建新项目
+      failed_to_create_item: 无法新建项目
       loading_failed: 加载失败
     invalid_lti_resource_selection: 从外部工具检索有效链接时出现问题
     link_from_external_tool: 从外部工具链接资源
@@ -18272,12 +18272,12 @@ zh-Hans:
   settings_tutorial_tray_6f37761b: 设置教程托盘
   setup_checklist_eb8b00b8: 设置清单
   share_important_information_with_all_users_in_your_bc49ee7f: |-
-      与您的课程中的所有用户分享重要信息。
-      选择以获取您自己在通知中的公告的副本。
+      与课程中的所有成员分享重要信息。
+      在通知设置中，可以选择发送通知的副本。
   share_important_information_with_all_users_in_your_f58337e0: |-
       与您的课程中的所有用户分享重要信息。
       选择以获取您自己在通知中的公告的副本。
-  share_important_updates_with_users_97ec11ad: 与用户分享重要更新
+  share_important_updates_with_users_97ec11ad: 与成员分享重要更新
   share_the_following_pairing_code_with_an_observer__44f50f99: "与旁听者分享下列配对代码，以便其与 %{name} 联系。此代码将在7天后或者在使用一次后过期。"
   share_the_following_pairing_code_with_an_observer__9b7c3667: 与旁听者分享下列配对代码，以便其与您联系。此代码将在7天后或者在使用一次后过期。
   share_the_following_pairing_code_with_an_observer__9cd44f7e: "与旁听者分享下列配对代码，以便其与您联系。此代码将在 24 小时内或使用一次后过期。"
@@ -20438,9 +20438,9 @@ zh-Hans:
   to_allow_user_to_moderate_grades_grades_select_fin_e98c1f0e: "要允许用户审核评分，还必须启用“评分 - 选择最终评分以进行审核”。"
   to_allow_view_edit_and_delete_functionality_of_col_17533079: |-
       要允许查看、编辑和删除由其他用户创建的协作功能，还必须启用“课程内容 - 添加/编辑/删除”。
-      如果启用了“课程内容 - 添加/编辑/删除”并禁用了“学生协作 - 创建”，用户将无法创建新的协作，但可以查看、编辑和删除所有协作。
+      如果启用了“课程内容 - 添加/编辑/删除”并禁用了“学生协作 - 创建”，用户将无法新建协作，但可以查看、编辑和删除所有协作。
       要将学生添加到协作，还必须启用“用户 - 查看列表”。要将课程组添加到协作，还必须启用“组 - 添加/编辑/删除”。
-  to_allow_view_edit_delete_functionality_of_collabo_442490c4: "要允许查看/编辑/删除由其他用户创建的协作功能，还必须启用“课程内容 - 添加/编辑/删除”。如果启用了“课程内容 - 添加/编辑/删除”并禁用了“学生协作 - 创建”，用户将无法创建新的协作，但能够查看/编辑/删除所有协作。要将学生添加到协作，还必须启用“用户 - 查看列表”。要将课程组添加到协作，还必须启用“组 - 查看所有学生组”。"
+  to_allow_view_edit_delete_functionality_of_collabo_442490c4: "要允许查看/编辑/删除由其他用户创建的协作功能，还必须启用“课程内容 - 添加/编辑/删除”。如果启用了“课程内容 - 添加/编辑/删除”并禁用了“学生协作 - 创建”，用户将无法新建协作，但能够查看/编辑/删除所有协作。要将学生添加到协作，还必须启用“用户 - 查看列表”。要将课程组添加到协作，还必须启用“组 - 查看所有学生组”。"
   to_be_added_2959cc72: 待添加
   to_be_removed_d4b48586: 待删除
   to_c4c44f4b: 到
@@ -21043,7 +21043,7 @@ zh-Hans:
       crumbs: 
         faculty_journal: 教师日志
       links: 
-        create_new_entry: 创建新条目
+        create_new_entry: 新建条目
       messages: 
         no_entries: 没有此学生的日志条目。
       page_title: 教师日志
@@ -21469,7 +21469,7 @@ zh-Hans:
   warning_for_improved_accessibility_of_reordering_a_5d0206c7: 警告：改进重新排序的作业和组群的可访问性，请在菜单中使用移动对话的选项。
   warning_for_improved_accessibility_please_click_he_e6472c02: 警告：为了提高可访问性，请点击这里以使用单独视图评分册。
   warning_icon_f64936d7: 警告图标
-  warning_if_there_are_any_users_with_this_role_they_1a7c1fef: 警告：如果有任何用户担任此角色，这些用户将保留当前权限，但您将无法使用此角色创建新用户。
+  warning_if_there_are_any_users_with_this_role_they_1a7c1fef: 警告：如果有任何用户担任此角色，这些用户将保留当前权限，但您将无法使用此角色新建用户。
   warnings: 
     test_install: 
       periodic_message: "本次 Canvas 安装仅用于测试，并将定期重置。"
@@ -21547,7 +21547,7 @@ zh-Hans:
   whenever_b943b119: 无论何时
   where_would_you_like_to_move_title_fabd6e8f: "您要将 %{title} 移到何处？"
   which_course_is_this_question_about_f819a158: 哪门课程关于此问题？
-  who_can_create_new_courses_7a6c1338: 谁可以创建新课程
+  who_can_create_new_courses_7a6c1338: 谁可以新建课程
   widget: 
     upload_media_track_form: 
       choose_a_language: "--选择一种语言--"
