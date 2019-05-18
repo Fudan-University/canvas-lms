@@ -1,3 +1,4 @@
+# 不适用集群，单机运行
 version: "3"
 
 services:
@@ -9,21 +10,10 @@ services:
     volumes:
 #      - "/opt/canvas/files:/opt/canvas/tmp/files"
       - "canvas-file:/opt/canvas/tmp/files"
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public"
       - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
       - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
       - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
-    deploy:
-      replicas: 2
-      update_config:
-        parallelism: 1
-        delay: 60s
-      restart_policy:
-        condition: any
-        delay: 60s
-        window: 40s
-    networks:
-      - app_net
 
   daemon:
     image: "${DOCKER_REGISTRY}/canvas-daemon:${CANVAS_VERSION}"
@@ -33,13 +23,11 @@ services:
     volumes:
 #      - "/opt/canvas/files:/opt/canvas/tmp/files"
       - "canvas-file:/opt/canvas/tmp/files"
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public"
       - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
       - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
       - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
       - "/opt/canvas/config/delayed_jobs.yml:/opt/canvas/config/delayed_jobs.yml:ro"
-    networks:
-      - app_net
 
   web:
     image: "${DOCKER_REGISTRY}/canvas-web:${CANVAS_VERSION}"
@@ -47,20 +35,16 @@ services:
     depends_on:
       - app
     volumes:
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public:ro"
       - "./web/sites-enabled:/etc/apache2/sites-enabled"
     ports:
       - "80:80"
-    networks:
-      - app_net
 
   redis:
     image: "redis:3"
-    networks:
-      - app_net
 
-networks:
-  app_net:
-    ipam:
-      config:
-        - subnet: 172.16.213.0/24
+volumes:
+  canvas-file:
+    external: true
+  canvas-public:
+    external: true

@@ -10,4 +10,18 @@ set -a
 . ./env_file
 set +a
 
-docker stack deploy --compose-file docker-compose.yml canvas
+# 默认单机模式
+mode="${1:-solo}"
+
+case $mode in
+  solo)
+    docker-compose -f docker-compose.solo.yml up -d
+    ;;
+  swarm)
+    docker stack deploy --compose-file docker-compose.yml canvas
+    ;;
+  *)
+    echo "Unknown mode $mode"
+    ;;
+esac
+
