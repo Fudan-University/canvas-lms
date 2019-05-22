@@ -10,7 +10,7 @@ set -a
 . ./env_file
 set +a
 
-#docker-compose -f docker-compose.build.yml build
+docker-compose -f docker-compose.build.yml build
 
 # 创建 canvas-public 数据卷
 # 如果已经创建了，会继续维持原有的卷
