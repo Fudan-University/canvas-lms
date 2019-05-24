@@ -1856,6 +1856,7 @@ class UsersController < ApplicationController
       user_params.delete(:avatar_image)
 
       managed_attributes << :avatar_image
+      user_params[:avatar_image] = {}
       if (token = avatar.try(:[], :token))
         if (av_json = avatar_for_token(@user, token))
           user_params[:avatar_image] = { :type => av_json['type'],
@@ -1864,6 +1865,7 @@ class UsersController < ApplicationController
       elsif (url = avatar.try(:[], :url))
         user_params[:avatar_image] = { :url => url }
       end
+      user_params[:avatar_image][:state] = avatar.try(:[], :state)
     end
 
     if managed_attributes.any? && user_params.except(*managed_attributes).empty?
@@ -1894,7 +1896,10 @@ class UsersController < ApplicationController
 
       respond_to do |format|
         if @user.update_attributes(user_params)
-          @user.avatar_state = (old_avatar_state == :locked ? old_avatar_state : 'approved') if admin_avatar_update
+          if admin_avatar_update
+            avatar_state = old_avatar_state == :locked ? old_avatar_state : 'approved'
+            @user.avatar_state = user_params[:avatar_image][:state] || avatar_state
+          end
           @user.email = new_email if update_email
           @user.save if admin_avatar_update || update_email
           session.delete(:require_terms)
@@ -1904,7 +1909,7 @@ class UsersController < ApplicationController
           end
           format.html { redirect_to user_url(@user) }
           format.json {
-            render :json => user_json(@user, @current_user, session, %w{locale avatar_url email time_zone},
+            render :json => user_json(@user, @current_user, session, %w{locale avatar_url avatar_state email time_zone},
               @current_user.pseudonym.account) }
         else
           format.html { render :edit }
