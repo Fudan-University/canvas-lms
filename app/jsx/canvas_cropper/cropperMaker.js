@@ -36,7 +36,7 @@ import CanvasCropper from './cropper'
       this.imgFile = props.imgFile;
       this.onImageLoaded = props.onImageLoaded;
       this.width = props.width || 128;
-      this.height = props.width || 128;
+      this.height = props.height || 128;
       this.cropper = null;
     }
     unmount () {
