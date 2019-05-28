@@ -1820,6 +1820,9 @@ class UsersController < ApplicationController
   #   token and instead pass the url here. Warning: For maximum compatibility,
   #   please use 128 px square images.
   #
+  # @argument user[avatar][state] [String, "none", "submitted", "approved", "locked", "reported", "re_reported"]
+  #   To set the state of user's avatar. Only valid for account administrator.
+  #
   # @example_request
   #
   #   curl 'https://<canvas>/api/v1/users/133.json' \
