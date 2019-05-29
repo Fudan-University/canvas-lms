@@ -1,4 +1,4 @@
-/* 照片由圆形转为方形 */
+/* 照片由圆形转为宽高比为3:4的矩形*/
 
 /* 导航栏 */
 /* app/stylesheets/base/_ic_app_header.scss */
@@ -16,6 +16,15 @@ body.primary-nav-expanded .menu-item-icon-container .ic-avatar {
 .menu-item-icon-container .ic-avatar {
   width: 48px;
   height: 64px;
+}
+
+/* 选择头像 */
+.avatar-preview .CanvasCropper {
+  max-width: 225px;
+  max-height: 300px;
+}
+.avatar-preview .CanvasCropper .Cropper-box {
+  border-radius: 0;
 }
 
 /* 通用 */
