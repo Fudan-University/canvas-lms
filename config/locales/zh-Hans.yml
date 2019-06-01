@@ -2238,12 +2238,12 @@ zh-Hans:
   announcements_unlocked_successfully_1432da9d: 已成功取消锁定公告
   announcements_view_1019d00d: "公告 - 查看"
   anonymize_all_annotations_made_by_instructors_on_s_4f2b70a5: 隐去作业评语中的教师身份信息
-  anonymize_all_instructor_comments_and_annotations__713924c9: 对其中的所有讲师评论和注释匿名处理DocViewer
+  anonymize_all_instructor_comments_and_annotations__713924c9: 在DocViewer中，对所有教师评论和注释进行匿名处理
   anonymous_e1b8ad27: 匿名
   anonymous_grading_cannot_be_enabled_for_group_assi_faa33494: 不能对小组作业启用匿名评分
   anonymous_grading_ccb5045c: 匿名评分
   anonymous_grading_forces_student_names_to_be_hidde_8b46d7e7: 匿名评分强制将学生的名字隐藏于SpeedGrader™
-  anonymous_instructor_annotations_2b6c822: 教师评语匿名
+  anonymous_instructor_annotations_2b6c822: 教师匿名评语
   anonymous_instructor_annotations_is_a_setting_on_a_f7a2e36a: 匿名讲师注释是作业上的一个设置，允许讲师给学生留下匿名注释。
   anonymous_marking_92a4d623: 匿名打分
   anonymous_mode_on_2dd9b94a: 匿名模式启用
@@ -2360,7 +2360,7 @@ zh-Hans:
   appointments_dcb41d23: 作业
   approved_c3b285d4: 已批准
   approximate_value_with_precision_precision_6b7cc6ef: "%{approximate_value} 精确到 %{precision}"
-  apps_are_an_easy_way_to_add_new_features_to_canvas_2cbc2531: "应用程序是向 Canvas 添加新功能的简单方式。这些功能可添加到帐户中的各个课程或所有课程。配置完毕后，您可以通过课程单元与其链接，并为测验工具创建作业。"
+  apps_are_an_easy_way_to_add_new_features_to_canvas_2cbc2531: "应用程序是向 Canvas 添加新功能的简单方式。这些功能可添加到单独的课程或所有的课程。配置完毕后，您可以通过课程单元与其链接，并为测验工具创建作业。"
   appt_calendar_event_dialog: 
     invalid_participants: "您至少要允许 1 名用户参加"
     title: "编辑 %{name}"
@@ -2469,7 +2469,7 @@ zh-Hans:
     gpa_scale_explainer: "什么是 GPA 等级评分？"
     grading_type_options: 
       gpa_scale: "GPA 分数"
-      letter_grade: 字母评分
+      letter_grade: 字母等级
       not_graded: 不评分
       pass_fail: 通过/不通过
       percent: 百分数
@@ -2667,9 +2667,9 @@ zh-Hans:
         show_only_assignments_from: 只显示作业的来源
         upcoming_assignments: 即将到来的作业
     available_date_description: 
-      available_until: 可供使用的截止日期
-      closed: 已关闭
-      not_available_until: 可供使用的开始时间
+      available_until: 截止日期
+      closed: 已结束
+      not_available_until: 开始时间
     buttons: 
       add_group: 添加小组
       delete_group: 删除小组
@@ -2765,7 +2765,7 @@ zh-Hans:
       description: 描述
       freeze_properties: 复制时锁定作业属性
       notify_content_change: 通知用户此内容已更改
-      points_possible: 得分
+      points_possible: 总分
       post_to_sis: 当发布到您学校的学生信息系统时，包括此作业的评分
       warnings: 
         assignment_is_frozen: 某些设置已被管理员锁定。
@@ -2813,7 +2813,7 @@ zh-Hans:
     grade_percent: "%{grade}%"
     grade_percent_screenreader: "分数: %{grade}%"
     grading_type_selector: 
-      display_grade_as: 计分显示为
+      display_grade_as: 评分方式
       gpa_scale_explainer: "GPA 等级评分面向使用 4.0（或 5.0/6.0）等级评定所有作业的学校而设计。这一评分方案类似于字母评分显示，但存在一些重要的差别："
       gpa_scale_input_explainer: "根据 4.0 等级来输入分数。例如，如果作业总共为 100 分，输入 4.0 则结果为 100%，输入 3.0 则结果为 87% 等等。"
       gpa_scale_letters_explainer: 除了数字评分以外，还可以使用字母评分。
@@ -2904,7 +2904,7 @@ zh-Hans:
     never_drop_scores: "不删除 %{assignment_name}"
     no_assignments: "[无作业]"
     no_assignments_list_item: 
-      no_assignments_in_this_group: 此作业组中无作业
+      no_assignments_in_this_group: 此作业组为空
     no_assignments_search: 
       aria_assignments: 作业
       assignments: 作业
@@ -2990,7 +2990,7 @@ zh-Hans:
         no_content: 无内容
       due: 截止时间
       due_at: 截止时间
-      for: 适用人群
+      for: 范围
       links: 
         add_rubric: 评分细则
         assign_rubric: 指定评分标准
@@ -3002,13 +3002,13 @@ zh-Hans:
       no_due_date: 无截止时间
       no_points: 无
       no_submission: 无任何内容
-      points: 得分
+      points: 总分
       submission_types: 文件类型
       submitting: 提交
       turnitin: Turnitin
       turnitin_enabled: "已为此作业启用 Turnitin。"
       turnitin_enabled_short: "(Turnitin 已启用)"
-      until: 结束时间
+      until: 关闭时间
       vericite: VeriCite
       vericite_enabled: "VeriCite 已对该作业启用。"
       vericite_enabled_short: （VeriCite已启用）
@@ -3159,11 +3159,11 @@ zh-Hans:
             
             如需添加说明，请点击顶部的“编辑”链接。
       labels: 
-        assignments_summary: 课程总结
+        assignments_summary: 课程摘要
         syllabus_body: 大纲说明
       links: 
         edit_syllabus_description: 编辑
-        jump_to_today: 跳至今天
+        jump_to_today: 返回今日
       titles: 
         course_syllabus: 课程大纲
     syllabus_right_side: 
@@ -4286,7 +4286,7 @@ zh-Hans:
   changed_item_1d16a85f: 更改的项目
   changes_will_still_apply_if_you_leave_this_page_935cedc6: 如果您离开这个页面，更改将仍然适用。
   changes_you_made_may_not_be_saved_4e8db973: 您做出的变更可能无法保存。
-  changing_course_dates_may_override_term_availabili_d92b10de: 更改课程日期可能覆盖学期和可用性设置以及在课程页和仪表板的位置在修改课程日期前，请确认学期日期。
+  changing_course_dates_may_override_term_availabili_d92b10de: 更改课程日期可能覆盖学期的可用性设置，并改变在课程页和控制面板的位置。请在修改课程日期前先确认相应学期的范围。
   changing_section_dates_may_override_course_and_ter_6634950e: 更改分组日期可能覆盖课程和和可用性设置以及在课程页和仪表板的位置在修改分组日期前，请确认学期和课程日期。
   changing_the_late_policy_will_affect_previously_gr_49071db7: 更改延迟策略将影响以前评分的提交项。
   changing_your_policy_now_will_affect_previously_gr_62063898: 现在更改策略将影响之前已评分的提交项。
@@ -5758,7 +5758,7 @@ zh-Hans:
       unpublished_with_message: "已取消发布: %{message}"
     institution: 机构
     missing_name: 未命名的课程
-    public: 公众
+    public: 公开
     student_summary: 
       not_sorted: 学生总结列表
     student_view_student_name: 测验学生
@@ -6190,9 +6190,9 @@ zh-Hans:
       loading: 正在加载学生...
       select_student: 选择学生
     link_validator: 
-      link_validator: 课程链接验证
-      link_validator_desc: 课程链接验证对课程内容进行搜索，并返回它所遇到的每个无效的或无回应的链接。这个过程可能需要几分钟。
-      page_title: 课程链接验证
+      link_validator: 验证课程内容中的链接
+      link_validator_desc: 对课程内容进行搜索，测试所有包含的链接，并列出所有的无效或无回应的链接。这个过程可能需要几分钟。
+      page_title: 验证课程内容中的链接
     master_course_restrictions: 
       labels: 
         availability_dates: 空闲日期
@@ -6353,7 +6353,7 @@ zh-Hans:
         allow_student_organized_groups: 允许学生组织自己的小组
         blueprint: 将课程启用为模板课程
         blueprint_course: 模板课程
-        conclude_at: 结束
+        conclude_at: 结束时间
         course_code: 课程代码
         course_description: 描述
         course_epub_export: Epub导出
@@ -6364,7 +6364,7 @@ zh-Hans:
         course_section_name: 新增班级
         course_status_published: 课程已发布
         course_status_unpublished: 课程已取消发布
-        course_visibility: 可见性
+        course_visibility: 允许访问范围
         custom_course_visibility: 自定义
         enrollment_term_id: 学期
         grading_scheme: 评分方案
@@ -6388,11 +6388,11 @@ zh-Hans:
         root_account_id: 根帐户
         show_announcements_on_home_page: 显示课程主页上的最新公告
         sis_source_id: 学号
-        start_at: 开始
+        start_at: 开始时间
         storage_quota: 文件存储
         time_zone: 时区
         turnitin_comments: "Turnitin 提交评论"
-      language_overrides_preferences: 这将覆盖所有用户/系统语言首选项。建议只对外语课程使用此操作
+      language_overrides_preferences: 这将覆盖所有用户和系统的语言首选项。建议只在外语课程中设置。
       links: 
         more_options: 更多选项
         move_course: 移动到其它帐户
@@ -6511,7 +6511,7 @@ zh-Hans:
       labels: 
         assignments_weighting: 按组加权作业
       no_groups: 未设置小组
-      not_weighted: 作业所占比率未确定。
+      not_weighted: 作业权重未确定。
     statistics: 
       active_students: 活动学生
       all_rubrics: 所有评分标准说明
@@ -7615,7 +7615,7 @@ zh-Hans:
   divide_into_equal_slots_of_num_minutes_minutes_go_52caee81: "等分为%{num_minutes}分钟的时段。 *执行*"
   divide_into_equal_slots_value_is_in_minutes_13fe14d2: 分割为相等的时段（值以分钟为单位）
   divide_into_equal_time_slots_in_minutes_234312fa: 分割为相等的时段（以分钟为单位）
-  do_not_count_this_assignment_towards_the_final_gra_4dd92e00: 不要将此作业计入最终的成绩
+  do_not_count_this_assignment_towards_the_final_gra_4dd92e00: 此作业不计入最终成绩
   do_nothing_9672b478: 不执行任何操作
   docviewer_area_created_37502a31: 已创建Docviewer区域
   docviewer_area_deleted_6e56d3ba: 已删除Docviewer区域
@@ -8684,7 +8684,7 @@ zh-Hans:
         不计算那些点值。
     ember_modules: "Ember 单元"
     google_docs_domain_restriction: "Google Docs 域限制"
-    gradebook_list_students_by_sortable_name: "评分册 - 按可排序名称列出学生"
+    gradebook_list_students_by_sortable_name: "评分册 - 按排序名称列出学生"
     high_contrast: 高对比度用户界面
     html5_first_videos: "首选 HTML5 用于视频播放"
     k12: "K-12 的具体功能"
@@ -9150,7 +9150,7 @@ zh-Hans:
     recording_message: 正在录音...
     row_student_name: 
       student_placeholder: 学生
-    secondary_id: "第二 ID"
+    secondary_id: "登录账号"
     section_to_show_menu: 
       choose_a_section_to_show: 选择要显示的班级
       showing_course: 显示课程
@@ -10631,7 +10631,7 @@ zh-Hans:
   inactive_enrollments_3b84be3d: 不活动的注册学员
   inbox_bb245a60: 收件箱
   include_a_link_to_a_screencast_screenshot_using_so_4b2fabcb: 使用类似*Jing*的工具将链接插入截屏/屏幕截图之中。
-  include_byte_order_mark_in_gradebook_exports_d2ad0d4e: 在评分册导出中包括字节顺序记号
+  include_byte_order_mark_in_gradebook_exports_d2ad0d4e: 导出评分册时添加字节顺序符号
   include_course_settings_c4c08764: 包括课程设置
   include_deleted_enrollments_1c87684a: 包括已删除的注册
   include_deleted_objects_3cced3b5: 包括已删除的对象
@@ -12623,10 +12623,10 @@ zh-Hans:
         subject: "忘记密码:Canvas"
     grade_weight_changed: 
       email: 
-        grade_changed: "课程 %{course_name} 的评分政策已更改。"
+        grade_changed: "课程 %{course_name} 的评分规则已更改。"
         grading_based_on_points: 评分基于所有作业的总得分。
         html: 
-          grade_changed: "课程 %{course_name} 的评分政策已更改。"
+          grade_changed: "课程 %{course_name} 的评分规则已更改。"
           grading_based_on_points: 评分基于所有作业的总得分。
           labels: 
             grades_based_on_percent: 评分基于每个作业小组的加权总计
@@ -12637,16 +12637,16 @@ zh-Hans:
           now_see_here: 您可在此处查看详细信息
           subject: 评分加权已更改
       sms: 
-        grade_changed: "课程 %{course_name} 的评分政策已更改。"
+        grade_changed: "课程 %{course_name} 的评分规则已更改。"
         more_info_at: "更多信息请访问 %{course_url}"
       summary: 
-        grade_changed: "课程 %{course_name} 的评分政策已更改。"
+        grade_changed: "课程 %{course_name} 的评分规则已更改。"
         grading_based_on_points: 评分基于所有作业的总得分。
         labels: 
           grades_based_on_percent: 评分基于每个作业小组的加权总计
           subject: 评分加权已更改
       twitter: 
-        grade_changed: "Canvas 警报 - 评分政策已更改: %{course_name}"
+        grade_changed: "Canvas 警报 - 评分规则已更改: %{course_name}"
     group_assignment_submitted_late: 
       email: 
         body: "小组 %{group_name} 刚刚提交课程 %{course_name} 中 %{assignment_name} 的最近提交的作业。"
@@ -13051,7 +13051,7 @@ zh-Hans:
       twitter: 
         body: "Canvas警报 - 您已在%{account} 注册了Canvas帐户！"
     quiz_locked: 此测验当前锁定。
-    quiz_locked_at: "此测验锁定于 %{at}。"
+    quiz_locked_at: "此测验于 %{at} 关闭。"
     quiz_locked_module: "此测验是单元 *%{module}* 的一部分，尚未解锁。"
     quiz_locked_until: "此测验锁定至 %{date}。"
     quiz_module_time_locked: "此测验属于单元 *%{module}*，该单元锁定至 %{time}。"
@@ -13856,7 +13856,7 @@ zh-Hans:
   no_assignments_with_that_name_found_1d7be1: 该姓名下没有找到作业
   no_associated_terms_13bacefc: 没有相关的条款
   no_attributes_locked_611c5cc: 未锁定任何属性
-  no_broken_links_found_38d951e3: 没有找到断开的链接
+  no_broken_links_found_38d951e3: 没有失效的链接
   no_cancel_installation_db8d12d7: 不，取消安装
   no_collaboration_apps_3bbd30ce: 没有协作应用程序
   no_content_has_been_added_f36bab43: "* 尚未添加内容"
@@ -14023,7 +14023,7 @@ zh-Hans:
       due_date: 截止时间
       files: 文件
       grading: 评分
-      grading_policies: 评分政策
+      grading_policies: 评分规则
       invitiation: 邀请
       late_grading: 最近评分
       membership_update: 成员资格更新
@@ -14062,8 +14062,8 @@ zh-Hans:
         * 成绩权重发生改变
     grading_display: 评分
     grading_notify_include_grade: 报警评分更改时包括分数。
-    grading_policies_description: 课程评分政策更新
-    grading_policies_display: 评分政策
+    grading_policies_description: 更新课程评分规则
+    grading_policies_display: 评分规则
     invitation_description: |-
         邀请：
         
@@ -15488,8 +15488,8 @@ zh-Hans:
         expires_at: 留为空白以便不会过期
         language: 这将覆盖所有浏览器或帐户设置。
         name: 教师将使用此名称来评分。
-        short_name: 人们会在讨论、消息和评论中看到此名称。
-        sortable_name: 此名称出现在分类的列表中。
+        short_name: 参与课程讨论、信息交互中显示的名称。
+        sortable_name: 分类列表中显示的名称。
       labels: 
         change_password: 更改密码
         confirm_password: 确认密码
@@ -15497,7 +15497,7 @@ zh-Hans:
         disable_inbox: "禁用 Conversation 收件箱的未读邮件标识，并通过邮件尽快发送所有会话邮件和通知。"
         expires_at: 过期
         headers: 
-          approved_integrations: 允许融入使用的外部软件
+          approved_integrations: 允许添加的外部服务
         locale: 语言
         name: 全名
         new_password: 新密码
@@ -15540,7 +15540,7 @@ zh-Hans:
         view_your_profile: 查看您的个人资料
         yo: Yo
       loading_token_details: 正在加载令牌详细信息...
-      no_approved_integrations: "第三方应用程序可以请求权限以代表您访问 Canvas 网站。当您开始授权应用程序后，您将看到它们在此处列出。"
+      no_approved_integrations: "第三方应用程序可以请求权限以代表您访问 Canvas 网站。以下为已获得授权的应用程序列表"
       no_language_preference: "系统默认值 (%{language})"
       no_registered_services: 没有已注册的服务
       none: 无
@@ -15572,7 +15572,7 @@ zh-Hans:
           这些通知将以直接消息的方式自己发送给自己，
           而不会显示在公共流中。
       unknown_service: 未知
-      web_services: "通过将 Canvas 绑定到您已经使用的网络工具，它可以让您的生活轻松许多。单击\"其它服务\"中的任何服务，了解此项功能。"
+      web_services: "通过绑定到您已使用的网络服务，可以更灵活地使用 Canvas。单击\"其它服务\"中的任何服务，了解此项功能。"
       yo_description: |-
           Yo 是一个单触式零字符通信工具。
           如果您有 Yo 帐户，则可以在此处注册。然后，如果您允许
@@ -16861,7 +16861,7 @@ zh-Hans:
           preview_quiz_again: 再次预览测验
           preview_survey_again: 再次预览调查
         no_more_attempts: 没有更多可用尝试次数
-        questions_not_graded: 有些问题尚未计分
+        questions_not_graded: 有些问题尚未评分
         score_set_manually: 教师已设定此分数
         unlimited_attempts: 无限尝试次数
         view_previous_attempts: 查看以前的尝试
@@ -16911,7 +16911,7 @@ zh-Hans:
           survey_score: 调查分数
         links: 
           click_to_view_results: 单击此处查看结果。
-        questions_not_graded: 有些问题尚未计分
+        questions_not_graded: 有些问题尚未评分
         quiz_fudged_negative: "此测验分数已手动调整 %{fudge} 分。"
         quiz_fudged_positive: "此测验分数已手动调整 +%{fudge} 分。"
         quiz_not_yet_taken: 测验尚未进行。
@@ -17037,7 +17037,7 @@ zh-Hans:
       submission_versions: 
         attempt: 尝试
         attempt_history: 尝试历史记录
-        questions_not_graded: 有些问题尚未计分
+        questions_not_graded: 有些问题尚未评分
         quiz_attempt_history_description: 显示您的测验尝试历史记录的表。每次尝试都列在左侧。尝试、时间和分数列在顶部。
         regraded: 已重新计分
         score: 分数
@@ -17437,7 +17437,7 @@ zh-Hans:
   reports_1b9ab7a7: 报告
   reports_account_settings_78f5336a: 报告（帐户设置）
   request_id_1499afb0: "请求 ID"
-  require_an_access_code_600e06e8: 需要一个访问代码
+  require_an_access_code_600e06e8: 需要访问代码
   require_assignment_due_date_778b200d: 要求作业截止日期
   require_group_members_to_be_in_the_same_section_7f6c36af: 要求小组成员在相同的班级中
   require_respondus_lockdown_browser_31425b3a: "需要 Respondus LockDown浏览器"
@@ -17465,7 +17465,7 @@ zh-Hans:
       labels: 
         enabled: "已启用（还必须启用 QTI 转换器）"
   responsive_layout_54e4ca06: 自适应布局
-  restart_link_validation_b61286fc: 重新启动链接验证
+  restart_link_validation_b61286fc: 再次验证链接有效性
   restore_courses_182e162e: 恢复课程
   restored_course_association_course_c9e16045: "还原的课程关联%{course}"
   restrict_access_84ba6bb8: 限制访问
@@ -17890,7 +17890,7 @@ zh-Hans:
         ag_letter_grade: 字母评分
       details: 
         hidden: 已隐藏
-        secondary_id: "第二 ID："
+        secondary_id: "登录账号："
         sections: 班级：
       index: 
         empty_student_selection: 选择一个学生在此处查看其他信息。
@@ -17949,7 +17949,7 @@ zh-Hans:
   secondary_button_text_e92b3e52: 辅助按钮文本
   secondary_color_button_7589827d: 次要颜色按钮
   secondary_color_button_disabled_ac2252d2: 次要颜色按钮被禁用
-  secondary_id_822f5c52: "第二 ID"
+  secondary_id_822f5c52: "登录账号"
   secondary_info_835a07dd: 次要信息
   secondary_navigation_f701dc45: 二级导航
   section: 
@@ -18335,7 +18335,7 @@ zh-Hans:
         assign_rubric: 分配评分标准
     available_dates: 
       headers: 
-        available: 可用
+        available: 可访问时间
       quiz_available_after: "%{start_time} 之后"
       quiz_available_through: "%{start_time} 至 %{end_time}"
       quiz_available_until: "直到 %{end_time}"
@@ -18454,9 +18454,9 @@ zh-Hans:
       more_events_one_week_future: "下周还有 %{count_of_events} "
       more_events_two_weeks: "上两周有 %{count_of_events} 个以上的事件"
       more_events_two_weeks_future: "接下来的两周还有 %{count_of_events} "
-      nothing_for_now: 目前没有任何内容
-      nothing_one_week: 下周没有任何内容
-      nothing_two_weeks: 接下来的两周没有任何内容
+      nothing_for_now: 目前没有待办事项
+      nothing_one_week: 下周没有待办事项
+      nothing_two_weeks: 接下来的两周没有待办事项
       titles: 
         events: 事件
     find_outcome: 
@@ -18600,7 +18600,7 @@ zh-Hans:
         dashboard: 控制面板
         skip_to_content: 跳过内容
     no_recent_activity: 
-      empty_stream_message: 您没有在流中显示任何消息。一旦开始参与课程，您将看到此流填满来自讨论的消息、评分更新、您与其他用户之间的私人消息等。
+      empty_stream_message: 目前没有需要显示的信息。当您开始参与课程后，您将在此看到各种课程信息，包括讨论、评分更新、您与其他用户之间的私人消息等。
       no_recent_messages: 没有最近的消息
     pending_enrollment: 
       designer: "%{course}（作为设计者）。"
@@ -19003,7 +19003,7 @@ zh-Hans:
   show_groups_navigation_menu_1521d38d: 显示小组导航菜单
   show_inactive_enrollments_8f4c4824: 显示非活跃的注册
   show_key_1fbf0c64: 显示密钥
-  show_links_to_unpublished_content_30c0450d: 显示链接到未发布的内容
+  show_links_to_unpublished_content_30c0450d: 在未发布内容中显示链接
   show_lti_2_configuration_ui_94ce35a9: "显示 LTI 2 配置 UI"
   show_me_76823679: 给我看看
   show_more_af9cbc16: 显示更多
@@ -19830,8 +19830,8 @@ zh-Hans:
       Canvas SAML的实体 ID 为%{metadata_url}, 而且服务供应商的元数据
       在该URL可用。
   the_chat_tool_must_be_enabled_by_your_canvas_admin_e3b26123: 必须由Canvas管理员启用聊天工具。
-  the_course_link_validator_searches_course_content__563fa215: 课程链接验证者搜索课程内容是否有无效或无法获取的链接和图像。
-  the_course_link_validator_searches_through_course__76f0bc63: 课程的链接验证器通过课程内容进行搜索，并返回它所遇到的每个无效或无反应的链接。请注意，一些标记为无反应的链接只是从我们的服务器无法进入，然而仍将为学生工作。
+  the_course_link_validator_searches_course_content__563fa215: 课程内容链接验证会检查课程内容中是否有无效或无法获取的链接或图像。
+  the_course_link_validator_searches_through_course__76f0bc63: 课程内容链接验证会对课程内容进行搜索，并列出所有的无效或无回应的链接。请注意，一些标记为无回应的链接只是从我们的服务器无法进入，然而仍将为学生工作。
   the_course_state_manage_permission_allows_users_to_67e16652: "课程状态 - 管理权限允许用户发布不包含模块的课程。要发布/取消发布模块内容，必须启用“课程内容 - 添加/编辑/删除”。"
   the_course_status_buttons_unpublished_and_publishe_e2dca595: “课程状态”按钮（未发布和已发布）仅在收到学生提交项后才会显示。不能取消发布具有学生提交项的课程。
   the_download_process_has_started_this_can_take_awh_7e616db1: 下载进程已经开始。大规模课程可能需要一段时间才能下载完成。您可以离开此页面，下载完成后将通知您。
@@ -20913,7 +20913,7 @@ zh-Hans:
   use_remote_version_of_rich_content_editor_and_side_a058a664: 使用富内容编辑器和侧栏的远程版本
   use_remote_version_of_rich_content_editor_and_side_ebaaa986: 在像测验那样的高风险领域，使用富内容编辑器和侧栏的远程版本
   use_semicolons_instead_of_commas_to_separate_field_f50945f2: "使用分号代替逗号分隔评分册导出中的字段，使其可以导入到 Excel 供某些区域的用户使用。"
-  use_semicolons_to_separate_fields_in_gradebook_exp_5fb3b39d: 使用分号分隔评分册导出中的字段
+  use_semicolons_to_separate_fields_in_gradebook_exp_5fb3b39d: 导出评分册时使用分号作为字段分隔符
   use_the_new_collaborations_external_tool_enabling__5f0ed73: 使用新的协作外部工具，启动更多的选择工具进行协作
   use_the_new_document_annotation_tool_2cbc98d0: 使用新的文档注解工具
   use_the_new_interface_for_managing_permissions_907e8e8f: 使用新的权限管理界面
@@ -21392,7 +21392,7 @@ zh-Hans:
   uses_the_new_scheduler_and_its_functionality_b07e9b14: 使用新的调度器及其功能
   validate: 
     is_required: 此字段为必填字段
-  validate_links_in_content_b1630fba: 验证的内容链接
+  validate_links_in_content_b1630fba: 检验内容链接有效性
   validated_service_ticket_20d1fcec: 已验证服务票证
   validated_ticket_for_username_c6c7722f: "已验证票证%{username}"
   validation_error_3b943100: 验证错误
@@ -21541,8 +21541,8 @@ zh-Hans:
       我们已经将您的首页设置为模块，但您可以进行更改。
   when_people_visit_your_course_this_is_the_first_pa_af36eac3: 别人访问您的课程时，这将是他们看到的第一个页面。我们已经将您的首页设置为模块，但您可以进行更改。
   when_scope_enforcement_is_disabled_tokens_have_acc_6939182f: 禁用范围执行后，令牌拥有对授权用户可用的所有端点的访问权限。
-  when_selected_the_course_is_in_a_read_only_state_o_5aaeb0d: 选择后，课程在超出这些日期时为只读状态。
-  when_selected_the_course_is_inaccessible_outside_c_af595406: 选择后，课程在超出课程日期时不可获取。如果课程日期为空，则这些开始日期和结束日期适用于学期日期。
+  when_selected_the_course_is_in_a_read_only_state_o_5aaeb0d: 选择后，在设定日期之外，课程为只读状态。
+  when_selected_the_course_is_inaccessible_outside_c_af595406: 选择后，超出课程日期时学生不能访问。如果不设置课程时间范围，则使用相应学期的时间范围。
   when_selected_the_course_section_is_in_a_read_only_a7571eb2: 选择后，课程分组在超出这些日期时为只读状态。
   whenever_b943b119: 无论何时
   where_would_you_like_to_move_title_fabd6e8f: "您要将 %{title} 移到何处？"
@@ -21777,7 +21777,7 @@ zh-Hans:
   you_can_leave_the_page_and_you_will_get_a_notifica_fefe11e8: 您可以离开此页面，同步过程完成后将通知您。
   you_can_log_in_directly_with_this_provider_by_goin_467d7f66: "通过 %{url}，您可以直接使用此提供者登录。"
   you_can_now_set_regrade_options_for_students_who_h_c1ceb1c4: 您现在可以为已经参加测验的学生设置重新评分选项。
-  you_can_publish_your_course_from_the_home_page_whe_a36d49d6: 您准备好将课程分享给学生后，可以随时从首页发布您的课程。发布课程以前，仅教师可以访问该课程。
+  you_can_publish_your_course_from_the_home_page_whe_a36d49d6: 您准备好将课程分享给学生后，可以随时从首页发布您的课程。课程发布以前，仅教师可以访问该课程。
   you_can_reply_to_this_comment_by_responding_to_thi_3d130e8c: "您可以通过响应此消息回复此评论，或查看使用此链接所提交的详细信息：%{link}。"
   you_can_reply_to_this_comment_by_responding_to_thi_4fd1379e: "您可以通过回应此消息回复此评论，或使用此链接查看提交项详细信息：%{link}.  在允许的情况下，如果您需要添加附件，请登录到 Canvas 并回复提交项"
   you_can_reply_to_this_message_in_canvas_by_clickin_f5f5f7a3: "您可以在Canvas中单击此链接以回复此消息：%{link}。"
@@ -21796,7 +21796,7 @@ zh-Hans:
   you_can_try_to_log_in_again_2b23ef0f: 您可以尝试*再次登录*。
   you_can_update_some_of_this_user_s_information_but_8e99a045: 您可以更新该用户的一些信息，但如果他们选择，他们可以改回来。
   you_can_use_a_single_16x16_32x32_48x48_ico_file_85da88b5: "您可以使用一个16×1632×32，48×48 图标的文件。"
-  you_can_view_your_grades_based_on_what_if_scores_s_a1aeae72: 您可以查看基于假设分数的评分，以便您知道即将提交或重新提交的作业对评分会有怎样的影响。您可以测试已经包含分数或等待评分的作业的分数。
+  you_can_view_your_grades_based_on_what_if_scores_s_a1aeae72: 您可以查看基于假设分数的评分，以便您知道即将提交或重新提交的作业对评分会有怎样的影响。您可以调整不同作业项的成绩进行测试。
   you_cannot_assign_sections_to_a_group_discussion_t_fec73e05: 您没有分配分组给一个小组讨论主题
   you_cannot_assign_to_a_group_outside_of_the_assign_7869eb3b: 您不能指定一个作业小组集外的小组
   you_cannot_edit_themes_on_this_subaccount_63ceaaf3: 您不能在这个子帐户里编辑主题。
