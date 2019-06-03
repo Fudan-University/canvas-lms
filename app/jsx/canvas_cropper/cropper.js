@@ -41,8 +41,8 @@ import Cropper from '@instructure/react-crop'
     };
     static defaultProps = {
       imgFile: null,
-      width: 270,
-      height: 270,
+      width: ENV.AVATAR_SIZE_W || 270,
+      height: ENV.AVATAR_SIZE_H || 270,
       onImageLoaded: null
     };
 

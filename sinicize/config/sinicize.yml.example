@@ -1,0 +1,8 @@
+# 头像尺寸。
+# 如需使用，需要和 sinicize/style/avatar.css 配合使用
+# 如果使用的宽高比不同，还需要修正 avatar.css 中的相关样式
+avatar:
+  # 头像宽度(px)
+  width: 225
+  # 头像高度(px)
+  height: 300

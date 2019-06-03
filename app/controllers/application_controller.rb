@@ -175,6 +175,13 @@ class ApplicationController < ActionController::Base
         @js_env[:MOMENT_LOCALE] = I18n.moment_locale
       end
 
+      # 加入 Sinicize 相关的配置
+      sinicize_config = ConfigFile.load('sinicize', false)
+      if sinicize_config && sinicize_config['avatar']
+        @js_env[:AVATAR_SIZE_W] = sinicize_config['avatar']['width']
+        @js_env[:AVATAR_SIZE_H] = sinicize_config['avatar']['height']
+      end
+
       @js_env[:lolcalize] = true if ENV['LOLCALIZE']
     end
 

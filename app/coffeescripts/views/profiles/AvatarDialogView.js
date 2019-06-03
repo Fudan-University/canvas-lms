@@ -50,8 +50,8 @@ export default class AvatarDialogView extends DialogBaseView {
     this.prototype.template = template
 
     this.prototype.AVATAR_SIZE = {
-      h: 128,
-      w: 128
+      h: ENV.AVATAR_SIZE_H || 128,
+      w: ENV.AVATAR_SIZE_W || 128
     }
 
     this.child('uploadFileView', '#upload-picture')
