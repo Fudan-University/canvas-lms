@@ -1818,7 +1818,7 @@ zh-Hans:
   allow_the_ability_to_send_notifications_through_ou_fdaace5a: 通过我们的调度队列允许有能力发送通知
   allow_this_tool_to_access_the_ims_names_and_role_p_33e16d7f: "准许该工具访问 IMS 姓名和角色配置服务"
   allow_users_to_comment_45b8f753: 允许用户评论
-  allowed_attempts_4e229caa: 允许尝试
+  allowed_attempts_4e229caa: 允许尝试次数
   allows_a_user_to_access_the_act_as_user_link_on_st_7d3e3e3d: 允许用户访问学生背景卡上的“作为用户”链接
   allows_a_user_to_view_the_sis_id_in_a_user_s_login_802288b9: "允许用户在用户的登录详细信息中查看SIS ID。"
   allows_a_user_to_view_user_sis_ids_in_a_course_peo_dd6404c: "允许用户在课程的“人员”页面中查看用户SIS ID。"
@@ -2248,7 +2248,7 @@ zh-Hans:
   anonymous_marking_92a4d623: 匿名打分
   anonymous_mode_on_2dd9b94a: 匿名模式启用
   anonymous_mode_on_feb53729: 匿名模式启用：
-  anonymous_moderated_assignments_cannot_be_unmuted__8f7b09e7: 截至评分发布前，对作业进行匿名核对无法取消静音
+  anonymous_moderated_assignments_cannot_be_unmuted__8f7b09e7: 在结果发布前，对作业进行匿名核对无法暂停发布成绩
   anonymous_moderated_marking_801bbb65: 匿名审核标记
   anonymous_moderated_marking_allows_teachers_to_sel_af80885d: 匿名审核标记允许教师选择审核人匿名对作业评分。审核人进行审核后，可以选择或提供一个自定义评分。
   anonymous_moderated_marking_audit_trail_e48abbac: 已匿名核对标记审核轨迹
@@ -2565,15 +2565,15 @@ zh-Hans:
   assignment_menu_91fe3716: 作业菜单
   assignment_missing_assignment_name_in_course_code_7f940b35: "课程码%{course_code}缺失作业“%{assignment_name}”"
   assignment_missing_assignment_name_in_course_name_680a8338: "课程《%{course_name}》缺失作业“%{assignment_name}”"
-  assignment_muted_4cb590a4: 作业已静音
-  assignment_muted_8d74bfa0: 已屏蔽的作业
+  assignment_muted_4cb590a4: 不发布作业结果
+  assignment_muted_8d74bfa0: 不发布作业结果
   assignment_muter: 
-    mute_assignment: 屏蔽作业
+    mute_assignment: 不发布作业结果
     muting_assignment: 正在屏蔽作业...
-    unmute_assignment: 取消屏蔽作业
-    unmute_button: 取消屏蔽作业
-    unmute_dialog: 该作业当前被屏蔽，学生无法查看分数和反馈。是否现在取消屏蔽?
-    unmuting_assignment: 正在取消屏蔽作业...
+    unmute_assignment: 发布作业结果
+    unmute_button: 发布作业结果
+    unmute_dialog: 该作业结果未发布，学生无法查看分数和反馈。是否现在取消屏蔽?
+    unmuting_assignment: 正在发布已评分作业成绩...
   assignment_name_a_z_aeefaa36: "作业名称 - A-Z"
   assignment_name_b2d87383: 作业名称
   assignment_name_course_name_is_now_due_55613e9b: "课程《%{course_name}》的作业“%{assignment_name}”现在到期"
@@ -2593,7 +2593,7 @@ zh-Hans:
   assignment_title_82b4422e: 作业标题：
   assignment_title_8a707dd2: 作业标题
   assignment_title_e3192978: "作业：%{title}"
-  assignment_unmuted_2cffe4ca: 作业已取消静音
+  assignment_unmuted_2cffe4ca: 已发布作业结果
   assignment_updated_c7482598: 已更新作业
   assignment_url_37c849c6: "作业 url"
   assignment_view_1206a60b: 作业视图
@@ -9067,7 +9067,7 @@ zh-Hans:
     column_header: 
       assignment_options: 作业选项
       points_out_of: "共%{assignment.points_possible}"
-      this_assignment_is_muted: 作业已屏蔽
+      this_assignment_is_muted: 未发布作业结果
       zero_point_assignment: 此小组中的作业没有可能的得分，不能包括在评分计算中
     confirms: 
       delete_comment: 是否确定要删除此评论?
@@ -9133,7 +9133,7 @@ zh-Hans:
       tooltip: t
     learning_outcome: 学习结果
     mic_blocked_message: "使用麦克风的权限已被阻止。要更改，请转至 chrome://settings/contentExceptions#media-stream"
-    mute_assignment: 屏蔽作业
+    mute_assignment: 不发布作业结果
     no_assignments_have_points_warning: 作业具有可能的得分时，方可计算得分
     no_submission_time: 无提交时间
     nodetect_message: 未检测到语音。您可能需要调整您的麦克风设置。
@@ -9190,7 +9190,7 @@ zh-Hans:
         error: "相似性分数 - 查看提交错误详细信息"
         pending: "相似性分数 - 等待提交"
         score: "相似性分数 - 查看详细报告"
-    unmute_assignment: 取消屏蔽作业
+    unmute_assignment: 发布作业结果
     vericite: 
       error_message: 提交至VeriCite时出错。请尝试重新提交文件，然后再联系支持人员
       info_message: 该文件仍由VeriCite处理。请稍后回来查看分数
@@ -9205,11 +9205,11 @@ zh-Hans:
         one: "更新 %{count} 个学生得分"
         other: "更新 %{count} 个学生得分"
     all_sections: 所有班级
-    assignment_muted: 作业已屏蔽
+    assignment_muted: 未发布作业结果
     column_header: 
       assignment_options: 作业可选功能
       points_out_of: "满分 %{assignment.points_possible} 分"
-      this_assignment_is_muted: 作业已屏蔽
+      this_assignment_is_muted: 未发布作业结果
       zero_point_assignment: 此小组中的作业没有可能的得分，不能包括在评分计算中
     concluded_course_error_message: 这是个结业的课程，因此只提供结业登记。
     course_average: 课程平均分数
@@ -9379,7 +9379,7 @@ zh-Hans:
       submission_failed: "提交文件不成功: %{error}"
       submission_failed_default: 提交文件失败
     grade: 
-      muted: 已屏蔽
+      muted: 未发布
     grade_summary: 
       all_grading_periods: 所有评分时段
       assignments: 作业
@@ -9440,7 +9440,7 @@ zh-Hans:
       see_scoring_details_screenreader: 查看评分详细信息
       see_turnitin_results: "查看 Turnitin 答案"
       see_vericite_results: 查看VeriCite成绩
-      student_mute_legend: 您的教师正在处理评分。当教师在处理评分时，评分和评论信息不可用。
+      student_mute_legend: 您的教师正在处理评分。当教师在处理评分时，不能查看评分和评论信息。
       student_mute_notification: 教师正在进行评分
       submission_score: "*%{score}*满分 %{possible} 分"
       titles: 
@@ -9530,8 +9530,8 @@ zh-Hans:
       comment_submitted: 您的评论已提交。
       crocodoc_pending: "Crocodoc 仍在处理此文档。"
       gradebook: 
-        mute_assignment: 屏蔽作业
-        unmute_assignment: 取消屏蔽作业
+        mute_assignment: 不发布作业结果
+        unmute_assignment: 发布作业结果
       headers: 
         anonymous_submission: 由于作业是匿名安排的，所以隐藏了此学生的回答。
         assessment: 测验
@@ -9691,7 +9691,7 @@ zh-Hans:
     column_header: 
       assignment_options: 作业选项
       points_out_of: "共%{assignment.points_possible}"
-      this_assignment_is_muted: 作业已屏蔽
+      this_assignment_is_muted: 作业结果未发布
       zero_point_assignment: 此小组中的作业没有可能的得分，不能包括在评分计算中
     course_average: 课程平均分数
     course_median: 课程中值分数
@@ -12124,18 +12124,18 @@ zh-Hans:
     assignment_unmuted: 
       email: 
         body: |-
-            您的教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。
+            教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。
             
             此处进行查看:
             %{url}
         html: 
-          body: "您的教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。"
+          body: "教师对“%{title}”发布评分变动和新评论，现在可查看这些变动。"
           link: 此处进行查看
-          subject: "作业取消静音:%{title}，%{course}"
-        subject: "作业取消静音:%{title}，%{course}"
+          subject: "作业结果发布:%{title}，%{course}"
+        subject: "作业结果发布:%{title}，%{course}"
       sms: 
         body: |-
-            您的教师已发布 %{title}，%{course} 的评分和评论。
+            教师已发布 %{title}，%{course} 的评分和评论。
             
             更多信息请访问 %{website}
       summary: 
@@ -13712,21 +13712,21 @@ zh-Hans:
   must_view_assignment_56a31702: 必须查看作业
   must_view_in_order_to_complete_this_module_item_dec2e583: 为完成此单元项目，必须要查看它
   must_view_the_page_67eec19e: 必须查看页面
-  mute_assignment_bb505cd8: 静音作业
+  mute_assignment_bb505cd8: 不发布作业结果
   mute_dialog: 
-    curving_assignments: 曲线作业
+    curving_assignments: 整体成绩调整
     grade_change_notifications: 评分更改通知
-    how_to_unmute: 一旦您取消静音此作业，即可通过单击"取消静音作业"链接再次开始发送通知。
-    mute_assignment: 屏蔽作业
+    how_to_unmute: 一旦选择不发布作业结果，可通过单击"发布作业结果"链接再次开始发送通知。
+    mute_assignment: 不发布作业结果
     score_change_notifications: 分数更改通知
     see_grade: 其作业的评分
     students_will_see: 学生将能够看到此作业已静音。
     submission_comments: 提交评论
-    sure_you_want_to_mute: "是否确定要静音此作业?此作业静音时，学生将不会收到关于以下内容的新通知或无法看到:"
-  mute_unmute_assignment_62608e44: 静音/取消静音作业
-  muted_283cfa0f: （静音）
-  muted_3ff94739: 已屏蔽
-  muting_assignment_a9aeb5c7: 正在屏蔽作业...
+    sure_you_want_to_mute: "是否确定不发布此作业结果?不发布结果时，学生将不会收到关于以下内容的新通知或无法看到:"
+  mute_unmute_assignment_62608e44: 发布/不发布作业结果
+  muted_283cfa0f: （不发布结果）
+  muted_3ff94739: 不发布结果
+  muting_assignment_a9aeb5c7: 正在暂缓发布作业成绩...
   my_dashboard_b724020: 我的面板
   my_files_2f621040: 我的文件
   my_settings_2ff35329: 我的设置
@@ -13963,7 +13963,7 @@ zh-Hans:
   note_grades_and_notes_will_be_saved_automatically__e3270872: 注意：移出字段后将自动保存评分和备注。
   note_it_may_take_up_to_a_week_for_the_beta_url_to__d695bddc: 注意：取决于测试版的更新周期，测试版网址的计提可能需要一个星期。
   note_length_cannot_exceed_maxlength_characters_82798b1: "注意长度不能超过%{maxLength} 的字符。"
-  note_question_details_not_available_when_more_than_93199f6d: "注意：当超过%{question_count} 时，问题细节不可用。"
+  note_question_details_not_available_when_more_than_93199f6d: "注意：当超过%{question_count} 题时，不能显示所有问题的详细信息。"
   note_some_items_fall_outside_the_start_and_or_end__feab0642: 注：某些项不在课程的开始和/或结束日期范围内
   note_students_have_submitted_work_for_these_assign_7bc34e28: 注：对于这些作业，学生具有尚未评分的提交内容。如果您现在发布这些评分，将需要在对最新的提交项进行评分后重新发布其分数。
   note_sub_account_themes_are_not_active_during_this_a5dd9da: 注意：子帐户的主题在此预览中没有激活。
@@ -14283,7 +14283,7 @@ zh-Hans:
         delimiter: ""
   number_between_1_and_16_inclusive_31f5468d: "包含在 1 和 16之间的数字"
   number_more_a46966: "%{number}更多..."
-  number_of_allowed_attempts_3d10b740: 允许尝试的次数
+  number_of_allowed_attempts_3d10b740: 允许尝试次数
   number_of_graders_cde8dd54: 评分人数
   number_of_respondents_e1e7e8b: 应答者的数量
   number_of_scores_to_ignore_for_each_student_fb94e818: 为每位学生忽略的分数数量
@@ -15253,7 +15253,7 @@ zh-Hans:
   points_highest_to_lowest_87f1b143: "得分 - 从最高到最低"
   points_lowest_to_highest_45089e82: "得分 - 从最低到最高"
   points_must_be_less_than_previous_rating_bc627bec: 分数必须低于之前等级
-  points_n_e0b20623: "点值 %{n}"
+  points_n_e0b20623: "总分值 %{n}"
   points_out_of_total_24f61148: "*%{points}* 共**%{total}**"
   points_points_b6b422e2: "分值： %{points}"
   points_possible_1c0b3445: 满分值
@@ -16042,10 +16042,10 @@ zh-Hans:
     student_analysis: 学生分析
   quiz_reports_ef7ddf1c: 测验报告
   quiz_restrictions_5db831c5: 测验限制
-  quiz_results_are_protected_for_this_quiz_and_are_n_1ea03502: 此测验的测验结果受到保护，不对学生显示。
-  quiz_results_are_protected_for_this_quiz_and_are_n_c85bd56e: 此测验的测验结果受到保护，不对学生显示，直到学生提交了最后一次尝试。
-  quiz_results_are_protected_for_this_quiz_and_can_b_fc4fc208: 此测验的测验结果受到保护，只能在提交后立即查看一次。
-  quiz_score_to_keep_d1f7c4b1: 保存测验得分
+  quiz_results_are_protected_for_this_quiz_and_are_n_1ea03502: 此测验的结果受到保护，不对学生显示。
+  quiz_results_are_protected_for_this_quiz_and_are_n_c85bd56e: 此测验的结果受到保护，在学生提交最后一次尝试前，不对学生显示。
+  quiz_results_are_protected_for_this_quiz_and_can_b_fc4fc208: 此测验的结果受到保护，只能在提交后立即查看一次。
+  quiz_score_to_keep_d1f7c4b1: 成绩保留方式
   quiz_settings_4e17f005: 测验设置
   quiz_statistics: 
     answer_bars_chart: 
@@ -16704,10 +16704,10 @@ zh-Hans:
       multi_answer: 
         choose_answer: 选择
       muted: 
-        muted_quiz_description: 您的测验分数无法提供，因为教师还没有完成评分。教师完成此测验的评分后，您的分数将在此页面上提供。
-        muted_quiz_header: 您的测验已静音
+        muted_quiz_description: 因为教师尚未完成评分，所以您还不能查看测验成绩。当教师完成评分后，您的分数将在此页面上显示。
+        muted_quiz_header: 测验结果未发布
       new: 
-        allowed_attempts: 允许尝试的次数
+        allowed_attempts: 允许尝试次数
         anonymous_submissions: 提交文件保持匿名
         buttons: 
           not_published: 未发布
@@ -16773,7 +16773,7 @@ zh-Hans:
         warnings: 
           has_student_submissions: 学生已进行或开始进行此测验，因此请小心进行编辑。如果对任何测验问题进行重大更改，您可能会想要考虑对进行旧版本测验的学生重新评分。
       notices: 
-        cant_view_submission_while_muted: 您不能在测验静音时查看测验历史记录。
+        cant_view_submission_while_muted: 您不能在测验结果未发布时查看测验历史记录。
         has_submissions_already: 请记住，某些学生已经进行或开始进行此测验
         less_than_allotted_time: 您开始此测验时测验已接近截止，因此您没有足够的时间量进行测验。
         no_submission_for_user: 没有可用于该用户的提交文件
@@ -16826,11 +16826,11 @@ zh-Hans:
           delete_this_question: 删除此问题
           edit_this_question: 编辑此问题
       quiz_details: 
-        allowed_attempts: 允许的尝试次数
+        allowed_attempts: 允许尝试次数
         headers: 
           due: 截止时间
-          points: 得分
-          questions: 问题
+          points: 总分
+          questions: 问题数
           time_limit: 时间限制
         multiple_due_dates: 多个截止时间
         no_due_date: 无截止时间
@@ -16867,30 +16867,31 @@ zh-Hans:
         view_previous_attempts: 查看以前的尝试
       quiz_show_teacher: 
         anonymous_submissions: 匿名提交
-        attempts: 已尝试次数
+        attempts: 允许尝试次数
         available_from: 开始时间
         cant_go_back: 回答后锁定问题
         code: 访问代码
         due: 截止时间
         filter: "IP 过滤"
-        for: 适用人群
+        for: 测验对象
         group: 作业小组
         label:
           time_limit: 时间限制
-        multiple_attempts: 多次尝试
+        multiple_attempts: 允许多次尝试
         no_time_limit: 无时间限制
-        one_question_at_a_time: 一次一个问题
-        points: 得分
+        one_question_at_a_time: 每次只显示一道题
+        points: 总分
         quiz_type: 测验类型
         require_lockdown_browser: "需要 Respondus LockDown Browser"
         require_lockdown_browser_for_results: 查看测验结果时需要
         require_lockdown_browser_monitor: 需要网络摄像机
-        score_to_keep: 要保留的分数
+        score_to_keep: 成绩保留方式
         show_correct_answers: 显示正确答案
-        shuffle_answers: 置乱答案
+        shuffle_answers: 随机排列问题选项
         time_limit: 
           one: "%{count} 分钟"
           other: "%{count} 分钟"
+        unlimited: 无限
         until: 直到
         view_responses: 查看答题结果
       quiz_submission: 
@@ -17774,7 +17775,7 @@ zh-Hans:
     other: "分数不包含%{groups}，因为他们可能没有分值。"
   score_f7ac9e08: 分数
   score_letter_grade_b3bb9e52: "%{score} 字母评分"
-  score_muted_82eef66: 分数：（静音）
+  score_muted_82eef66: 分数：（未发布）
   score_n_a_34dfdcda: 评分：不适用
   score_of_score_view_in_speedgrader_a7c1c954: "%{score}的得分，在SpeedGrader查看"
   score_out_of_points_84f44331: "（%{score} 分，满分 %{points} 分）"
@@ -17792,8 +17793,8 @@ zh-Hans:
   screenreader_gradebook: 
     assignment_information: 
       actions: 
-        assignment_is_muted: 已静音？
-        curve_grades: 曲线评分
+        assignment_is_muted: 成绩尚未发布？
+        curve_grades: 整体成绩调整
         message_students: 给相关学生发送信息...
         set_default_grade: 设置默认评分
       details: 
@@ -18567,21 +18568,21 @@ zh-Hans:
       out_of_points: "满分 %{points_possible} 分"
     mute_dialog: 
       gradebook: 
-        mute_assignment: 屏蔽作业
+        mute_assignment: 不发布作业结果
       mute_dialog: |-
-          是否确定要静音此作业?此作业静音
-          时，学生将不会收到关于以下内容新通知或无法
+          是否确定不发布作业结果?如不发布，
+          学生将不会收到关于以下内容新通知或无法
           看到:
           
           *  评分更改通知
           *  提交评论
-          *  曲线作业
+          *  整体成绩调整
           *  分数更改通知
           
-          学生将能够看到此作业已静音。
+          学生将能够看到此作业结果未发布。
           
-          一旦您取消静音此作业，即可通过单击
-          "取消静音作业"链接再次开始发送通知。
+          一旦您不发布作业结果，即可通过单击
+          "发布作业结果"链接再次开始发送通知。
     new_course_form: 
       cancel: 取消
       course_cose_explanation: 显示的内容间隔会很小
@@ -18851,7 +18852,7 @@ zh-Hans:
         feedback: 告诉我们您在找什么
       title: 无效的源
     unmute_dialog: 
-      unmute_dialog: 该作业目前已屏蔽。这意味着学生无法看到他们的评分和反馈。现在要取消屏蔽吗？
+      unmute_dialog: 该作业结果未发布。这意味着学生无法看到他们的评分和反馈。现在要发布作业结果吗？
     user_header_navigation: 
       navigation: 
         user_menu: 用户菜单
@@ -19010,7 +19011,7 @@ zh-Hans:
   show_name_of_observed_students_in_notifications_a56dd9e4: 在通知中显示已阅的学生姓名。
   show_navigation_menu_34e7f441: 显示导航菜单
   show_notes_column_22d2b6c1: 显示备注栏
-  show_one_question_at_a_time_271e346d: 一次只显示一个问题
+  show_one_question_at_a_time_271e346d: 每次只显示一道题
   show_only_blueprint_courses_9fb37b41: 仅显示蓝图课程
   show_originality_report_to_students_be22f5ee: 向学生显示原创性报告
   show_question_details_b059df00: 显示问题的详细信息
@@ -19022,7 +19023,7 @@ zh-Hans:
   showing_all_announcements_36ff0cec: 显示全部的公告
   showing_all_discussions_7e09f4b7: 显示全部的讨论
   showing_all_sets_of_grading_periods_6c160874: 显示所有评分周期的集合。
-  shuffle_answers_edb602b7: 重组答案
+  shuffle_answers_edb602b7: 随机排列问题选项
   signup_type_8b4506f3: 登记类型
   similarity_detection_dcada48: 相似性检测
   similarity_detection_platform_9e424d70: 相似性检测平台
@@ -19211,11 +19212,11 @@ zh-Hans:
   sr_gradebook: 
     all_grading_periods: 所有评分期限
     all_sections: 所有班级
-    assignment_muted: 单击以取消静音。
+    assignment_muted: 单击发布作业结果。
     assignment_order_alpha: 按字母顺序
     assignment_order_assignment_groups: 按作业小组和位置
     assignment_order_due_date: 根据截止时间
-    assignment_unmuted: 单击以静音。
+    assignment_unmuted: 单击取消发布作业结果。
     discussion_topic: 讨论主题
     external_tool: 外部工具
     final_point_ratio: "%{pointRatio} 分"
@@ -19520,7 +19521,7 @@ zh-Hans:
         submit: 提交作业
       media_comment: 媒体评论
       media_comment_link: 这是一个媒体评论，*单击此处查看*。
-      only_see_your_own_comments_muted: 您可能无法立即查看所有评论，原因是作业当前正在计分
+      only_see_your_own_comments_muted: 由于作业正在评分，您可能无法立即查看所有评论
       only_see_your_own_comments_peer: 作为互评人，您只能查看您写的评论。
       options: 
         new_assessment: "[新测验]"
@@ -19533,7 +19534,7 @@ zh-Hans:
       sent_to_whole_group: 向整个小组发送评论
       show_rubric: 显示评分标准说明
       speedgrader: SpeedGrader™
-      student_mute_notification: 评分不可用，原因是教师正在进行处理。
+      student_mute_notification: 教师尚未发布结果。
       submission_details: 提交详细信息
       submitted_at: "提交时间 %{submit_date}"
       teachers_notified_of_comments: 将通知教师和提交者所有评论
@@ -20013,11 +20014,11 @@ zh-Hans:
   this_assignment_has_been_excused_87f1dc13: 这个作业已被免除。
   this_assignment_has_no_points_possible_and_cannot__b0b4f829: 该作业没有可能得分，无法包含在评分计算中
   this_assignment_is_currently_being_moderated_ffd280f2: 此作业目前正在核对
-  this_assignment_is_currently_muted_that_means_stud_94d63139: 该作业目前已屏蔽。这意味着学生无法看到他们的评分和反馈。现在要取消屏蔽吗？
+  this_assignment_is_currently_muted_that_means_stud_94d63139: 该作业结果尚未发布。这意味着学生无法看到他们的评分和反馈。现在发布成绩吗？
   this_assignment_is_dropped_and_will_not_be_conside_35c3e198: 这个作业被丢弃，但不会影响总计算。
   this_assignment_is_excused_and_will_not_be_conside_5892de1f: 这个作业被免除，但不会影响总计算。
   this_assignment_is_in_a_closed_grading_period_for__a22bb4ed: 此作业在此学生的已关闭评分周期中
-  this_assignment_is_muted_915e2dab: 作业已屏蔽
+  this_assignment_is_muted_915e2dab: 作业结果未发布
   this_assignment_is_not_applicable_to_this_student_c149a5ad: 此作业对该学生不可用
   this_assignment_is_not_graded_576f1244: 此作业未评分。
   this_assignment_is_overdue_a44bea3b: 此作业已过期。
@@ -20777,7 +20778,7 @@ zh-Hans:
   unlocked_click_to_lock_53262ce7: 已解锁。单击以锁定。
   unlocking_a6b5c02d: 正在解锁……
   unmatched_login_list_283ca77: 不匹配的登录列表
-  unmute_assignment_29a49038: 取消静音作业
+  unmute_assignment_29a49038: 发布作业结果
   unnamed_account_id_e688ad87: "无名帐号 (%{id})"
   unnamed_tool_961cb95b: 未命名的工具
   unnamed_tool_logo_410f37d0: 未命名的工具标志
