@@ -593,6 +593,10 @@ module ApplicationHelper
     show_feedback_link? || support_url.present?
   end
 
+  def show_inbox_link?
+    Setting.get("sinicized.show_inbox_link", "true") == "true"
+  end
+
   def help_link_classes(additional_classes = [])
     css_classes = []
     css_classes << "support_url" if support_url
