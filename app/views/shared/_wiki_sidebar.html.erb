@@ -273,9 +273,11 @@
         <a href="<%= context_url(@context, :context_file_preview_url, "{{ id }}") %>" class="file_url" style="display: none;">&nbsp;</a>
       <% end %>
     <% end %>
+    <% if Setting.get("sinicized.show_flickr", "true") == "true" %>
     <div>
       <a tabindex="0" href="#" class="find_new_image_link find"><%= t('links.find_on_flickr', %{Find images on flickr creative commons}) %></a>
     </div>
+    <% end %>
     <div id="wiki_sidebar_image_uploads" class="uploading_file_list uploading_image_list" style="display: none;">
       <div class="uploading">
         <%= t('uploading_file', %{Uploading *file*...}, :wrapper => '<span class="filename">\1</span>') %>
