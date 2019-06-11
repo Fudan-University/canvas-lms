@@ -18,8 +18,8 @@ ARG CANVAS_DB_USERNAME
 ARG CANVAS_DB_PASSWORD
 ARG CANVAS_ENCRYPTION_KEY
 
-RUN rails sinicize:load_cdn_to_local \
-  && sinicize/sinicize.sh \
+RUN sinicize/sinicize.sh \
+  && rails sinicize:load_cdn_to_local \
   && rails canvas:compile_assets
 
 VOLUME $APP_HOME/sinicize/config
