@@ -96,7 +96,9 @@ export default class CourseImagePicker extends React.Component {
             courseId={this.props.courseId}
             handleFileUpload={this.props.handleFileUpload}
           />
+          { ENV.SHOW_FLICKR &&
           <FlickrSearch selectImage={(flickrUrl) => this.props.handleFlickrUrlUpload(flickrUrl)} />
+          }
         </div>
       </div>
     )

@@ -1275,6 +1275,9 @@ class CoursesController < ApplicationController
         BLUEPRINT_RESTRICTIONS_BY_OBJECT_TYPE: restrictions_by_object_type
       })
 
+      # sinicized
+      js_env(SHOW_FLICKR: Setting.get('sinicized.show_flickr', 'true') == 'true')
+
       @course_settings_sub_navigation_tools = ContextExternalTool.all_tools_for(@context,
         :type => :course_settings_sub_navigation,
         :root_account => @domain_root_account,
