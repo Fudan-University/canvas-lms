@@ -7,9 +7,8 @@ services:
     depends_on:
       - redis
     volumes:
-#      - "/opt/canvas/files:/opt/canvas/tmp/files"
       - "canvas-file:/opt/canvas/tmp/files"
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public"
       - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
       - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
       - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
@@ -31,9 +30,8 @@ services:
     depends_on:
       - redis
     volumes:
-#      - "/opt/canvas/files:/opt/canvas/tmp/files"
       - "canvas-file:/opt/canvas/tmp/files"
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public"
       - "/opt/canvas/config:/opt/canvas/sinicize/config:ro"
       - "/opt/canvas/config/database.yml:/opt/canvas/config/database.yml:ro"
       - "/opt/canvas/config/security.yml:/opt/canvas/config/security.yml:ro"
@@ -47,7 +45,7 @@ services:
     depends_on:
       - app
     volumes:
-      - "canvas-public/public:/opt/canvas/public"
+      - "canvas-public:/opt/canvas/public"
       - "./web/sites-enabled:/etc/apache2/sites-enabled"
     ports:
       - "80:80"
@@ -64,3 +62,9 @@ networks:
     ipam:
       config:
         - subnet: 172.16.213.0/24
+
+volumes:
+  canvas-file:
+    external: true
+  canvas-public:
+    external: true
