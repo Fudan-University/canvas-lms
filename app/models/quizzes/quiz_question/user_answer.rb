@@ -38,6 +38,9 @@ class Quizzes::QuizQuestion::UserAnswer < Struct.new(:question_id, :points_possi
     if total_parts == 0
       return 0
     end
+    if Setting.get('sinicized.all_or_nothing_for_multiple_answer_question', 'false') == 'true'
+      return 0 if incorrect_parts > 0 || correct_parts != total_parts
+    end
     score = (correct_parts.to_f / total_parts) * points_possible
     if incorrect_parts > 0
       if incorrect_dock
