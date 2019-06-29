@@ -86,3 +86,4 @@ coverage-karma
 /public/sinicize
 /sinicize/config/*.yml
 /sinicize/docker/env_file
+/vendor/QTIMigrationTool
